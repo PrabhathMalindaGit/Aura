@@ -20,6 +20,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Voice Agent V5-C2 | Mobile-only safe route/control actions and safe workflow-start actions implemented with visible proposal review and no data-changing voice execution. | `voice-agent-v5c2-safe-workflow-starts-2026-04-29.md` |
 | Voice Agent V5-D1 | Mobile-only Check-in-screen-owned confirmed voice check-in submit implemented with explicit review, conservative confirmation, and the existing submit path. | `voice-agent-v5d1-confirmed-checkin-submit-2026-04-29.md` |
 | Voice Agent V5-D2 | Mobile-only Chat-screen-owned confirmed voice chat send implemented with exact message review, explicit confirmation, and the existing manual chat send path. | `voice-agent-v5d2-confirmed-chat-send-2026-04-29.md` |
+| Voice Agent V5-D3 | Mobile-only Appointments-screen confirmed voice appointment request implemented with selected-slot review, explicit confirmation, existing appointment request path, and pending clinician approval semantics. | `voice-agent-v5d3-confirmed-appointment-request-2026-04-29.md` |
 | Clinician dashboard | Dashboard behavior is covered by existing dashboard unit and E2E verification; dashboard counts are listed under verification status. | Known verified test results |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
@@ -60,7 +61,7 @@ Interpretation boundary:
 
 ## 4. Mobile Voice Assist And UI/UX Accessibility Evidence
 
-Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, V5-C1 deterministic safe action proposal evidence, V5-C2 safe workflow-start evidence, V5-D1 confirmed voice check-in submit evidence, V5-D2 confirmed voice chat send evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
+Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, V5-C1 deterministic safe action proposal evidence, V5-C2 safe workflow-start evidence, V5-D1 confirmed voice check-in submit evidence, V5-D2 confirmed voice chat send evidence, V5-D3 confirmed voice appointment request evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
 
 Evidence summary:
 
@@ -194,6 +195,27 @@ Evidence summary:
 - V5-D2 added no voice-only chat API, no direct alert creation, and no Safety Router bypass.
 - V5-D2 safety/privacy boundaries: no backend routes, no backend API contract changes, no Realtime tool-calling, no OpenAI mobile keys, no `EXPO_PUBLIC_OPENAI_API_KEY`, no direct alert creation, no transcript persistence, no audio persistence, no unconfirmed draft persistence, `recordingOptions.persist=false` for confirmation speech recognition, no appointment booking/canceling, no medication/hydration/nutrition logging, no photo upload, no emergency calling, no diagnosis, no treatment advice, and no medication dosage advice.
 - Latest mobile verification after Voice Agent V5-D2: `npm test -- chatTruth.test.tsx voiceChatSendConfirmation.test.ts VoiceAgentSessionPanel.test.tsx` passed 3 files / 71 tests; `npm test` passed 57 files / 436 tests; `npm run qa:web` passed; TypeScript passed; web guardrails passed with 0 issues; a11y smoke passed with 0 issues; `git diff --check` passed; existing `react-test-renderer` deprecation and `act` warnings appeared but did not fail the suite.
+- V5-D3 was implemented as a narrow mobile-only Appointments screen feature.
+- V5-D3 lets patients review a selected appointment request, then submit only after explicit voice or button confirmation.
+- V5-D3 creates a pending appointment request, not a guaranteed appointment.
+- Appointment canceling by voice was not added.
+- The Appointments screen now shows a "Voice request review" panel in Find time mode.
+- V5-D3 blocks confirmation until a slot is selected.
+- V5-D3 builds a memory-only snapshot of the selected slot plus optional trimmed note.
+- V5-D3 shows the exact request summary.
+- V5-D3 submits only after "yes request", "confirm request", "request appointment", or pressing Confirm request.
+- V5-D3 confirmation states include `draftReady`, `needsSlot`, `needsReason`, `reviewRequest`, `awaitingVoiceConfirmation`, `confirmedRequest`, `cancelled`, `requesting`, `requested`, `offlineBlocked`, `expired`, and `unavailableSlot`.
+- V5-D3 reviews expire after 30 seconds.
+- V5-D3 slot changes invalidate the snapshot.
+- V5-D3 note changes invalidate the snapshot.
+- Ambiguous, error, nomatch, cancel, and negative phrases do not request.
+- V5-D3 request path safety: confirmed requests reuse the existing `handleRequestSlot(selectedSlot)` path, that path calls `createAppointmentRequest`, and it uses the existing `POST /patient/appointments/requests` API.
+- V5-D3 added no voice-only appointment API, no backend route, and no validation bypass.
+- Successful V5-D3 response shows pending/request status, not direct booking.
+- Existing unavailable-slot/server-conflict behavior is preserved.
+- V5-D3 safety/privacy boundaries: no transcript persistence, no raw audio persistence, no unconfirmed draft persistence, no OpenAI key exposure, no `EXPO_PUBLIC_OPENAI_API_KEY`, no alert creation, no Safety Router bypass, no chat send, no check-in submit, no medication/hydration/nutrition logging, no upload calls, no emergency calling, no diagnosis, no treatment advice, no appointment canceling by voice, no `/voice-agent` Realtime transcript/tool behavior, no backend changes, and no direct booking guarantee.
+- Latest mobile verification after Voice Agent V5-D3: `npm test -- voiceAppointmentRequestConfirmation.test.ts appointmentsScreen.test.tsx` passed 35 tests; `npm test` passed 59 files / 471 tests; `npm run qa:web` passed; TypeScript, web guardrails, and accessibility smoke passed; `git diff --check` passed; existing React test-renderer/act warnings appeared but did not fail the suite.
+- V5-D4 later voice health-log actions remain future work.
 - Remaining mobile UI/UX limitations: Home/Demo Hub density, deeper voice UX explanation, full long-screen hierarchy cleanup, keyboard-overlap manual device QA, broader caregiver/patient flow separation polish, and no real device/emulator visual QA pass was run.
 - Manual QA is not applicable yet for V4-A because no UI was added.
 - Manual native QA is still required because V1/V3 use `expo-speech-recognition`, and V4-B guided check-in also uses speech recognition.
@@ -214,8 +236,9 @@ Evidence sources:
 - `voice-agent-v5c2-safe-workflow-starts-2026-04-29.md`
 - `voice-agent-v5d1-confirmed-checkin-submit-2026-04-29.md`
 - `voice-agent-v5d2-confirmed-chat-send-2026-04-29.md`
+- `voice-agent-v5d3-confirmed-appointment-request-2026-04-29.md`
 
-## 5. Voice Agent V5-A Through V5-D2 Evidence
+## 5. Voice Agent V5-A Through V5-D3 Evidence
 
 Aura Voice Agent V5-A implemented a backend-only OpenAI Realtime session broker. It is not a full voice agent yet and does not add mobile Realtime UI or clinical voice actions.
 
@@ -419,7 +442,47 @@ Evidence summary:
 - Ambiguous phrases do not refresh expiry.
 - V5-D2 is prototype support, not clinical validation.
 - V5-D2 is not production voice-agent validation.
-- V5-D3/V5-D4 later voice actions remain future work.
+
+Aura Voice Agent V5-D3 implemented confirmed voice appointment request for the mobile Appointments screen only. It allows a patient to request a selected appointment slot hands-free only after exact request review and explicit confirmation, using the same request path as manual Request this time.
+
+Evidence summary:
+
+- V5-D3 was implemented as a narrow mobile-only Appointments screen feature.
+- Patients can review a selected appointment request, then submit only after explicit voice or button confirmation.
+- V5-D3 creates a pending appointment request, not a guaranteed appointment.
+- Appointment canceling by voice was not added.
+- The Appointments screen now shows a "Voice request review" panel in Find time mode.
+- The panel blocks confirmation until a slot is selected.
+- The panel builds a memory-only snapshot of the selected slot plus optional trimmed note.
+- The panel shows the exact request summary.
+- The flow submits only after "yes request", "confirm request", "request appointment", or pressing Confirm request.
+- Memory-only states include `draftReady`, `needsSlot`, `needsReason`, `reviewRequest`, `awaitingVoiceConfirmation`, `confirmedRequest`, `cancelled`, `requesting`, `requested`, `offlineBlocked`, `expired`, and `unavailableSlot`.
+- Reviews expire after 30 seconds.
+- Slot changes invalidate the snapshot.
+- Note changes invalidate the snapshot.
+- Ambiguous, error, nomatch, cancel, and negative phrases do not request.
+- Voice-confirmed appointment requests reuse the existing `handleRequestSlot(selectedSlot)` path.
+- The existing `handleRequestSlot(selectedSlot)` path calls `createAppointmentRequest`.
+- Voice-confirmed appointment requests use the existing `POST /patient/appointments/requests` API.
+- No voice-only appointment API was added.
+- No backend route was added.
+- No validation bypass was added.
+- Successful response shows pending/request status, not direct booking.
+- Existing unavailable-slot/server-conflict behavior is preserved.
+- Safety/privacy boundaries: no transcript persistence, no raw audio persistence, no unconfirmed draft persistence, no OpenAI key exposure, no `EXPO_PUBLIC_OPENAI_API_KEY`, no alert creation, no Safety Router bypass, no chat send, no check-in submit, no medication/hydration/nutrition logging, no upload calls, no emergency calling, no diagnosis, no treatment advice, no appointment canceling by voice, no `/voice-agent` Realtime transcript/tool behavior, no backend changes, and no direct booking guarantee.
+- Verification recorded: `npm test -- voiceAppointmentRequestConfirmation.test.ts appointmentsScreen.test.tsx` passed: 35 tests.
+- Verification recorded: `npm test` passed: 59 files / 471 tests.
+- Verification recorded: `npm run qa:web` passed.
+- Verification recorded: TypeScript, web guardrails, and accessibility smoke passed.
+- Verification recorded: `git diff --check` passed.
+- Existing React test-renderer/act warnings appeared but did not fail the suite.
+- Voice request requires an already selected visible slot.
+- It creates a pending appointment request only.
+- Approval remains clinician-controlled.
+- If availability changes, the existing request path surfaces the failure.
+- V5-D3 is prototype support, not clinical validation.
+- V5-D3 is not production voice-agent validation.
+- V5-D4 later voice health-log actions remain future work.
 
 Evidence sources:
 
@@ -430,6 +493,7 @@ Evidence sources:
 - `voice-agent-v5c2-safe-workflow-starts-2026-04-29.md`
 - `voice-agent-v5d1-confirmed-checkin-submit-2026-04-29.md`
 - `voice-agent-v5d2-confirmed-chat-send-2026-04-29.md`
+- `voice-agent-v5d3-confirmed-appointment-request-2026-04-29.md`
 
 ## 6. Static RAG Phase 1
 
@@ -543,7 +607,7 @@ Latest known verified results:
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
 | Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Mobile tests | 57 files passed, 436 tests passed | Latest known mobile verification after Voice Agent V5-D2. |
+| Mobile tests | 59 files passed, 471 tests passed | Latest known mobile verification after Voice Agent V5-D3. |
 
 Latest V5-A focused server verification:
 
@@ -627,7 +691,16 @@ Latest V5-D2 mobile verification:
 - `git diff --check` passed.
 - Existing React test renderer / `act` warnings appeared but did not fail tests.
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-D2 evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+Latest V5-D3 mobile verification:
+
+- `npm test -- voiceAppointmentRequestConfirmation.test.ts appointmentsScreen.test.tsx` passed: 35 tests.
+- `npm test` passed: 59 files / 471 tests.
+- `npm run qa:web` passed.
+- TypeScript, web guardrails, and accessibility smoke passed.
+- `git diff --check` passed.
+- Existing React test-renderer/act warnings appeared but did not fail the suite.
+
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-D3 evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
 
 ## 12. Limitations And Cautions
 
@@ -691,7 +764,13 @@ The dashboard count is included as a known verified result supplied for this fin
 - Voice Agent V5-D2 ambiguous phrases do not refresh expiry.
 - Voice Agent V5-D2 is prototype support, not clinical validation.
 - Voice Agent V5-D2 is not production voice-agent validation.
-- Voice Agent V5-D3/V5-D4 later voice actions remain future work.
+- Voice Agent V5-D3 voice request requires an already selected visible slot.
+- Voice Agent V5-D3 creates a pending appointment request only.
+- Voice Agent V5-D3 approval remains clinician-controlled.
+- Voice Agent V5-D3 surfaces availability changes through the existing request path.
+- Voice Agent V5-D3 is prototype support, not clinical validation.
+- Voice Agent V5-D3 is not production voice-agent validation.
+- Voice Agent V5-D4 later voice health-log actions remain future work.
 
 ## 13. Safe Report Wording
 
@@ -715,7 +794,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 353 server tests across 54 files, 436 mobile tests across 57 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 353 server tests across 54 files, 471 mobile tests across 59 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
 - Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
 - Mobile UI/UX Accessibility Fix Phase 1 completed for scoped accessibility and task-completion blockers from the read-only UI/UX audit, with broader UI/UX polish and real device/emulator visual QA still future work.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
@@ -725,6 +804,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - Voice Agent V5-C2 safe route/control actions and safe workflow-start actions implemented on mobile with visible proposal review, guided check-in workflow start, and no data-changing voice actions.
 - Voice Agent V5-D1 confirmed voice check-in submit implemented on mobile with Check-in-screen-owned review, conservative explicit confirmation, the existing submit path, and no voice-only API, direct alert creation, or Safety Router bypass.
 - Voice Agent V5-D2 confirmed voice chat send implemented on mobile with Chat-screen-owned exact message review, accepted phrases "yes send", "confirm send", and "send message", the existing manual chat send path, and no voice-only API, direct alert creation, or Safety Router bypass.
+- Voice Agent V5-D3 confirmed voice appointment request implemented on mobile with Appointments-screen-owned selected-slot review, accepted phrases "yes request", "confirm request", and "request appointment", the existing appointment request path, pending clinician approval semantics, and no voice-only API, backend changes, appointment canceling by voice, or direct booking guarantee.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 

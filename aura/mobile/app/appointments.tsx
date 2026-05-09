@@ -1,6 +1,12 @@
+import React from "react";
+import {
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionErrorEvent,
+  type ExpoSpeechRecognitionResultEvent,
+} from "expo-speech-recognition";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -70,6 +76,7 @@ import {
   formatPatientDateHeading,
 } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { parseVoiceAppointmentRequestConfirmation } from "@/src/utils/voiceAppointmentRequestConfirmation";
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
@@ -78,6 +85,36 @@ type NoticeState = {
 };
 
 type ViewMode = "book" | "requests" | "upcoming";
+type VoiceAppointmentRequestState =
+  | "draftReady"
+  | "needsSlot"
+  | "needsReason"
+  | "reviewRequest"
+  | "awaitingVoiceConfirmation"
+  | "confirmedRequest"
+  | "cancelled"
+  | "requesting"
+  | "requested"
+  | "offlineBlocked"
+  | "expired"
+  | "unavailableSlot";
+
+type VoiceAppointmentRequestSnapshot = {
+  slotId: string;
+  startsAt: string;
+  endsAt: string;
+  modality: AppointmentSlot["modality"];
+  clinicianName?: string;
+  note?: string;
+  signature: string;
+};
+
+type AppointmentRequestOutcome =
+  | { status: "authRequired" }
+  | { status: "offlineBlocked" }
+  | { status: "requested" }
+  | { status: "unavailableSlot"; title: string; message: string }
+  | { status: "failed"; title: string; message: string };
 
 type SlotGroupListItem = {
   type: "slotGroup";
@@ -102,6 +139,7 @@ type AppointmentRouteParams = {
 };
 
 const REMINDER_LEAD_MS = 15 * 60 * 1000;
+const VOICE_REQUEST_CONFIRMATION_EXPIRY_MS = 30_000;
 const isExpoGo = Constants.appOwnership === "expo";
 type NotificationsModule = typeof import("expo-notifications");
 
@@ -192,6 +230,51 @@ function formatDateHeading(value: string): string {
   return formatPatientDateHeading(value) ?? "Date unavailable";
 }
 
+function formatDurationMinutes(startsAt: string, endsAt: string): string | null {
+  const startMs = Date.parse(startsAt);
+  const endMs = Date.parse(endsAt);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return null;
+  }
+
+  const minutes = Math.round((endMs - startMs) / 60_000);
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
+function formatModalityLabel(modality: AppointmentSlot["modality"]): string {
+  return modality === "video" ? "Video visit" : "Appointment";
+}
+
+function buildVoiceRequestSignature(
+  slot: AppointmentSlot,
+  note: string,
+): string {
+  return [
+    slot.slotId,
+    slot.startsAt,
+    slot.endsAt,
+    slot.modality,
+    slot.clinicianName ?? "",
+    note.trim().slice(0, 280),
+  ].join("|");
+}
+
+function buildVoiceRequestSnapshot(
+  slot: AppointmentSlot,
+  note: string,
+): VoiceAppointmentRequestSnapshot {
+  const trimmedNote = note.trim().slice(0, 280);
+  return {
+    slotId: slot.slotId,
+    startsAt: slot.startsAt,
+    endsAt: slot.endsAt,
+    modality: slot.modality,
+    clinicianName: slot.clinicianName,
+    note: trimmedNote || undefined,
+    signature: buildVoiceRequestSignature(slot, note),
+  };
+}
+
 function toLocalDateKey(value: string): string {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) {
@@ -270,6 +353,16 @@ export default function AppointmentsScreen() {
   const [mode, setMode] = useState<ViewMode>(initialMode);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const voiceRequestStateRef = useRef<VoiceAppointmentRequestState>("needsSlot");
+  const voiceRequestExpiryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [voiceRequestState, setVoiceRequestState] =
+    useState<VoiceAppointmentRequestState>("needsSlot");
+  const [voiceRequestSnapshot, setVoiceRequestSnapshot] =
+    useState<VoiceAppointmentRequestSnapshot | null>(null);
+  const [voiceRequestMessage, setVoiceRequestMessage] = useState(
+    "Select a time before voice request.",
+  );
+  const [isVoiceRequestListening, setIsVoiceRequestListening] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
@@ -354,6 +447,77 @@ export default function AppointmentsScreen() {
     () => slots.find((slot) => slot.slotId === selectedSlotId) ?? null,
     [selectedSlotId, slots],
   );
+  const currentVoiceRequestSignature = useMemo(
+    () => (selectedSlot ? buildVoiceRequestSignature(selectedSlot, noteDraft) : null),
+    [noteDraft, selectedSlot],
+  );
+
+  const clearVoiceRequestExpiryTimer = useCallback(() => {
+    if (voiceRequestExpiryRef.current) {
+      clearTimeout(voiceRequestExpiryRef.current);
+      voiceRequestExpiryRef.current = null;
+    }
+  }, []);
+
+  const updateVoiceRequestState = useCallback((nextState: VoiceAppointmentRequestState) => {
+    voiceRequestStateRef.current = nextState;
+    setVoiceRequestState(nextState);
+  }, []);
+
+  const startVoiceRequestExpiryTimer = useCallback(() => {
+    clearVoiceRequestExpiryTimer();
+    voiceRequestExpiryRef.current = setTimeout(() => {
+      setVoiceRequestSnapshot(null);
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("Voice request review expired. Review again before requesting.");
+      updateVoiceRequestState("expired");
+    }, VOICE_REQUEST_CONFIRMATION_EXPIRY_MS);
+  }, [clearVoiceRequestExpiryTimer, updateVoiceRequestState]);
+
+  useEffect(
+    () => () => {
+      clearVoiceRequestExpiryTimer();
+    },
+    [clearVoiceRequestExpiryTimer],
+  );
+
+  useEffect(() => {
+    if (!selectedSlot) {
+      clearVoiceRequestExpiryTimer();
+      setVoiceRequestSnapshot(null);
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("Select a time before voice request.");
+      updateVoiceRequestState("needsSlot");
+      return;
+    }
+
+    if (!voiceRequestSnapshot) {
+      if (voiceRequestStateRef.current === "needsSlot") {
+        setVoiceRequestMessage("Review this selected time before requesting by voice.");
+        updateVoiceRequestState("draftReady");
+      }
+      return;
+    }
+
+    if (
+      currentVoiceRequestSignature &&
+      voiceRequestSnapshot.signature !== currentVoiceRequestSignature &&
+      voiceRequestStateRef.current !== "requesting" &&
+      voiceRequestStateRef.current !== "requested"
+    ) {
+      clearVoiceRequestExpiryTimer();
+      setVoiceRequestSnapshot(null);
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("Appointment request changed. Review again before requesting.");
+      updateVoiceRequestState("draftReady");
+    }
+  }, [
+    clearVoiceRequestExpiryTimer,
+    currentVoiceRequestSignature,
+    selectedSlot,
+    updateVoiceRequestState,
+    voiceRequestSnapshot,
+  ]);
 
   const syncReminders = useCallback(
     async (nextRequests: AppointmentRequestItem[]) => {
@@ -475,9 +639,9 @@ export default function AppointmentsScreen() {
   );
 
   const handleRequestSlot = useCallback(
-    async (slot: AppointmentSlot) => {
+    async (slot: AppointmentSlot): Promise<AppointmentRequestOutcome> => {
       if (!auth.token || !patientId) {
-        return;
+        return { status: "authRequired" };
       }
 
       if (isOffline) {
@@ -492,7 +656,7 @@ export default function AppointmentsScreen() {
           title: "Offline",
           message: "Booking is unavailable while offline.",
         });
-        return;
+        return { status: "offlineBlocked" };
       }
 
       setRequestingSlotId(slot.slotId);
@@ -511,6 +675,7 @@ export default function AppointmentsScreen() {
           title: "Request sent",
           message: "Your request is pending clinician approval.",
         });
+        return { status: "requested" };
       } catch (error) {
         const friendly = toFriendlyError(error, "Couldn’t request appointment");
         await appointmentRequestError.setLocalError({
@@ -524,6 +689,22 @@ export default function AppointmentsScreen() {
           title: friendly.title,
           message: friendly.message,
         });
+        return friendly.kind === "validation" ||
+          friendly.message.toLowerCase().includes("unavailable") ||
+          friendly.message.toLowerCase().includes("no longer available")
+          ? {
+              status: "unavailableSlot",
+              title:
+                friendly.title === "Something went wrong"
+                  ? "Couldn’t request appointment"
+                  : friendly.title,
+              message: friendly.message,
+            }
+          : {
+              status: "failed",
+              title: friendly.title,
+              message: friendly.message,
+            };
       } finally {
         setRequestingSlotId(null);
       }
@@ -589,6 +770,247 @@ export default function AppointmentsScreen() {
     },
     [appointmentRequestError, auth.token, isOffline, loadAppointments, patientId],
   );
+
+  const canUseCurrentVoiceRequestReview =
+    Boolean(voiceRequestSnapshot) &&
+    voiceRequestSnapshot?.signature === currentVoiceRequestSignature &&
+    (voiceRequestState === "reviewRequest" ||
+      voiceRequestState === "awaitingVoiceConfirmation" ||
+      voiceRequestState === "confirmedRequest");
+
+  const handlePrepareVoiceRequestReview = useCallback(() => {
+    if (!selectedSlot) {
+      clearVoiceRequestExpiryTimer();
+      setVoiceRequestSnapshot(null);
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("Choose an available time before using voice request.");
+      updateVoiceRequestState("needsSlot");
+      return;
+    }
+
+    const nextSnapshot = buildVoiceRequestSnapshot(selectedSlot, noteDraft);
+    setVoiceRequestSnapshot(nextSnapshot);
+    setVoiceRequestMessage(
+      "Review this appointment request, then say yes request or press Confirm request.",
+    );
+    updateVoiceRequestState("reviewRequest");
+    startVoiceRequestExpiryTimer();
+  }, [
+    clearVoiceRequestExpiryTimer,
+    noteDraft,
+    selectedSlot,
+    startVoiceRequestExpiryTimer,
+    updateVoiceRequestState,
+  ]);
+
+  const handleCancelVoiceRequest = useCallback((message = "Voice request cancelled.") => {
+    clearVoiceRequestExpiryTimer();
+    setVoiceRequestSnapshot(null);
+    setIsVoiceRequestListening(false);
+    setVoiceRequestMessage(message);
+    updateVoiceRequestState("cancelled");
+    if (isVoiceRequestListening) {
+      ExpoSpeechRecognitionModule.abort();
+    }
+  }, [
+    clearVoiceRequestExpiryTimer,
+    isVoiceRequestListening,
+    updateVoiceRequestState,
+  ]);
+
+  const submitReviewedVoiceRequest = useCallback(async () => {
+    if (!canUseCurrentVoiceRequestReview || !voiceRequestSnapshot || !selectedSlot) {
+      setVoiceRequestMessage("Voice request review expired. Review again before requesting.");
+      updateVoiceRequestState("expired");
+      return;
+    }
+
+    updateVoiceRequestState("confirmedRequest");
+    setVoiceRequestMessage("Voice request confirmed.");
+    clearVoiceRequestExpiryTimer();
+
+    setVoiceRequestMessage("Sending this reviewed appointment request.");
+    updateVoiceRequestState("requesting");
+    const outcome = await handleRequestSlot(selectedSlot);
+
+    if (outcome.status === "requested") {
+      setVoiceRequestSnapshot(null);
+      setVoiceRequestMessage("Your request is pending clinician approval.");
+      updateVoiceRequestState("requested");
+      return;
+    }
+
+    if (outcome.status === "offlineBlocked") {
+      setVoiceRequestSnapshot(null);
+      setVoiceRequestMessage("Voice request is paused while you’re offline. Nothing was sent.");
+      updateVoiceRequestState("offlineBlocked");
+      return;
+    }
+
+    if (outcome.status === "unavailableSlot") {
+      setVoiceRequestMessage(`${outcome.title}. ${outcome.message}`);
+      updateVoiceRequestState("unavailableSlot");
+      return;
+    }
+
+    setVoiceRequestMessage(
+      outcome.status === "failed"
+        ? `${outcome.title}. ${outcome.message}`
+        : "Couldn’t request this appointment. Review before trying again.",
+    );
+    updateVoiceRequestState("reviewRequest");
+  }, [
+    canUseCurrentVoiceRequestReview,
+    clearVoiceRequestExpiryTimer,
+    handleRequestSlot,
+    selectedSlot,
+    updateVoiceRequestState,
+    voiceRequestSnapshot,
+  ]);
+
+  const handleVoiceRequestTranscript = useCallback(
+    (transcript: string) => {
+      setIsVoiceRequestListening(false);
+      if (voiceRequestStateRef.current !== "awaitingVoiceConfirmation") {
+        return;
+      }
+
+      if (!voiceRequestSnapshot || voiceRequestSnapshot.signature !== currentVoiceRequestSignature) {
+        clearVoiceRequestExpiryTimer();
+        setVoiceRequestSnapshot(null);
+        setVoiceRequestMessage("Appointment request changed. Review again before requesting.");
+        updateVoiceRequestState("draftReady");
+        return;
+      }
+
+      const result = parseVoiceAppointmentRequestConfirmation(transcript);
+      if (result === "confirm") {
+        void submitReviewedVoiceRequest();
+        return;
+      }
+
+      if (result === "cancel") {
+        handleCancelVoiceRequest();
+        return;
+      }
+
+      setVoiceRequestMessage(
+        "That was not a clear request confirmation. Say yes request, confirm request, or request appointment.",
+      );
+      updateVoiceRequestState("awaitingVoiceConfirmation");
+    },
+    [
+      clearVoiceRequestExpiryTimer,
+      currentVoiceRequestSignature,
+      handleCancelVoiceRequest,
+      submitReviewedVoiceRequest,
+      updateVoiceRequestState,
+      voiceRequestSnapshot,
+    ],
+  );
+
+  const handleListenForVoiceRequestConfirmation = useCallback(async () => {
+    if (!canUseCurrentVoiceRequestReview) {
+      setVoiceRequestMessage(
+        voiceRequestStateRef.current === "expired"
+          ? "Voice request review expired. Review again before requesting."
+          : "Review again before voice request.",
+      );
+      updateVoiceRequestState("expired");
+      return;
+    }
+
+    updateVoiceRequestState("awaitingVoiceConfirmation");
+    setVoiceRequestMessage("Listening for yes request, confirm request, or request appointment.");
+    setIsVoiceRequestListening(true);
+
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("Voice confirmation is not available on this device. Use Confirm request or manual request.");
+      return;
+    }
+
+    if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("On-device voice confirmation is not available on this device. Use Confirm request or manual request.");
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("Microphone permission was denied. Use Confirm request or manual request.");
+      return;
+    }
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        continuous: false,
+        interimResults: true,
+        maxAlternatives: 1,
+        requiresOnDeviceRecognition: true,
+        recordingOptions: {
+          persist: false,
+        },
+      });
+    } catch {
+      setIsVoiceRequestListening(false);
+      setVoiceRequestMessage("Voice confirmation could not start. Nothing was sent.");
+      updateVoiceRequestState("reviewRequest");
+    }
+  }, [canUseCurrentVoiceRequestReview, updateVoiceRequestState]);
+
+  useEffect(() => {
+    const startListener = ExpoSpeechRecognitionModule.addListener("start", () => {
+      if (voiceRequestStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceRequestListening(true);
+      }
+    });
+    const endListener = ExpoSpeechRecognitionModule.addListener("end", () => {
+      setIsVoiceRequestListening(false);
+    });
+    const resultListener = ExpoSpeechRecognitionModule.addListener(
+      "result",
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        if (!event.isFinal || voiceRequestStateRef.current !== "awaitingVoiceConfirmation") {
+          return;
+        }
+
+        const transcript = event.results
+          .map((result) => result.transcript.trim())
+          .find((candidate) => candidate.length > 0);
+
+        handleVoiceRequestTranscript(transcript ?? "");
+      },
+    );
+    const errorListener = ExpoSpeechRecognitionModule.addListener(
+      "error",
+      (_event: ExpoSpeechRecognitionErrorEvent) => {
+        if (voiceRequestStateRef.current === "awaitingVoiceConfirmation") {
+          setIsVoiceRequestListening(false);
+          setVoiceRequestMessage("That was not a clear request confirmation. Nothing was sent.");
+        }
+      },
+    );
+    const nomatchListener = ExpoSpeechRecognitionModule.addListener("nomatch", () => {
+      if (voiceRequestStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceRequestListening(false);
+        setVoiceRequestMessage("That was not a clear request confirmation. Nothing was sent.");
+      }
+    });
+
+    return () => {
+      startListener.remove();
+      endListener.remove();
+      resultListener.remove();
+      errorListener.remove();
+      nomatchListener.remove();
+      if (voiceRequestStateRef.current === "awaitingVoiceConfirmation") {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    };
+  }, [handleVoiceRequestTranscript]);
 
   const listData = useMemo<ListItem[]>(() => {
     if (mode === "book") {
@@ -740,7 +1162,22 @@ export default function AppointmentsScreen() {
             </Text>
             <TextInput
               value={noteDraft}
-              onChangeText={(value) => setNoteDraft(value.slice(0, 280))}
+              onChangeText={(value) => {
+                const nextValue = value.slice(0, 280);
+                if (
+                  voiceRequestSnapshot &&
+                  selectedSlot &&
+                  voiceRequestSnapshot.signature !==
+                    buildVoiceRequestSignature(selectedSlot, nextValue)
+                ) {
+                  clearVoiceRequestExpiryTimer();
+                  setVoiceRequestSnapshot(null);
+                  setIsVoiceRequestListening(false);
+                  setVoiceRequestMessage("Appointment request changed. Review again before requesting.");
+                  updateVoiceRequestState("draftReady");
+                }
+                setNoteDraft(nextValue);
+              }}
               placeholder="Optional note for your clinician"
               placeholderTextColor={tokens.colors.textMuted}
               multiline
@@ -765,11 +1202,15 @@ export default function AppointmentsScreen() {
     noteDraft,
     notice,
     pendingCount,
+    selectedSlot,
     setMode,
     showDiagnostics,
     slots.length,
     styles,
     upcomingRequests.length,
+    clearVoiceRequestExpiryTimer,
+    updateVoiceRequestState,
+    voiceRequestSnapshot,
     workflowStory.body,
     workflowStory.title,
     tokens.colors.textMuted,
@@ -902,6 +1343,7 @@ export default function AppointmentsScreen() {
                 return (
                   <Pressable
                     key={slot.slotId}
+                    testID={`appointment-slot-${slot.slotId}`}
                     accessibilityRole="button"
                     accessibilityLabel={`${formatTime(slot.startsAt)} slot${
                       slot.clinicianName ? ` with ${slot.clinicianName}` : ""
@@ -915,6 +1357,13 @@ export default function AppointmentsScreen() {
                           message: "Connect to choose and request a slot.",
                         });
                         return;
+                      }
+                      if (voiceRequestSnapshot && slot.slotId !== selectedSlotId) {
+                        clearVoiceRequestExpiryTimer();
+                        setVoiceRequestSnapshot(null);
+                        setIsVoiceRequestListening(false);
+                        setVoiceRequestMessage("Appointment request changed. Review again before requesting.");
+                        updateVoiceRequestState("draftReady");
                       }
                       setSelectedSlotId(slot.slotId);
                     }}
@@ -935,7 +1384,16 @@ export default function AppointmentsScreen() {
         </View>
       );
     },
-    [isOffline, requestingSlotId, selectedSlotId, styles, tokens.spacing.md],
+    [
+      clearVoiceRequestExpiryTimer,
+      isOffline,
+      requestingSlotId,
+      selectedSlotId,
+      styles,
+      tokens.spacing.md,
+      updateVoiceRequestState,
+      voiceRequestSnapshot,
+    ],
   );
 
   const renderItem = useCallback(
@@ -1022,6 +1480,23 @@ export default function AppointmentsScreen() {
   }
 
   const showBookFooter = mode === "book" && selectedSlot !== null;
+  const showVoiceRequestPanel = mode === "book";
+  const voiceRequestCanReview = selectedSlot !== null && !isOffline && requestingSlotId === null;
+  const voiceRequestCanConfirm =
+    canUseCurrentVoiceRequestReview &&
+    !isOffline &&
+    requestingSlotId === null &&
+    voiceRequestState !== "confirmedRequest";
+  const voiceRequestStatusRole =
+    voiceRequestState === "offlineBlocked" ||
+    voiceRequestState === "expired" ||
+    voiceRequestState === "unavailableSlot" ||
+    voiceRequestState === "needsSlot"
+      ? "alert"
+      : "text";
+  const voiceRequestDuration = voiceRequestSnapshot
+    ? formatDurationMinutes(voiceRequestSnapshot.startsAt, voiceRequestSnapshot.endsAt)
+    : null;
 
   return (
     <Screen
@@ -1114,6 +1589,146 @@ export default function AppointmentsScreen() {
           ListFooterComponent={<View style={styles.listTailSpacing} />}
           contentContainerStyle={styles.listContent}
         />
+
+        {showVoiceRequestPanel ? (
+          <Card variant="outlined" padding={tokens.spacing.md} style={styles.voiceRequestCard}>
+            <View style={styles.voiceRequestHeader}>
+              <View style={styles.noteTitleRow}>
+                <DomainIcon icon="appointments" tone="accent" accessibilityLabel="Voice request icon" />
+                <Text accessibilityRole="header" style={styles.voiceRequestTitle}>
+                  Voice request review
+                </Text>
+              </View>
+              <StatusPill label={voiceRequestState} variant="neutral" accessible={false} />
+            </View>
+
+            <View
+              accessible
+              accessibilityRole={voiceRequestStatusRole}
+              accessibilityLiveRegion="polite"
+              accessibilityLabel="Voice appointment request status"
+              accessibilityHint={voiceRequestMessage}
+              style={[
+                styles.voiceRequestStatus,
+                voiceRequestStatusRole === "alert" ? styles.voiceRequestStatusWarning : null,
+              ]}
+            >
+              <Text style={styles.voiceRequestStatusKicker}>Status</Text>
+              <Text style={styles.voiceRequestStatusText}>{voiceRequestMessage}</Text>
+            </View>
+
+            {!selectedSlot ? (
+              <Text style={styles.voiceRequestBody}>Select a time before voice request.</Text>
+            ) : null}
+
+            {voiceRequestSnapshot ? (
+              <View style={styles.voiceRequestSummary}>
+                <Text style={styles.voiceRequestSummaryLabel}>Appointment request summary</Text>
+                <Text selectable style={styles.voiceRequestSummaryText}>
+                  {formatDateTime(voiceRequestSnapshot.startsAt)} - {formatTime(voiceRequestSnapshot.endsAt)}
+                </Text>
+                {voiceRequestDuration ? (
+                  <Text style={styles.voiceRequestSummaryText}>{voiceRequestDuration}</Text>
+                ) : null}
+                <Text style={styles.voiceRequestSummaryText}>
+                  {formatModalityLabel(voiceRequestSnapshot.modality)}
+                </Text>
+                {voiceRequestSnapshot.clinicianName ? (
+                  <Text style={styles.voiceRequestSummaryText}>{voiceRequestSnapshot.clinicianName}</Text>
+                ) : null}
+                {voiceRequestSnapshot.note ? (
+                  <>
+                    <Text style={styles.voiceRequestSummaryLabel}>Note preview</Text>
+                    <Text selectable style={styles.voiceRequestSummaryText}>
+                      {voiceRequestSnapshot.note}
+                    </Text>
+                  </>
+                ) : null}
+                <Text style={styles.voiceRequestSafetyText}>
+                  This sends an appointment request for clinician approval. It does not guarantee the appointment.
+                </Text>
+                <Text style={styles.voiceRequestSafetyText}>
+                  Aura does not call emergency services.
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.voiceRequestButtons}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Review for voice request"
+                accessibilityHint="Shows the exact appointment request summary before voice confirmation."
+                accessibilityState={{ disabled: !voiceRequestCanReview }}
+                disabled={!voiceRequestCanReview}
+                onPress={handlePrepareVoiceRequestReview}
+                style={({ pressed }) => [
+                  styles.voiceRequestButton,
+                  styles.voiceRequestPrimaryButton,
+                  !voiceRequestCanReview ? styles.voiceRequestButtonDisabled : null,
+                  pressed && voiceRequestCanReview ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.voiceRequestPrimaryButtonText}>Review for voice request</Text>
+              </Pressable>
+
+              {voiceRequestSnapshot ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Listen for request confirmation"
+                    accessibilityHint="Listens once for yes request, confirm request, or request appointment."
+                    accessibilityState={{
+                      disabled: !voiceRequestCanConfirm,
+                      busy: isVoiceRequestListening || undefined,
+                    }}
+                    disabled={!voiceRequestCanConfirm}
+                    onPress={() => {
+                      void handleListenForVoiceRequestConfirmation();
+                    }}
+                    style={({ pressed }) => [
+                      styles.voiceRequestButton,
+                      !voiceRequestCanConfirm ? styles.voiceRequestButtonDisabled : null,
+                      pressed && voiceRequestCanConfirm ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.voiceRequestButtonText}>
+                      {isVoiceRequestListening ? "Listening..." : "Listen for request confirmation"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Confirm request"
+                    accessibilityHint="Sends this reviewed appointment request for clinician approval."
+                    accessibilityState={{ disabled: !voiceRequestCanConfirm }}
+                    disabled={!voiceRequestCanConfirm}
+                    onPress={() => {
+                      void submitReviewedVoiceRequest();
+                    }}
+                    style={({ pressed }) => [
+                      styles.voiceRequestButton,
+                      !voiceRequestCanConfirm ? styles.voiceRequestButtonDisabled : null,
+                      pressed && voiceRequestCanConfirm ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.voiceRequestButtonText}>Confirm request</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel voice request"
+                    accessibilityHint="Clears this memory-only voice appointment request review without sending anything."
+                    onPress={() => handleCancelVoiceRequest()}
+                    style={({ pressed }) => [
+                      styles.voiceRequestButton,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.voiceRequestButtonText}>Cancel</Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </View>
+          </Card>
+        ) : null}
 
         {showBookFooter ? (
           <GlassPanel
@@ -1422,6 +2037,114 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     footerButtons: {
       flexDirection: "row",
       gap: tokens.spacing.sm,
+    },
+    voiceRequestCard: {
+      gap: tokens.spacing.md,
+      marginHorizontal: tokens.spacing.md,
+      marginBottom: tokens.spacing.sm,
+    },
+    voiceRequestHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    voiceRequestTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceRequestStatus: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: 2,
+    },
+    voiceRequestStatusWarning: {
+      borderColor: tokens.colors.warning,
+    },
+    voiceRequestStatusKicker: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    voiceRequestStatusText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    voiceRequestBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    voiceRequestSummary: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    voiceRequestSummaryLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    voiceRequestSummaryText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    voiceRequestSafetyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    voiceRequestButtons: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    voiceRequestButton: {
+      minHeight: 44,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.surface,
+    },
+    voiceRequestPrimaryButton: {
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primary,
+    },
+    voiceRequestButtonDisabled: {
+      opacity: 0.48,
+    },
+    voiceRequestButtonText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    voiceRequestPrimaryButtonText: {
+      color: tokens.colors.primaryTextOn,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
     },
   });
 }

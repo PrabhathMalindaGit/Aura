@@ -1,5 +1,10 @@
 import { Redirect, useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import {
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionErrorEvent,
+  type ExpoSpeechRecognitionResultEvent,
+} from "expo-speech-recognition";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -29,6 +34,7 @@ import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { ReadAloudButton } from "@/src/components/ReadAloudButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -53,6 +59,8 @@ import { useSyncPatientState } from "@/src/sync/store";
 import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { stopReadAloud } from "@/src/utils/readAloud";
+import { parseVoiceHealthLogConfirmation } from "@/src/utils/voiceHealthLogConfirmation";
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
@@ -73,6 +81,30 @@ type SummaryState = {
   trackedDays: number;
   avgFruitVegServings: number | null;
   proteinOkHighDays: number;
+};
+
+type NutritionSaveOutcome = {
+  status: "logged" | "queued" | "validationBlocked" | "failed" | "ignored";
+  message?: string;
+};
+
+type VoiceNutritionLogState =
+  | "draftReady"
+  | "needsValue"
+  | "reviewLog"
+  | "awaitingVoiceConfirmation"
+  | "confirmedLog"
+  | "cancelled"
+  | "logging"
+  | "logged"
+  | "offlineBlocked"
+  | "validationBlocked"
+  | "expired";
+
+type VoiceNutritionSnapshot = {
+  payload: NutritionLogPayload;
+  signature: string;
+  summaryText: string;
 };
 
 function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
@@ -226,6 +258,34 @@ function formatTime(iso: string): string {
   return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function yesNo(value: boolean): "yes" | "no" {
+  return value ? "yes" : "no";
+}
+
+function formatVoiceNutritionSummary(payload: NutritionLogPayload): string {
+  return [
+    "Nutrition log for today:",
+    `protein ${payload.protein},`,
+    `fruit and veg ${payload.fruitVegServings} servings,`,
+    `anti-inflammatory focus ${yesNo(payload.antiInflammatoryFocus)},`,
+    `meal regularity ${payload.mealRegularity},`,
+    `appetite ${payload.appetite ?? "not set"},`,
+    `notes ${payload.notes ?? "none"}.`,
+  ].join(" ");
+}
+
+function buildVoiceNutritionSignature(payload: NutritionLogPayload): string {
+  return JSON.stringify({
+    date: payload.date ?? null,
+    protein: payload.protein,
+    fruitVegServings: payload.fruitVegServings,
+    antiInflammatoryFocus: payload.antiInflammatoryFocus,
+    mealRegularity: payload.mealRegularity,
+    appetite: payload.appetite ?? null,
+    notes: payload.notes ?? null,
+  });
+}
+
 export default function NutritionScreen() {
   const auth = useAuth();
   const router = useRouter();
@@ -248,6 +308,15 @@ export default function NutritionScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const voiceNutritionExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceNutritionStateRef = useRef<VoiceNutritionLogState>("draftReady");
+  const [voiceNutritionState, setVoiceNutritionState] =
+    useState<VoiceNutritionLogState>("draftReady");
+  const [voiceNutritionSnapshot, setVoiceNutritionSnapshot] =
+    useState<VoiceNutritionSnapshot | null>(null);
+  const [voiceNutritionMessage, setVoiceNutritionMessage] =
+    useState<string | null>(null);
+  const [isVoiceNutritionListening, setIsVoiceNutritionListening] = useState(false);
 
   const today = useMemo(() => todayISO(), []);
   const rangeFrom = useMemo(() => addDaysISO(today, -6), [today]);
@@ -398,12 +467,73 @@ export default function NutritionScreen() {
     };
   }, [form, today]);
 
-  const handleSaveToday = useCallback(async () => {
-    if (!auth.token || !patientId || isSaving) {
-      return;
+  const currentVoiceNutritionSignature = useMemo(
+    () => buildVoiceNutritionSignature(buildPayload()),
+    [buildPayload],
+  );
+
+  const clearVoiceNutritionExpiryTimer = useCallback(() => {
+    if (voiceNutritionExpiryTimerRef.current) {
+      clearTimeout(voiceNutritionExpiryTimerRef.current);
+      voiceNutritionExpiryTimerRef.current = null;
+    }
+  }, []);
+
+  const updateVoiceNutritionState = useCallback((nextState: VoiceNutritionLogState) => {
+    voiceNutritionStateRef.current = nextState;
+    setVoiceNutritionState(nextState);
+  }, []);
+
+  const startVoiceNutritionExpiryTimer = useCallback(() => {
+    clearVoiceNutritionExpiryTimer();
+    voiceNutritionExpiryTimerRef.current = setTimeout(() => {
+      setVoiceNutritionSnapshot(null);
+      setIsVoiceNutritionListening(false);
+      setVoiceNutritionMessage("Nutrition voice log review expired. Review again before logging.");
+      updateVoiceNutritionState("expired");
+    }, 30_000);
+  }, [clearVoiceNutritionExpiryTimer, updateVoiceNutritionState]);
+
+  useEffect(
+    () => () => {
+      clearVoiceNutritionExpiryTimer();
+    },
+    [clearVoiceNutritionExpiryTimer],
+  );
+
+  useEffect(() => {
+    if (
+      voiceNutritionSnapshot &&
+      voiceNutritionSnapshot.signature !== currentVoiceNutritionSignature &&
+      (voiceNutritionStateRef.current === "reviewLog" ||
+        voiceNutritionStateRef.current === "awaitingVoiceConfirmation" ||
+        voiceNutritionStateRef.current === "confirmedLog")
+    ) {
+      clearVoiceNutritionExpiryTimer();
+      setVoiceNutritionSnapshot(null);
+      setIsVoiceNutritionListening(false);
+      setVoiceNutritionMessage("Nutrition form changed. Review again before voice logging.");
+      updateVoiceNutritionState("draftReady");
+      if (isVoiceNutritionListening) {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    }
+  }, [
+    clearVoiceNutritionExpiryTimer,
+    currentVoiceNutritionSignature,
+    isVoiceNutritionListening,
+    updateVoiceNutritionState,
+    voiceNutritionSnapshot,
+  ]);
+
+  const saveNutritionPayload = useCallback(async (
+    basePayload: NutritionLogPayload
+  ): Promise<NutritionSaveOutcome> => {
+    if (!auth.token || !patientId) {
+      return { status: "ignored" };
     }
     const payload = {
-      ...buildPayload(),
+      ...basePayload,
       clientMutationId: createOperationId(),
     };
     setIsSaving(true);
@@ -429,6 +559,7 @@ export default function NutritionScreen() {
           message: "Today’s nutrition log synced.",
         });
         await loadNutrition();
+        return { status: "logged", message: "Today’s nutrition log synced." };
       } else {
         const lastError = result.normalizedError;
         const title =
@@ -451,6 +582,7 @@ export default function NutritionScreen() {
           title,
           message,
         });
+        return { status: "queued", message };
       }
     } catch (error) {
       const friendly = toFriendlyNutritionError(error, "Couldn’t save nutrition");
@@ -465,19 +597,274 @@ export default function NutritionScreen() {
         title: friendly.title,
         message: friendly.message,
       });
+      return {
+        status: friendly.kind === "validation" ? "validationBlocked" : "failed",
+        message: friendly.message,
+      };
     } finally {
       setIsSaving(false);
     }
   }, [
     auth.token,
-    buildPayload,
     isOffline,
-    isSaving,
     loadNutrition,
     patientId,
     nutritionLogError,
     today,
   ]);
+
+  const handleSaveToday = useCallback(async () => {
+    if (isSaving) {
+      return;
+    }
+    await saveNutritionPayload(buildPayload());
+  }, [buildPayload, isSaving, saveNutritionPayload]);
+
+  const voiceNutritionSummaryText =
+    voiceNutritionSnapshot?.summaryText ?? "No nutrition voice log is ready.";
+  const canUseCurrentVoiceNutritionReview =
+    voiceNutritionSnapshot !== null
+      ? voiceNutritionSnapshot.signature === currentVoiceNutritionSignature &&
+        (voiceNutritionState === "reviewLog" ||
+          voiceNutritionState === "awaitingVoiceConfirmation" ||
+          voiceNutritionState === "confirmedLog")
+      : false;
+
+  const handlePrepareVoiceNutritionReview = useCallback(() => {
+    const payload = buildPayload();
+    const signature = buildVoiceNutritionSignature(payload);
+
+    setVoiceNutritionSnapshot({
+      payload,
+      signature,
+      summaryText: formatVoiceNutritionSummary(payload),
+    });
+    setVoiceNutritionMessage(
+      "Review this nutrition log, then say yes log or press Confirm log.",
+    );
+    updateVoiceNutritionState("reviewLog");
+    startVoiceNutritionExpiryTimer();
+  }, [buildPayload, startVoiceNutritionExpiryTimer, updateVoiceNutritionState]);
+
+  const handleCancelVoiceNutritionLog = useCallback(
+    (message = "Nutrition voice log cancelled.") => {
+      clearVoiceNutritionExpiryTimer();
+      setVoiceNutritionSnapshot(null);
+      setIsVoiceNutritionListening(false);
+      setVoiceNutritionMessage(message);
+      updateVoiceNutritionState("cancelled");
+      if (isVoiceNutritionListening) {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    },
+    [
+      clearVoiceNutritionExpiryTimer,
+      isVoiceNutritionListening,
+      updateVoiceNutritionState,
+    ],
+  );
+
+  const submitReviewedVoiceNutritionLog = useCallback(async () => {
+    if (!canUseCurrentVoiceNutritionReview || !voiceNutritionSnapshot) {
+      setVoiceNutritionMessage(
+        voiceNutritionStateRef.current === "expired"
+          ? "Nutrition voice log review expired. Review again before logging."
+          : "Nutrition form changed. Review again before voice logging.",
+      );
+      updateVoiceNutritionState(
+        voiceNutritionStateRef.current === "expired" ? "expired" : "needsValue",
+      );
+      return;
+    }
+
+    updateVoiceNutritionState("confirmedLog");
+    setVoiceNutritionMessage("Nutrition voice log confirmed.");
+    clearVoiceNutritionExpiryTimer();
+    setIsVoiceNutritionListening(false);
+    updateVoiceNutritionState("logging");
+    setVoiceNutritionMessage("Logging this reviewed nutrition form.");
+
+    const outcome = await saveNutritionPayload(voiceNutritionSnapshot.payload);
+
+    if (outcome.status === "logged") {
+      setVoiceNutritionSnapshot(null);
+      setVoiceNutritionMessage(outcome.message ?? "Nutrition logged.");
+      updateVoiceNutritionState("logged");
+      return;
+    }
+
+    if (outcome.status === "queued") {
+      setVoiceNutritionSnapshot(null);
+      setVoiceNutritionMessage(outcome.message ?? "Saved on this device.");
+      updateVoiceNutritionState(isOffline ? "offlineBlocked" : "logged");
+      return;
+    }
+
+    if (outcome.status === "validationBlocked") {
+      setVoiceNutritionMessage(outcome.message ?? "Invalid nutrition values.");
+      updateVoiceNutritionState("validationBlocked");
+      return;
+    }
+
+    setVoiceNutritionMessage(outcome.message ?? "Nutrition log could not be saved.");
+    updateVoiceNutritionState("reviewLog");
+  }, [
+    canUseCurrentVoiceNutritionReview,
+    clearVoiceNutritionExpiryTimer,
+    isOffline,
+    saveNutritionPayload,
+    updateVoiceNutritionState,
+    voiceNutritionSnapshot,
+  ]);
+
+  const handleVoiceNutritionTranscript = useCallback(
+    (transcript: string) => {
+      setIsVoiceNutritionListening(false);
+      if (voiceNutritionStateRef.current !== "awaitingVoiceConfirmation") {
+        return;
+      }
+
+      if (
+        !voiceNutritionSnapshot ||
+        voiceNutritionSnapshot.signature !== currentVoiceNutritionSignature
+      ) {
+        clearVoiceNutritionExpiryTimer();
+        setVoiceNutritionSnapshot(null);
+        setVoiceNutritionMessage("Nutrition form changed. Review again before voice logging.");
+        updateVoiceNutritionState("draftReady");
+        return;
+      }
+
+      const result = parseVoiceHealthLogConfirmation(transcript);
+      if (result === "confirm") {
+        void submitReviewedVoiceNutritionLog();
+        return;
+      }
+
+      if (result === "cancel") {
+        handleCancelVoiceNutritionLog();
+        return;
+      }
+
+      setVoiceNutritionMessage(
+        "That was not a clear log confirmation. Say yes log, confirm log, or log this.",
+      );
+      updateVoiceNutritionState("awaitingVoiceConfirmation");
+    },
+    [
+      clearVoiceNutritionExpiryTimer,
+      currentVoiceNutritionSignature,
+      handleCancelVoiceNutritionLog,
+      submitReviewedVoiceNutritionLog,
+      updateVoiceNutritionState,
+      voiceNutritionSnapshot,
+    ],
+  );
+
+  const handleListenForVoiceNutritionConfirmation = useCallback(async () => {
+    if (!canUseCurrentVoiceNutritionReview) {
+      setVoiceNutritionMessage(
+        voiceNutritionStateRef.current === "expired"
+          ? "Nutrition voice log review expired. Review again before logging."
+          : "Review again before voice logging.",
+      );
+      updateVoiceNutritionState("expired");
+      return;
+    }
+
+    updateVoiceNutritionState("awaitingVoiceConfirmation");
+    setVoiceNutritionMessage("Listening for yes log, confirm log, or log this.");
+    setIsVoiceNutritionListening(true);
+
+    await stopReadAloud();
+
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setIsVoiceNutritionListening(false);
+      setVoiceNutritionMessage("Voice confirmation is not available on this device. Use Confirm log or manual save.");
+      return;
+    }
+
+    if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+      setIsVoiceNutritionListening(false);
+      setVoiceNutritionMessage("On-device voice confirmation is not available on this device. Use Confirm log or manual save.");
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setIsVoiceNutritionListening(false);
+      setVoiceNutritionMessage("Microphone permission was denied. Use Confirm log or manual save.");
+      return;
+    }
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        continuous: false,
+        interimResults: true,
+        maxAlternatives: 1,
+        requiresOnDeviceRecognition: true,
+        recordingOptions: {
+          persist: false,
+        },
+      });
+    } catch {
+      setIsVoiceNutritionListening(false);
+      setVoiceNutritionMessage("Voice confirmation could not start. Nothing was logged.");
+      updateVoiceNutritionState("reviewLog");
+    }
+  }, [canUseCurrentVoiceNutritionReview, updateVoiceNutritionState]);
+
+  useEffect(() => {
+    const startListener = ExpoSpeechRecognitionModule.addListener("start", () => {
+      if (voiceNutritionStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceNutritionListening(true);
+      }
+    });
+    const endListener = ExpoSpeechRecognitionModule.addListener("end", () => {
+      setIsVoiceNutritionListening(false);
+    });
+    const resultListener = ExpoSpeechRecognitionModule.addListener(
+      "result",
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        if (!event.isFinal || voiceNutritionStateRef.current !== "awaitingVoiceConfirmation") {
+          return;
+        }
+
+        const transcript = event.results
+          .map((result) => result.transcript.trim())
+          .find((candidate) => candidate.length > 0);
+
+        handleVoiceNutritionTranscript(transcript ?? "");
+      },
+    );
+    const errorListener = ExpoSpeechRecognitionModule.addListener(
+      "error",
+      (_event: ExpoSpeechRecognitionErrorEvent) => {
+        if (voiceNutritionStateRef.current === "awaitingVoiceConfirmation") {
+          setIsVoiceNutritionListening(false);
+          setVoiceNutritionMessage("That was not a clear log confirmation. Nothing was logged.");
+        }
+      },
+    );
+    const nomatchListener = ExpoSpeechRecognitionModule.addListener("nomatch", () => {
+      if (voiceNutritionStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceNutritionListening(false);
+        setVoiceNutritionMessage("That was not a clear log confirmation. Nothing was logged.");
+      }
+    });
+
+    return () => {
+      startListener.remove();
+      endListener.remove();
+      resultListener.remove();
+      errorListener.remove();
+      nomatchListener.remove();
+      if (voiceNutritionStateRef.current === "awaitingVoiceConfirmation") {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    };
+  }, [handleVoiceNutritionTranscript]);
 
   const handleSyncPending = useCallback(async () => {
     if (!auth.token || !patientId || isOffline || isSyncing) {
@@ -557,6 +944,16 @@ export default function NutritionScreen() {
 
   const listHeader = useMemo(() => {
     const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+    const canReviewVoiceLog = canUseCurrentVoiceNutritionReview;
+    const canListenForVoiceLog =
+      canReviewVoiceLog && voiceNutritionState !== "confirmedLog";
+    const voiceStatusRole =
+      voiceNutritionState === "needsValue" ||
+      voiceNutritionState === "offlineBlocked" ||
+      voiceNutritionState === "validationBlocked" ||
+      voiceNutritionState === "expired"
+        ? "alert"
+        : "text";
 
     return (
       <View style={styles.listHeader}>
@@ -848,6 +1245,101 @@ export default function NutritionScreen() {
             />
             <Text style={styles.metaText}>{form.notes.length}/280</Text>
 
+            <View style={styles.voiceLogPanel}>
+              <View style={styles.voiceLogHeader}>
+                <View style={styles.voiceLogHeaderText}>
+                  <Text accessibilityRole="header" style={styles.cardTitle}>
+                    Voice nutrition review
+                  </Text>
+                  <Text style={styles.cardHelper}>
+                    Review the exact current form summary, then confirm before anything is saved.
+                  </Text>
+                </View>
+                <ReadAloudButton
+                  text={voiceNutritionSummaryText}
+                  label="Read nutrition voice log summary"
+                  sourceId="nutrition-voice-log-summary"
+                  testID="nutrition-voice-log-read-summary"
+                />
+              </View>
+
+              <SecondaryButton
+                label="Review for voice log"
+                accessibilityLabel="Review nutrition voice log"
+                accessibilityHint="Shows the exact nutrition log summary from the current form before any voice log can happen."
+                onPress={() => handlePrepareVoiceNutritionReview()}
+              />
+
+              {voiceNutritionSnapshot ? (
+                <View
+                  accessible
+                  accessibilityRole="summary"
+                  accessibilityLabel={`Nutrition voice log summary. ${voiceNutritionSummaryText}`}
+                  style={styles.voiceSummaryBox}
+                >
+                  <Text selectable style={styles.voiceSummaryText}>
+                    {voiceNutritionSummaryText}
+                  </Text>
+                </View>
+              ) : null}
+
+              <Text style={styles.voiceSafetyCopy}>
+                This logs nutrition only. It does not give diet advice, diagnosis, treatment advice, or emergency support.
+              </Text>
+
+              <View
+                accessible
+                accessibilityRole={voiceStatusRole}
+                accessibilityLiveRegion="polite"
+                accessibilityLabel="Nutrition voice log status"
+                accessibilityHint={`State: ${voiceNutritionState}. ${voiceNutritionMessage ?? "Review the current nutrition form before voice logging."}`}
+                style={[
+                  styles.voiceStatusBox,
+                  voiceStatusRole === "alert" ? styles.voiceStatusWarning : null,
+                ]}
+              >
+                <Text style={styles.voiceStatusLabel}>Nutrition voice log status</Text>
+                <Text style={styles.cardHelper}>
+                  {voiceNutritionMessage ?? "Review the current nutrition form before voice logging."}
+                </Text>
+              </View>
+
+              <View style={styles.voiceActionRow}>
+                <View style={styles.voiceActionWrap}>
+                  <SecondaryButton
+                    label={isVoiceNutritionListening ? "Listening..." : "Listen for log confirmation"}
+                    accessibilityLabel="Listen for nutrition log confirmation"
+                    accessibilityHint="Listens once for yes log, confirm log, or log this."
+                    loading={isVoiceNutritionListening}
+                    disabled={!canListenForVoiceLog}
+                    onPress={() => {
+                      void handleListenForVoiceNutritionConfirmation();
+                    }}
+                  />
+                </View>
+                <View style={styles.voiceActionWrap}>
+                  <PrimaryButton
+                    label={voiceNutritionState === "logging" ? "Logging..." : "Confirm log"}
+                    accessibilityLabel="Confirm nutrition voice log"
+                    accessibilityHint="Logs the reviewed nutrition form through the same normal nutrition path."
+                    loading={voiceNutritionState === "logging"}
+                    disabled={!canReviewVoiceLog}
+                    onPress={() => {
+                      void submitReviewedVoiceNutritionLog();
+                    }}
+                  />
+                </View>
+                <View style={styles.voiceActionWrap}>
+                  <SecondaryButton
+                    label="Cancel"
+                    accessibilityLabel="Cancel nutrition voice log"
+                    accessibilityHint="Clears the current nutrition voice log review without logging."
+                    onPress={() => handleCancelVoiceNutritionLog()}
+                  />
+                </View>
+              </View>
+            </View>
+
             <PrimaryButton
               label={isSaving ? "Saving..." : "Save today’s log"}
               loading={isSaving}
@@ -930,11 +1422,16 @@ export default function NutritionScreen() {
     form.mealRegularity,
     form.notes,
     form.protein,
+    canUseCurrentVoiceNutritionReview,
+    handleCancelVoiceNutritionLog,
+    handleListenForVoiceNutritionConfirmation,
+    handlePrepareVoiceNutritionReview,
     handleSaveToday,
     handleSyncPending,
     isOffline,
     isSaving,
     isSyncing,
+    isVoiceNutritionListening,
     notice,
     nutritionStatusLabel,
     nutritionStatusTone,
@@ -987,6 +1484,18 @@ export default function NutritionScreen() {
     styles.summaryGrid,
     styles.summaryTileWrap,
     styles.switchRow,
+    styles.voiceActionRow,
+    styles.voiceActionWrap,
+    styles.voiceLogHeader,
+    styles.voiceLogHeaderText,
+    styles.voiceLogPanel,
+    styles.voiceSafetyCopy,
+    styles.voiceStatusBox,
+    styles.voiceStatusLabel,
+    styles.voiceStatusWarning,
+    styles.voiceSummaryBox,
+    styles.voiceSummaryText,
+    submitReviewedVoiceNutritionLog,
     summary.avgFruitVegServings,
     summary.proteinOkHighDays,
     summary.trackedDays,
@@ -995,6 +1504,10 @@ export default function NutritionScreen() {
     today,
     todayLoggedRatio,
     trackedRatio,
+    voiceNutritionMessage,
+    voiceNutritionSnapshot,
+    voiceNutritionState,
+    voiceNutritionSummaryText,
   ]);
 
   if (auth.status === "loading") {
@@ -1257,6 +1770,69 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       color: tokens.colors.textMuted,
+    },
+    voiceLogPanel: {
+      gap: tokens.spacing.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      padding: tokens.spacing.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    voiceLogHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    voiceLogHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    voiceSummaryBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      padding: tokens.spacing.md,
+      backgroundColor: tokens.colors.surface,
+    },
+    voiceSummaryText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceSafetyCopy: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    voiceStatusBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.xs,
+      backgroundColor: tokens.colors.surface,
+    },
+    voiceStatusWarning: {
+      backgroundColor: tokens.colors.warningSoft,
+    },
+    voiceStatusLabel: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    voiceActionWrap: {
+      flexGrow: 1,
+      flexBasis: "31%",
+      minWidth: 148,
     },
     diagToggle: {
       flexDirection: "row",

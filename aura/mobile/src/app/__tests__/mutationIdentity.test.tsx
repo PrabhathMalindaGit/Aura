@@ -74,6 +74,17 @@ vi.mock("@react-navigation/native", () => ({
   useFocusEffect: vi.fn(),
 }));
 
+vi.mock("expo-speech-recognition", () => ({
+  ExpoSpeechRecognitionModule: {
+    abort: vi.fn(),
+    addListener: vi.fn(() => ({ remove: vi.fn() })),
+    isRecognitionAvailable: vi.fn(() => false),
+    requestPermissionsAsync: vi.fn(async () => ({ granted: false })),
+    start: vi.fn(),
+    supportsOnDeviceRecognition: vi.fn(() => false),
+  },
+}));
+
 vi.mock("@/src/state/auth", () => ({
   useAuth: vi.fn(() => ({
     status: "signedIn",
@@ -274,6 +285,10 @@ vi.mock("@/src/components/PrimaryButton", () => ({
   }) => React.createElement("mock-primary-button", { label, onPress }),
 }));
 
+vi.mock("@/src/components/ReadAloudButton", () => ({
+  ReadAloudButton: () => React.createElement("mock-read-aloud-button"),
+}));
+
 vi.mock("@/src/components/SecondaryButton", () => ({
   SecondaryButton: ({
     label,
@@ -305,6 +320,10 @@ vi.mock("@/src/components/TrackerTile", () => ({
 vi.mock("@/src/utils/date", () => ({
   todayISO: vi.fn(() => "2026-03-24"),
   addDaysISO: vi.fn(() => "2026-03-18"),
+}));
+
+vi.mock("@/src/utils/readAloud", () => ({
+  stopReadAloud: vi.fn(async () => undefined),
 }));
 
 import HydrationScreen from "../../../app/hydration";

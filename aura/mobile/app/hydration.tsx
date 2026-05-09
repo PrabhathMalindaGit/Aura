@@ -1,5 +1,11 @@
 import { Redirect, useRouter } from "expo-router";
+import {
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionErrorEvent,
+  type ExpoSpeechRecognitionResultEvent,
+} from "expo-speech-recognition";
 import React, { useCallback, useMemo, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +33,7 @@ import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { ReadAloudButton } from "@/src/components/ReadAloudButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -49,6 +56,8 @@ import { removeSyncOperation, useSyncPatientState } from "@/src/sync/store";
 import { useTokens } from "@/src/theme/tokens";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { stopReadAloud } from "@/src/utils/readAloud";
+import { parseVoiceHealthLogConfirmation } from "@/src/utils/voiceHealthLogConfirmation";
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
@@ -63,10 +72,36 @@ type TodayState = {
   entries: HydrationEntry[];
 };
 
+type HydrationQuickAddOutcome = {
+  status: "logged" | "queued" | "validationBlocked" | "failed" | "ignored";
+  message?: string;
+};
+
 type RenderableHydrationEntry = HydrationEntry & {
   syncStatus?: "queued" | "syncing" | "failed" | "blocked_offline";
   syncMessage?: string;
 };
+
+type VoiceHydrationLogState =
+  | "draftReady"
+  | "needsValue"
+  | "reviewLog"
+  | "awaitingVoiceConfirmation"
+  | "confirmedLog"
+  | "cancelled"
+  | "logging"
+  | "logged"
+  | "offlineBlocked"
+  | "validationBlocked"
+  | "expired";
+
+type VoiceHydrationSnapshot = {
+  amountMl: 250 | 500 | 750;
+  date: string;
+  signature: string;
+};
+
+const SUPPORTED_VOICE_HYDRATION_AMOUNTS = [250, 500, 750] as const;
 
 function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
   return variant === "error" ? "danger" : variant;
@@ -168,6 +203,18 @@ function toLastErrorKind(
   return kind;
 }
 
+function isSupportedVoiceHydrationAmount(
+  amountMl: number
+): amountMl is VoiceHydrationSnapshot["amountMl"] {
+  return SUPPORTED_VOICE_HYDRATION_AMOUNTS.includes(
+    amountMl as VoiceHydrationSnapshot["amountMl"],
+  );
+}
+
+function buildVoiceHydrationSignature(amountMl: number, date: string): string {
+  return `${amountMl}:${date}`;
+}
+
 export default function HydrationScreen() {
   const auth = useAuth();
   const router = useRouter();
@@ -183,6 +230,15 @@ export default function HydrationScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const voiceHydrationExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceHydrationStateRef = useRef<VoiceHydrationLogState>("draftReady");
+  const [voiceHydrationState, setVoiceHydrationState] =
+    useState<VoiceHydrationLogState>("draftReady");
+  const [voiceHydrationSnapshot, setVoiceHydrationSnapshot] =
+    useState<VoiceHydrationSnapshot | null>(null);
+  const [voiceHydrationMessage, setVoiceHydrationMessage] =
+    useState<string | null>(null);
+  const [isVoiceHydrationListening, setIsVoiceHydrationListening] = useState(false);
 
   const patientId = auth.patient?.id ?? "";
   const syncState = useSyncPatientState(patientId);
@@ -355,10 +411,39 @@ export default function HydrationScreen() {
     }, [auth.status, loadToday])
   );
 
+  const clearVoiceHydrationExpiryTimer = useCallback(() => {
+    if (voiceHydrationExpiryTimerRef.current) {
+      clearTimeout(voiceHydrationExpiryTimerRef.current);
+      voiceHydrationExpiryTimerRef.current = null;
+    }
+  }, []);
+
+  const updateVoiceHydrationState = useCallback((nextState: VoiceHydrationLogState) => {
+    voiceHydrationStateRef.current = nextState;
+    setVoiceHydrationState(nextState);
+  }, []);
+
+  const startVoiceHydrationExpiryTimer = useCallback(() => {
+    clearVoiceHydrationExpiryTimer();
+    voiceHydrationExpiryTimerRef.current = setTimeout(() => {
+      setVoiceHydrationSnapshot(null);
+      setIsVoiceHydrationListening(false);
+      setVoiceHydrationMessage("Hydration voice log review expired. Review again before logging.");
+      updateVoiceHydrationState("expired");
+    }, 30_000);
+  }, [clearVoiceHydrationExpiryTimer, updateVoiceHydrationState]);
+
+  useEffect(
+    () => () => {
+      clearVoiceHydrationExpiryTimer();
+    },
+    [clearVoiceHydrationExpiryTimer],
+  );
+
   const handleQuickAdd = useCallback(
-    async (amountMl: number) => {
+    async (amountMl: number): Promise<HydrationQuickAddOutcome> => {
       if (!auth.token || !patientId) {
-        return;
+        return { status: "ignored" };
       }
 
       const payload = {
@@ -388,7 +473,7 @@ export default function HydrationScreen() {
             title: "Synced",
             message: `${amountMl} ml synced.`,
           });
-          return;
+          return { status: "logged", message: `${amountMl} ml synced.` };
         }
 
         const lastError = result.normalizedError;
@@ -412,6 +497,7 @@ export default function HydrationScreen() {
           title,
           message,
         });
+        return { status: "queued", message };
       } catch (error) {
         const friendly = toFriendlyHydrationError(error, "Couldn’t save hydration");
         await hydrationLogError.setLocalError({
@@ -425,6 +511,10 @@ export default function HydrationScreen() {
           title: friendly.title,
           message: friendly.message,
         });
+        return {
+          status: friendly.kind === "validation" ? "validationBlocked" : "failed",
+          message: friendly.message,
+        };
       }
     },
     [auth.token, hydrationLogError, isOffline, loadToday, patientId, today]
@@ -547,8 +637,281 @@ export default function HydrationScreen() {
     [auth.token, isOffline, loadToday, patientId]
   );
 
+  const voiceHydrationSummaryText = voiceHydrationSnapshot
+    ? `Hydration log: Add ${voiceHydrationSnapshot.amountMl} ml for today.`
+    : "No hydration voice log is ready.";
+  const canUseCurrentVoiceHydrationReview =
+    voiceHydrationSnapshot !== null
+      ? voiceHydrationSnapshot.signature ===
+          buildVoiceHydrationSignature(voiceHydrationSnapshot.amountMl, today) &&
+        (voiceHydrationState === "reviewLog" ||
+          voiceHydrationState === "awaitingVoiceConfirmation" ||
+          voiceHydrationState === "confirmedLog")
+      : false;
+
+  const handlePrepareVoiceHydrationReview = useCallback(
+    (amountMl: number) => {
+      if (!isSupportedVoiceHydrationAmount(amountMl)) {
+        clearVoiceHydrationExpiryTimer();
+        setVoiceHydrationSnapshot(null);
+        setIsVoiceHydrationListening(false);
+        setVoiceHydrationMessage("Choose 250 ml, 500 ml, or 750 ml before voice logging.");
+        updateVoiceHydrationState("needsValue");
+        return;
+      }
+
+      const previousAmount = voiceHydrationSnapshot?.amountMl;
+      const nextSnapshot = {
+        amountMl,
+        date: today,
+        signature: buildVoiceHydrationSignature(amountMl, today),
+      };
+
+      setVoiceHydrationSnapshot(nextSnapshot);
+      setVoiceHydrationMessage(
+        previousAmount && previousAmount !== amountMl
+          ? "Hydration amount changed. Review this new summary, then say yes log or press Confirm log."
+          : "Review this hydration log, then say yes log or press Confirm log.",
+      );
+      updateVoiceHydrationState("reviewLog");
+      startVoiceHydrationExpiryTimer();
+    },
+    [
+      clearVoiceHydrationExpiryTimer,
+      startVoiceHydrationExpiryTimer,
+      today,
+      updateVoiceHydrationState,
+      voiceHydrationSnapshot?.amountMl,
+    ],
+  );
+
+  const handleCancelVoiceHydrationLog = useCallback(
+    (message = "Hydration voice log cancelled.") => {
+      clearVoiceHydrationExpiryTimer();
+      setVoiceHydrationSnapshot(null);
+      setIsVoiceHydrationListening(false);
+      setVoiceHydrationMessage(message);
+      updateVoiceHydrationState("cancelled");
+      if (isVoiceHydrationListening) {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    },
+    [
+      clearVoiceHydrationExpiryTimer,
+      isVoiceHydrationListening,
+      updateVoiceHydrationState,
+    ],
+  );
+
+  const submitReviewedVoiceHydrationLog = useCallback(async () => {
+    if (!canUseCurrentVoiceHydrationReview || !voiceHydrationSnapshot) {
+      setVoiceHydrationMessage("Choose 250 ml, 500 ml, or 750 ml before voice logging.");
+      updateVoiceHydrationState("needsValue");
+      return;
+    }
+
+    updateVoiceHydrationState("confirmedLog");
+    setVoiceHydrationMessage("Hydration voice log confirmed.");
+    clearVoiceHydrationExpiryTimer();
+    setIsVoiceHydrationListening(false);
+    updateVoiceHydrationState("logging");
+    setVoiceHydrationMessage("Logging this reviewed hydration amount.");
+
+    const outcome = await handleQuickAdd(voiceHydrationSnapshot.amountMl);
+
+    if (outcome.status === "logged") {
+      setVoiceHydrationSnapshot(null);
+      setVoiceHydrationMessage(outcome.message ?? "Hydration logged.");
+      updateVoiceHydrationState("logged");
+      return;
+    }
+
+    if (outcome.status === "queued") {
+      setVoiceHydrationSnapshot(null);
+      setVoiceHydrationMessage(outcome.message ?? "Saved on this device.");
+      updateVoiceHydrationState(isOffline ? "offlineBlocked" : "logged");
+      return;
+    }
+
+    if (outcome.status === "validationBlocked") {
+      setVoiceHydrationMessage(outcome.message ?? "Invalid hydration entry.");
+      updateVoiceHydrationState("validationBlocked");
+      return;
+    }
+
+    setVoiceHydrationMessage(outcome.message ?? "Hydration log could not be saved.");
+    updateVoiceHydrationState("reviewLog");
+  }, [
+    canUseCurrentVoiceHydrationReview,
+    clearVoiceHydrationExpiryTimer,
+    handleQuickAdd,
+    isOffline,
+    updateVoiceHydrationState,
+    voiceHydrationSnapshot,
+  ]);
+
+  const handleVoiceHydrationTranscript = useCallback(
+    (transcript: string) => {
+      setIsVoiceHydrationListening(false);
+      if (voiceHydrationStateRef.current !== "awaitingVoiceConfirmation") {
+        return;
+      }
+
+      if (
+        !voiceHydrationSnapshot ||
+        voiceHydrationSnapshot.signature !==
+          buildVoiceHydrationSignature(voiceHydrationSnapshot.amountMl, today)
+      ) {
+        clearVoiceHydrationExpiryTimer();
+        setVoiceHydrationSnapshot(null);
+        setVoiceHydrationMessage("Hydration amount changed. Review again before voice logging.");
+        updateVoiceHydrationState("draftReady");
+        return;
+      }
+
+      const result = parseVoiceHealthLogConfirmation(transcript);
+      if (result === "confirm") {
+        void submitReviewedVoiceHydrationLog();
+        return;
+      }
+
+      if (result === "cancel") {
+        handleCancelVoiceHydrationLog();
+        return;
+      }
+
+      setVoiceHydrationMessage(
+        "That was not a clear log confirmation. Say yes log, confirm log, or log this.",
+      );
+      updateVoiceHydrationState("awaitingVoiceConfirmation");
+    },
+    [
+      clearVoiceHydrationExpiryTimer,
+      handleCancelVoiceHydrationLog,
+      submitReviewedVoiceHydrationLog,
+      today,
+      updateVoiceHydrationState,
+      voiceHydrationSnapshot,
+    ],
+  );
+
+  const handleListenForVoiceHydrationConfirmation = useCallback(async () => {
+    if (!canUseCurrentVoiceHydrationReview) {
+      setVoiceHydrationMessage(
+        voiceHydrationStateRef.current === "expired"
+          ? "Hydration voice log review expired. Review again before logging."
+          : "Review again before voice logging.",
+      );
+      updateVoiceHydrationState("expired");
+      return;
+    }
+
+    updateVoiceHydrationState("awaitingVoiceConfirmation");
+    setVoiceHydrationMessage("Listening for yes log, confirm log, or log this.");
+    setIsVoiceHydrationListening(true);
+
+    await stopReadAloud();
+
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setIsVoiceHydrationListening(false);
+      setVoiceHydrationMessage("Voice confirmation is not available on this device. Use Confirm log or manual quick add.");
+      return;
+    }
+
+    if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+      setIsVoiceHydrationListening(false);
+      setVoiceHydrationMessage("On-device voice confirmation is not available on this device. Use Confirm log or manual quick add.");
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setIsVoiceHydrationListening(false);
+      setVoiceHydrationMessage("Microphone permission was denied. Use Confirm log or manual quick add.");
+      return;
+    }
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        continuous: false,
+        interimResults: true,
+        maxAlternatives: 1,
+        requiresOnDeviceRecognition: true,
+        recordingOptions: {
+          persist: false,
+        },
+      });
+    } catch {
+      setIsVoiceHydrationListening(false);
+      setVoiceHydrationMessage("Voice confirmation could not start. Nothing was logged.");
+      updateVoiceHydrationState("reviewLog");
+    }
+  }, [canUseCurrentVoiceHydrationReview, updateVoiceHydrationState]);
+
+  useEffect(() => {
+    const startListener = ExpoSpeechRecognitionModule.addListener("start", () => {
+      if (voiceHydrationStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceHydrationListening(true);
+      }
+    });
+    const endListener = ExpoSpeechRecognitionModule.addListener("end", () => {
+      setIsVoiceHydrationListening(false);
+    });
+    const resultListener = ExpoSpeechRecognitionModule.addListener(
+      "result",
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        if (!event.isFinal || voiceHydrationStateRef.current !== "awaitingVoiceConfirmation") {
+          return;
+        }
+
+        const transcript = event.results
+          .map((result) => result.transcript.trim())
+          .find((candidate) => candidate.length > 0);
+
+        handleVoiceHydrationTranscript(transcript ?? "");
+      },
+    );
+    const errorListener = ExpoSpeechRecognitionModule.addListener(
+      "error",
+      (_event: ExpoSpeechRecognitionErrorEvent) => {
+        if (voiceHydrationStateRef.current === "awaitingVoiceConfirmation") {
+          setIsVoiceHydrationListening(false);
+          setVoiceHydrationMessage("That was not a clear log confirmation. Nothing was logged.");
+        }
+      },
+    );
+    const nomatchListener = ExpoSpeechRecognitionModule.addListener("nomatch", () => {
+      if (voiceHydrationStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceHydrationListening(false);
+        setVoiceHydrationMessage("That was not a clear log confirmation. Nothing was logged.");
+      }
+    });
+
+    return () => {
+      startListener.remove();
+      endListener.remove();
+      resultListener.remove();
+      errorListener.remove();
+      nomatchListener.remove();
+      if (voiceHydrationStateRef.current === "awaitingVoiceConfirmation") {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    };
+  }, [handleVoiceHydrationTranscript]);
+
   const listHeader = useMemo(() => {
     const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+    const canReviewVoiceLog = canUseCurrentVoiceHydrationReview;
+    const canListenForVoiceLog =
+      canReviewVoiceLog && voiceHydrationState !== "confirmedLog";
+    const voiceStatusRole =
+      voiceHydrationState === "needsValue" ||
+      voiceHydrationState === "offlineBlocked" ||
+      voiceHydrationState === "validationBlocked" ||
+      voiceHydrationState === "expired"
+        ? "alert"
+        : "text";
 
     return (
       <View style={styles.listHeader}>
@@ -708,6 +1071,106 @@ export default function HydrationScreen() {
                 </View>
               ))}
             </View>
+            <View style={styles.voiceLogPanel}>
+              <View style={styles.voiceLogHeader}>
+                <View style={styles.voiceLogHeaderText}>
+                  <Text accessibilityRole="header" style={styles.cardTitle}>
+                    Voice log review
+                  </Text>
+                  <Text style={styles.cardHelper}>
+                    Choose one supported amount, review the exact hydration log, then confirm before anything is saved.
+                  </Text>
+                </View>
+                <ReadAloudButton
+                  text={voiceHydrationSummaryText}
+                  label="Read hydration voice log summary"
+                  sourceId="hydration-voice-log-summary"
+                  testID="hydration-voice-log-read-summary"
+                />
+              </View>
+
+              <View style={styles.quickAddRow}>
+                {SUPPORTED_VOICE_HYDRATION_AMOUNTS.map((amount) => (
+                  <View key={`voice-review-${amount}`} style={styles.quickButtonWrap}>
+                    <SecondaryButton
+                      label={`Review ${amount} ml`}
+                      accessibilityLabel={`Review ${amount} ml hydration voice log`}
+                      accessibilityHint="Shows the exact hydration log summary before any voice log can happen."
+                      onPress={() => handlePrepareVoiceHydrationReview(amount)}
+                    />
+                  </View>
+                ))}
+              </View>
+
+              {voiceHydrationSnapshot ? (
+                <View
+                  accessible
+                  accessibilityRole="summary"
+                  accessibilityLabel={`Hydration voice log summary. ${voiceHydrationSummaryText}`}
+                  style={styles.voiceSummaryBox}
+                >
+                  <Text selectable style={styles.voiceSummaryText}>
+                    {voiceHydrationSummaryText}
+                  </Text>
+                </View>
+              ) : null}
+
+              <Text style={styles.voiceSafetyCopy}>
+                This logs hydration only. It does not change medication, treatment, or emergency support.
+              </Text>
+
+              <View
+                accessible
+                accessibilityRole={voiceStatusRole}
+                accessibilityLiveRegion="polite"
+                accessibilityLabel="Hydration voice log status"
+                accessibilityHint={`State: ${voiceHydrationState}. ${voiceHydrationMessage ?? "Choose 250 ml, 500 ml, or 750 ml before voice logging."}`}
+                style={[
+                  styles.voiceStatusBox,
+                  voiceStatusRole === "alert" ? styles.voiceStatusWarning : null,
+                ]}
+              >
+                <Text style={styles.voiceStatusLabel}>Hydration voice log status</Text>
+                <Text style={styles.cardHelper}>
+                  {voiceHydrationMessage ?? "Choose 250 ml, 500 ml, or 750 ml before voice logging."}
+                </Text>
+              </View>
+
+              <View style={styles.voiceActionRow}>
+                <View style={styles.voiceActionWrap}>
+                  <SecondaryButton
+                    label={isVoiceHydrationListening ? "Listening..." : "Listen for confirmation"}
+                    accessibilityLabel="Listen for hydration log confirmation"
+                    accessibilityHint="Listens once for yes log, confirm log, or log this."
+                    loading={isVoiceHydrationListening}
+                    disabled={!canListenForVoiceLog}
+                    onPress={() => {
+                      void handleListenForVoiceHydrationConfirmation();
+                    }}
+                  />
+                </View>
+                <View style={styles.voiceActionWrap}>
+                  <PrimaryButton
+                    label={voiceHydrationState === "logging" ? "Logging..." : "Confirm log"}
+                    accessibilityLabel="Confirm hydration voice log"
+                    accessibilityHint="Logs the reviewed hydration amount through the same normal hydration path."
+                    loading={voiceHydrationState === "logging"}
+                    disabled={!canReviewVoiceLog}
+                    onPress={() => {
+                      void submitReviewedVoiceHydrationLog();
+                    }}
+                  />
+                </View>
+                <View style={styles.voiceActionWrap}>
+                  <SecondaryButton
+                    label="Cancel"
+                    accessibilityLabel="Cancel hydration voice log"
+                    accessibilityHint="Clears the current hydration voice log review without logging."
+                    onPress={() => handleCancelVoiceHydrationLog()}
+                  />
+                </View>
+              </View>
+            </View>
             {pendingEntries.length > 0 ? (
               <PrimaryButton
                 label={isSyncing ? "Syncing..." : hydrationSyncSummary.failedCount > 0 ? "Retry sync" : "Sync saved entries"}
@@ -732,6 +1195,9 @@ export default function HydrationScreen() {
     );
   }, [
     handleQuickAdd,
+    handleCancelVoiceHydrationLog,
+    handleListenForVoiceHydrationConfirmation,
+    handlePrepareVoiceHydrationReview,
     handleSyncPending,
     hydrationLoadError.clear,
     hydrationLoadError.label,
@@ -751,6 +1217,7 @@ export default function HydrationScreen() {
     hydrationStoryTitle,
     isOffline,
     isSyncing,
+    isVoiceHydrationListening,
     notice,
     pendingEntries.length,
     progressPercent,
@@ -781,9 +1248,26 @@ export default function HydrationScreen() {
     styles.storyTitle,
     styles.trackerGrid,
     styles.trackerTileWrap,
+    styles.voiceActionRow,
+    styles.voiceActionWrap,
+    styles.voiceLogHeader,
+    styles.voiceLogHeaderText,
+    styles.voiceLogPanel,
+    styles.voiceSafetyCopy,
+    styles.voiceStatusBox,
+    styles.voiceStatusLabel,
+    styles.voiceStatusWarning,
+    styles.voiceSummaryBox,
+    styles.voiceSummaryText,
+    submitReviewedVoiceHydrationLog,
     targetMl,
     tokens.spacing.md,
     totalTodayMl,
+    voiceHydrationMessage,
+    voiceHydrationSnapshot,
+    voiceHydrationState,
+    voiceHydrationSummaryText,
+    canUseCurrentVoiceHydrationReview,
   ]);
 
   if (auth.status === "loading") {
@@ -1042,6 +1526,69 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
+    },
+    voiceLogPanel: {
+      gap: tokens.spacing.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      padding: tokens.spacing.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    voiceLogHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    voiceLogHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    voiceSummaryBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      padding: tokens.spacing.md,
+      backgroundColor: tokens.colors.surface,
+    },
+    voiceSummaryText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceSafetyCopy: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    voiceStatusBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.xs,
+      backgroundColor: tokens.colors.surface,
+    },
+    voiceStatusWarning: {
+      backgroundColor: tokens.colors.warningSoft,
+    },
+    voiceStatusLabel: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    voiceActionWrap: {
+      flexGrow: 1,
+      flexBasis: "31%",
+      minWidth: 148,
     },
     diagToggle: {
       flexDirection: "row",

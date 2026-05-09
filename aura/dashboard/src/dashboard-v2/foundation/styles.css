@@ -324,7 +324,7 @@ button.v2-review-summary-strip__metric {
 }
 
 .v2-button--row {
-  min-height: 2.15rem;
+  min-height: 2.5rem;
   padding-inline: 0.78rem;
   background: hsl(var(--v2-surface));
   border-color: hsl(var(--v2-border) / 0.62);
@@ -679,8 +679,8 @@ button.v2-review-summary-strip__metric {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid hsl(var(--v2-border));
   border-radius: 999px;
   background: transparent;
@@ -896,7 +896,7 @@ button.v2-review-summary-strip__metric {
 
 .v2-clinician-action-bar .v2-button--row,
 .v2-clinician-action-bar .v2-button--quiet {
-  min-height: 2.18rem;
+  min-height: 2.5rem;
   border-color: hsl(var(--v2-border) / 0.58);
   background: hsl(var(--v2-surface) / 0.96);
 }

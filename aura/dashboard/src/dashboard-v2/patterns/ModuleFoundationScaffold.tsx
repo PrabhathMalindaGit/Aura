@@ -23,7 +23,7 @@ export function DashboardV2ModuleFoundationScaffold({
       header={
         <DashboardV2Surface tone="muted" className="v2-foundation-stage">
           <DashboardV2Text tone="label">{eyebrow}</DashboardV2Text>
-          <DashboardV2Heading as="h1">{title}</DashboardV2Heading>
+          <DashboardV2Heading as="h2">{title}</DashboardV2Heading>
           <DashboardV2Text tone="muted">{description}</DashboardV2Text>
         </DashboardV2Surface>
       }

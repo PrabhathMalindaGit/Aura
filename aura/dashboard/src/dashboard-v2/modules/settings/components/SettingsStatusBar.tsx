@@ -21,7 +21,7 @@ export function SettingsStatusBar({
         <DashboardV2Text tone="label">Workspace preferences</DashboardV2Text>
         <div className="v2-settings-status-bar__title-row">
           <DashboardV2Icon icon={Settings} size={18} />
-          <DashboardV2Heading as="h1">{statusBar.title}</DashboardV2Heading>
+          <DashboardV2Heading as="h2">{statusBar.title}</DashboardV2Heading>
         </div>
         <DashboardV2Text tone="muted">{statusBar.guidanceLine}</DashboardV2Text>
       </div>

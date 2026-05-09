@@ -16,7 +16,7 @@ export function DashboardV2StickyPatientSummaryHeader({
   return (
     <DashboardV2Surface className="v2-sticky-patient-header" tone="elevated">
       <div className="v2-sticky-patient-header__copy">
-        <DashboardV2Heading as="h1">{title}</DashboardV2Heading>
+        <DashboardV2Heading as="h2">{title}</DashboardV2Heading>
         {subtitle ? <DashboardV2Text tone="muted">{subtitle}</DashboardV2Text> : null}
       </div>
       {facts ? <div className="v2-sticky-patient-header__facts">{facts}</div> : null}

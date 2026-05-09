@@ -391,7 +391,7 @@ export function PatientsRoute(): JSX.Element {
         <div className="v2-patients-route__command-header">
           <div className="v2-patients-route__status-copy">
             <DashboardV2Text tone="label">Care roster</DashboardV2Text>
-            <DashboardV2Heading as="h1">Patients</DashboardV2Heading>
+            <DashboardV2Heading as="h2">Patients</DashboardV2Heading>
             <DashboardV2Text tone="muted">
               Search the roster, focus the right review cohort, and open the correct patient workspace without leaving the V2 shell.
             </DashboardV2Text>
@@ -425,7 +425,7 @@ export function PatientsRoute(): JSX.Element {
             <strong>{visibleCount === totalPatients ? totalPatients : `${visibleCount}/${totalPatients}`}</strong>
           </div>
           <div className="v2-patients-route__fact">
-            <span>Closer review</span>
+            <span>Needs closer review</span>
             <strong>{viewModel.visibleSummary.needsReview}</strong>
           </div>
           <div className="v2-patients-route__fact">

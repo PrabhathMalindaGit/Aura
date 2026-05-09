@@ -141,6 +141,12 @@ describe("SettingsRouteFacade", () => {
     expect(screen.getByTestId("v2-settings-status-bar")).toHaveTextContent(
       "Workspace preferences",
     );
+    expect(
+      screen.getByRole("heading", { name: "Workspace preferences", level: 2 }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Workspace preferences", level: 1 }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-settings-profile-section")).toHaveTextContent(
       "Workspace profile",
     );

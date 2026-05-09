@@ -359,6 +359,8 @@ describe('AppointmentsRoute', () => {
     renderAppointmentsRoute();
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Appointments', level: 2 })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Appointments', level: 1 })).not.toBeInTheDocument();
     await screen.findByTestId('v2-appointment-request-row-request-1');
     const plannerWorkspace = await screen.findByTestId('v2-appointments-planner-workspace');
     expect(plannerWorkspace).toHaveTextContent('Planner');

@@ -392,6 +392,8 @@ describe('AlertsRoute', () => {
     renderAlertsRoute();
 
     expect(await screen.findByTestId('v2-alerts-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Alert governance', level: 2 }, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Alert governance', level: 1 })).not.toBeInTheDocument();
     expect(await screen.findByTestId('v2-alerts-queue-pane', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-alert-row-alert-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');

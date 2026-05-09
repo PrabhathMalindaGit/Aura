@@ -93,7 +93,7 @@ export function AlertsStatusBar({
     <DashboardV2Surface className="v2-alerts-status-bar" tone="elevated">
       <div className="v2-alerts-status-bar__copy">
         <DashboardV2Text tone="label">Governance-first review</DashboardV2Text>
-        <DashboardV2Heading as="h1">{statusBar.title}</DashboardV2Heading>
+        <DashboardV2Heading as="h2">{statusBar.title}</DashboardV2Heading>
         <DashboardV2Text tone="muted">{statusBar.guidanceLine}</DashboardV2Text>
       </div>
 

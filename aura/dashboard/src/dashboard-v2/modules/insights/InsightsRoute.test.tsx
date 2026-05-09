@@ -279,6 +279,8 @@ describe('InsightsRoute', () => {
     renderInsightsRoute();
 
     expect(await screen.findByTestId('v2-insights-route')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Follow-up insights', level: 2 })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Follow-up insights', level: 1 })).not.toBeInTheDocument();
     await screen.findByRole('button', { name: 'Pending (3)' });
     const workspace = await screen.findByTestId('v2-insights-review-workspace');
     expect(workspace).toHaveTextContent('Jordan Lee');

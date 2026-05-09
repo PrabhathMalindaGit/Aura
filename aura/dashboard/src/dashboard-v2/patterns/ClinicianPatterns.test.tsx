@@ -5,6 +5,9 @@ import { DashboardV2Badge } from '../primitives/Badge';
 import { DashboardV2Button } from '../primitives/Button';
 import { DashboardV2Disclosure } from '../primitives/Disclosure';
 import { DashboardV2ClinicianQuietState } from './ClinicianQuietState';
+import { DashboardV2ModuleFoundationScaffold } from './ModuleFoundationScaffold';
+import { ReviewSummaryStrip } from './ReviewSummaryStrip';
+import { DashboardV2StickyPatientSummaryHeader } from './StickyPatientSummaryHeader';
 
 describe('shared clinician patterns', () => {
   it('keeps action buttons visually distinct from status badges', () => {
@@ -47,6 +50,43 @@ describe('shared clinician patterns', () => {
     expect(screen.getByText('Quiet review lane')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'No guidance suggestions are waiting' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();
+  });
+
+  it('keeps shared route-internal pattern titles below the shell h1', () => {
+    render(
+      <div>
+        <ReviewSummaryStrip
+          kicker="Review"
+          title="Review strip title"
+          summary="Summary text"
+          metricLabel="Review metrics"
+          metrics={[
+            {
+              key: 'waiting',
+              label: 'Waiting',
+              value: '2',
+              meta: 'Items',
+              icon: Clock3,
+            },
+          ]}
+          actions={[]}
+        />
+        <DashboardV2StickyPatientSummaryHeader title="Sticky patient title" />
+        <DashboardV2ModuleFoundationScaffold
+          eyebrow="Foundation"
+          title="Foundation scaffold title"
+          description="Foundation description"
+          rail={<div>Rail</div>}
+        >
+          <div>Main content</div>
+        </DashboardV2ModuleFoundationScaffold>
+      </div>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Review strip title', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sticky patient title', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Foundation scaffold title', level: 2 })).toBeInTheDocument();
+    expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
   });
 
   it('keeps disclosures accessible and hides supporting explanation by default', () => {

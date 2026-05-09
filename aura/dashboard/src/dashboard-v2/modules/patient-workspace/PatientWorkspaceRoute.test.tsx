@@ -438,7 +438,8 @@ describe('PatientWorkspaceRoute', () => {
 
     expect(await screen.findByTestId('v2-patient-workspace-route')).toBeInTheDocument();
     expect(screen.getByTestId('v2-patient-overview-pane')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Taylor Moss' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Taylor Moss', level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Taylor Moss', level: 1 })).not.toBeInTheDocument();
     expect(screen.queryByTestId('v2-patient-governance-rail')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument();
     expect(screen.getByTestId('route-location')).toHaveTextContent('/patients/patient-1?days=30');

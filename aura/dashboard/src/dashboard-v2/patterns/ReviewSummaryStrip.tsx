@@ -47,7 +47,7 @@ export function ReviewSummaryStrip({
     <DashboardV2Surface className={cn('v2-review-summary-strip', className)} tone="elevated">
       <div className="v2-review-summary-strip__copy">
         <DashboardV2Text tone="label">{kicker}</DashboardV2Text>
-        <DashboardV2Heading as="h1">{title}</DashboardV2Heading>
+        <DashboardV2Heading as="h2">{title}</DashboardV2Heading>
         <DashboardV2Text tone="muted">{summary}</DashboardV2Text>
       </div>
 

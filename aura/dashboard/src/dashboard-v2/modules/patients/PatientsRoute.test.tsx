@@ -169,6 +169,10 @@ describe('PatientsRouteFacade', () => {
 
     expect(await screen.findByTestId('v2-patients-route')).toBeVisible();
     expect(screen.getByTestId('v2-patients-status-bar')).toHaveTextContent('Patients');
+    expect(screen.getByRole('heading', { name: 'Patients', level: 2 })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Patients', level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByText('Needs closer review')).toBeInTheDocument();
+    expect(screen.queryByText('Closer review')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Search patients')).toBeInTheDocument();
     expect(screen.getByText('Taylor Moss')).toBeInTheDocument();
   });

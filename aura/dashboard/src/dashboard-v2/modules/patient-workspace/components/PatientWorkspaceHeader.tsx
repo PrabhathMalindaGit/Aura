@@ -77,7 +77,7 @@ export function PatientWorkspaceHeader({
         <div className="v2-patient-header__identity-copy">
           <DashboardV2Text tone="label">Patient workspace</DashboardV2Text>
           <div className="v2-patient-header__name-row">
-            <DashboardV2Heading as="h1" className="v2-patient-header__name">
+            <DashboardV2Heading as="h2" className="v2-patient-header__name">
               {header.patientName}
             </DashboardV2Heading>
             <DashboardV2Badge tone={header.statusTone}>{header.statusLabel}</DashboardV2Badge>

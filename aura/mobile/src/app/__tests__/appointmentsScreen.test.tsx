@@ -583,7 +583,7 @@ describe("AppointmentsScreen voice appointment request", () => {
     });
   });
 
-  it.each(["yes", "okay", "maybe", "", "request"])(
+  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
     "does not request ambiguous voice confirmation %s",
     async (phrase) => {
       const renderer = await renderScreen();
@@ -597,7 +597,20 @@ describe("AppointmentsScreen voice appointment request", () => {
     },
   );
 
-  it.each(["cancel", "stop", "do not request", "dont request"])(
+  it.each([
+    "cancel",
+    "stop",
+    "do not submit",
+    "dont submit",
+    "do not send",
+    "dont send",
+    "do not request",
+    "dont request",
+    "do not log",
+    "dont log",
+    "never mind",
+    "go back",
+  ])(
     "clears voice request state for negative phrase %s",
     async (phrase) => {
       const renderer = await renderScreen();

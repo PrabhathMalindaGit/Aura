@@ -14,6 +14,7 @@ const {
   routerPush,
   secureStore,
   sendChat,
+  sendHydrationSync,
   setHydrationLogError,
   speechListeners,
   speechModule,
@@ -43,6 +44,7 @@ const {
     deleteItemAsync: vi.fn(),
   },
   sendChat: vi.fn(),
+  sendHydrationSync: vi.fn(async () => undefined),
   setHydrationLogError: vi.fn(async () => undefined),
   speechListeners: new Map<string, Array<(event?: unknown) => void>>(),
   speechModule: {
@@ -245,7 +247,7 @@ vi.mock("@/src/sync/model", () => ({
 }));
 
 vi.mock("@/src/sync/adapters/hydration", () => ({
-  sendHydrationSync: vi.fn(async () => undefined),
+  sendHydrationSync,
 }));
 
 vi.mock("@/src/api/patient", () => ({
@@ -411,6 +413,26 @@ function textContent(renderer: ReactTestRenderer): string {
     .join(" ");
 }
 
+type HydrationWriteConfig = {
+  send: (
+    token: string,
+    payload: {
+      amountMl: number;
+      date: string;
+      clientMutationId: string;
+    },
+  ) => Promise<unknown>;
+};
+
+function latestHydrationWriteConfig(): HydrationWriteConfig {
+  const calls = submitQueueableWrite.mock.calls as unknown as Array<[HydrationWriteConfig]>;
+  const latestCall = calls.at(-1);
+  if (!latestCall) {
+    throw new Error("Expected hydration submitQueueableWrite to be called.");
+  }
+  return latestCall[0];
+}
+
 async function renderScreen(): Promise<ReactTestRenderer> {
   let renderer: ReactTestRenderer | null = null;
   await act(async () => {
@@ -512,6 +534,17 @@ describe("HydrationScreen confirmed voice log", () => {
           }),
         }),
       );
+      const writeConfig = latestHydrationWriteConfig();
+      await writeConfig.send("token-hydration", {
+        amountMl: 500,
+        date: "2026-03-24",
+        clientMutationId: "hydration-client-mutation-1",
+      });
+      expect(sendHydrationSync).toHaveBeenCalledWith("token-hydration", {
+        amountMl: 500,
+        date: "2026-03-24",
+        clientMutationId: "hydration-client-mutation-1",
+      });
     },
   );
 
@@ -533,9 +566,20 @@ describe("HydrationScreen confirmed voice log", () => {
         }),
       }),
     );
+    const writeConfig = latestHydrationWriteConfig();
+    await writeConfig.send("token-hydration", {
+      amountMl: 750,
+      date: "2026-03-24",
+      clientMutationId: "hydration-client-mutation-1",
+    });
+    expect(sendHydrationSync).toHaveBeenCalledWith("token-hydration", {
+      amountMl: 750,
+      date: "2026-03-24",
+      clientMutationId: "hydration-client-mutation-1",
+    });
   });
 
-  it.each(["yes", "okay", "maybe", "", "log", "please log it"])(
+  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
     "does not log ambiguous confirmation %s",
     async (phrase) => {
       const renderer = await renderScreen();
@@ -548,7 +592,20 @@ describe("HydrationScreen confirmed voice log", () => {
     },
   );
 
-  it.each(["cancel", "stop", "do not log", "dont log"])(
+  it.each([
+    "cancel",
+    "stop",
+    "do not submit",
+    "dont submit",
+    "do not send",
+    "dont send",
+    "do not request",
+    "dont request",
+    "do not log",
+    "dont log",
+    "never mind",
+    "go back",
+  ])(
     "clears state and does not log for cancel phrase %s",
     async (phrase) => {
       const renderer = await renderScreen();

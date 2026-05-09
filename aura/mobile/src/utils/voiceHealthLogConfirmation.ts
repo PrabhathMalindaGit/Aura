@@ -25,8 +25,16 @@ export function parseVoiceHealthLogConfirmation(
   if (
     normalized === "cancel" ||
     normalized === "stop" ||
+    normalized === "do not submit" ||
+    normalized === "dont submit" ||
+    normalized === "do not send" ||
+    normalized === "dont send" ||
+    normalized === "do not request" ||
+    normalized === "dont request" ||
     normalized === "do not log" ||
-    normalized === "dont log"
+    normalized === "dont log" ||
+    normalized === "never mind" ||
+    normalized === "go back"
   ) {
     return "cancel";
   }

@@ -927,7 +927,7 @@ describe("chat truth fix", () => {
     },
   );
 
-  it.each(["yes", "okay", "maybe", ""])(
+  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
     "does not send ambiguous voice confirmation %s",
     async (phrase) => {
       const renderer = await renderScreen();
@@ -985,7 +985,20 @@ describe("chat truth fix", () => {
     expect(flattenText(root)).toContain("That was not a clear send confirmation. Nothing was sent.");
   });
 
-  it.each(["cancel", "stop", "do not send", "dont send"])(
+  it.each([
+    "cancel",
+    "stop",
+    "do not submit",
+    "dont submit",
+    "do not send",
+    "dont send",
+    "do not request",
+    "dont request",
+    "do not log",
+    "dont log",
+    "never mind",
+    "go back",
+  ])(
     "clears voice send state for negative phrase %s",
     async (phrase) => {
       const renderer = await renderScreen();

@@ -571,7 +571,7 @@ describe("MedicationsScreen confirmed voice medication status log", () => {
     );
   });
 
-  it.each(["yes", "okay", "maybe", "", "log", "please log it"])(
+  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
     "does not log ambiguous confirmation %s",
     async (phrase) => {
       const renderer = await renderScreen();
@@ -584,7 +584,20 @@ describe("MedicationsScreen confirmed voice medication status log", () => {
     },
   );
 
-  it.each(["cancel", "stop", "do not log", "dont log"])(
+  it.each([
+    "cancel",
+    "stop",
+    "do not submit",
+    "dont submit",
+    "do not send",
+    "dont send",
+    "do not request",
+    "dont request",
+    "do not log",
+    "dont log",
+    "never mind",
+    "go back",
+  ])(
     "clears state and does not log for cancel phrase %s",
     async (phrase) => {
       const renderer = await renderScreen();

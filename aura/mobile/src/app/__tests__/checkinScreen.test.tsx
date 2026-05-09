@@ -1340,7 +1340,7 @@ describe("Check-in screen validation", () => {
     },
   );
 
-  it.each(["yes", "okay", "maybe", ""])(
+  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
     "does not submit ambiguous voice confirmation %s",
     async (phrase) => {
       await act(async () => {
@@ -1356,7 +1356,20 @@ describe("Check-in screen validation", () => {
     },
   );
 
-  it.each(["cancel", "stop", "do not submit"])(
+  it.each([
+    "cancel",
+    "stop",
+    "do not submit",
+    "dont submit",
+    "do not send",
+    "dont send",
+    "do not request",
+    "dont request",
+    "do not log",
+    "dont log",
+    "never mind",
+    "go back",
+  ])(
     "clears voice submit state for negative phrase %s",
     async (phrase) => {
       await act(async () => {

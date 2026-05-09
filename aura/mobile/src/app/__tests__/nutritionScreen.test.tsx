@@ -15,6 +15,7 @@ const {
   routerPush,
   secureStore,
   sendChat,
+  sendNutritionSync,
   setNutritionLogError,
   speechListeners,
   speechModule,
@@ -48,6 +49,7 @@ const {
     deleteItemAsync: vi.fn(),
   },
   sendChat: vi.fn(),
+  sendNutritionSync: vi.fn(async () => undefined),
   setNutritionLogError: vi.fn(async () => undefined),
   speechListeners: new Map<string, Array<(event?: unknown) => void>>(),
   speechModule: {
@@ -250,7 +252,7 @@ vi.mock("@/src/sync/model", () => ({
 }));
 
 vi.mock("@/src/sync/adapters/nutrition", () => ({
-  sendNutritionSync: vi.fn(async () => undefined),
+  sendNutritionSync,
 }));
 
 vi.mock("@/src/api/patient", () => ({
@@ -564,6 +566,7 @@ describe("NutritionScreen confirmed voice log", () => {
       expect(submitQueueableWrite).toHaveBeenCalledWith(
         expect.objectContaining({
           domain: "nutrition",
+          send: sendNutritionSync,
           payload: expect.objectContaining({
             date: "2026-03-24",
             protein: "ok",
@@ -586,6 +589,7 @@ describe("NutritionScreen confirmed voice log", () => {
     expect(submitQueueableWrite).toHaveBeenCalledWith(
       expect.objectContaining({
         domain: "nutrition",
+        send: sendNutritionSync,
         payload: expect.objectContaining({
           date: "2026-03-24",
           clientMutationId: "nutrition-client-mutation-1",
@@ -594,7 +598,7 @@ describe("NutritionScreen confirmed voice log", () => {
     );
   });
 
-  it.each(["yes", "okay", "maybe", "", "log", "please log it"])(
+  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
     "does not log ambiguous confirmation %s",
     async (phrase) => {
       const renderer = await renderScreen();
@@ -607,7 +611,20 @@ describe("NutritionScreen confirmed voice log", () => {
     },
   );
 
-  it.each(["cancel", "stop", "do not log", "dont log"])(
+  it.each([
+    "cancel",
+    "stop",
+    "do not submit",
+    "dont submit",
+    "do not send",
+    "dont send",
+    "do not request",
+    "dont request",
+    "do not log",
+    "dont log",
+    "never mind",
+    "go back",
+  ])(
     "clears state and does not log for cancel phrase %s",
     async (phrase) => {
       const renderer = await renderScreen();

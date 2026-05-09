@@ -23,4 +23,23 @@ describe("parseVoiceHealthLogConfirmation", () => {
       expect(parseVoiceHealthLogConfirmation(transcript)).toBe("ambiguous");
     },
   );
+
+  it.each([
+    "mark medication missed",
+    "double my dose",
+    "change my medication schedule",
+    "create a new medication",
+    "edit medication name",
+    "should I take another pill",
+    "create an alert",
+    "call emergency",
+    "send chat",
+    "submit check in",
+    "book appointment",
+    "log hydration",
+    "log nutrition",
+    "upload photo",
+  ])("does not treat unsafe or unrelated phrase %s as confirmation", (transcript) => {
+    expect(parseVoiceHealthLogConfirmation(transcript)).toBe("ambiguous");
+  });
 });

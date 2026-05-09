@@ -1,5 +1,10 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import {
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionErrorEvent,
+  type ExpoSpeechRecognitionResultEvent,
+} from "expo-speech-recognition";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -27,6 +32,7 @@ import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard } from "@/src/components/MediaCard";
+import { ReadAloudButton } from "@/src/components/ReadAloudButton";
 import { Screen } from "@/src/components/Screen";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
@@ -50,11 +56,42 @@ import { useSyncPatientState } from "@/src/sync/store";
 import { useTokens } from "@/src/theme/tokens";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { stopReadAloud } from "@/src/utils/readAloud";
+import { parseVoiceHealthLogConfirmation } from "@/src/utils/voiceHealthLogConfirmation";
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
   title: string;
   message: string;
+};
+
+type MedicationDoseOutcome = {
+  status: "logged" | "queued" | "validationBlocked" | "failed" | "ignored";
+  message?: string;
+};
+
+type VoiceMedicationLogState =
+  | "draftReady"
+  | "needsDose"
+  | "needsStatus"
+  | "reviewLog"
+  | "awaitingVoiceConfirmation"
+  | "confirmedLog"
+  | "cancelled"
+  | "logging"
+  | "logged"
+  | "offlineBlocked"
+  | "validationBlocked"
+  | "expired";
+
+type VoiceMedicationSnapshot = {
+  medicationId: string;
+  name: string;
+  time: string;
+  timeLabel: string;
+  status: "taken" | "skipped";
+  note?: string;
+  signature: string;
 };
 
 function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
@@ -255,6 +292,20 @@ function formatTimeLabel(value: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function buildVoiceMedicationSignature(input: {
+  medicationId: string;
+  time: string;
+  status: "taken" | "skipped";
+  note?: string;
+}): string {
+  return [
+    input.medicationId,
+    input.time,
+    input.status,
+    input.note?.trim().slice(0, 280) ?? "",
+  ].join("::");
+}
+
 function formatTime(iso: string): string {
   const parsed = new Date(iso);
   if (!Number.isFinite(parsed.getTime())) {
@@ -321,6 +372,14 @@ export default function MedicationsScreen() {
   const [activeDoseKey, setActiveDoseKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [voiceMedicationState, setVoiceMedicationState] =
+    useState<VoiceMedicationLogState>("draftReady");
+  const [voiceMedicationMessage, setVoiceMedicationMessage] = useState<string | null>(null);
+  const [voiceMedicationSnapshot, setVoiceMedicationSnapshot] =
+    useState<VoiceMedicationSnapshot | null>(null);
+  const [isVoiceMedicationListening, setIsVoiceMedicationListening] = useState(false);
+  const voiceMedicationStateRef = useRef<VoiceMedicationLogState>("draftReady");
+  const voiceMedicationExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const todayChecklist = useMemo(
     () => applyPendingToToday(baseTodayChecklist, pendingLogs, today),
@@ -462,10 +521,39 @@ export default function MedicationsScreen() {
     }, [auth.status, loadToday])
   );
 
+  const clearVoiceMedicationExpiryTimer = useCallback(() => {
+    if (voiceMedicationExpiryTimerRef.current) {
+      clearTimeout(voiceMedicationExpiryTimerRef.current);
+      voiceMedicationExpiryTimerRef.current = null;
+    }
+  }, []);
+
+  const updateVoiceMedicationState = useCallback((nextState: VoiceMedicationLogState) => {
+    voiceMedicationStateRef.current = nextState;
+    setVoiceMedicationState(nextState);
+  }, []);
+
+  const startVoiceMedicationExpiryTimer = useCallback(() => {
+    clearVoiceMedicationExpiryTimer();
+    voiceMedicationExpiryTimerRef.current = setTimeout(() => {
+      setVoiceMedicationSnapshot(null);
+      setIsVoiceMedicationListening(false);
+      setVoiceMedicationMessage("Medication voice log review expired. Review again before logging.");
+      updateVoiceMedicationState("expired");
+    }, 30_000);
+  }, [clearVoiceMedicationExpiryTimer, updateVoiceMedicationState]);
+
+  useEffect(
+    () => () => {
+      clearVoiceMedicationExpiryTimer();
+    },
+    [clearVoiceMedicationExpiryTimer],
+  );
+
   const handleDoseAction = useCallback(
-    async (payload: MedicationLogPayload) => {
+    async (payload: MedicationLogPayload): Promise<MedicationDoseOutcome> => {
       if (!auth.token || !patientId) {
-        return;
+        return { status: "ignored" };
       }
 
       const doseKey = `${payload.medicationId}:${payload.time}`;
@@ -508,6 +596,7 @@ export default function MedicationsScreen() {
             message: "Dose update synced.",
           });
           setNoteDraft("");
+          return { status: "logged", message: "Dose update synced." };
         } else {
           const lastError = result.normalizedError;
           const title =
@@ -529,7 +618,25 @@ export default function MedicationsScreen() {
             title,
             message,
           });
+          return { status: "queued", message };
         }
+      } catch (error) {
+        const friendly = toFriendlyMedicationError(error, "Couldn’t save medication log");
+        await medicationLogError.setLocalError({
+          title: friendly.title,
+          message: friendly.message,
+          kind: friendly.kind,
+          retryable: friendly.retryable,
+        });
+        setNotice({
+          variant: "error",
+          title: friendly.title,
+          message: friendly.message,
+        });
+        return {
+          status: friendly.kind === "validation" ? "validationBlocked" : "failed",
+          message: friendly.message,
+        };
       } finally {
         setActiveDoseKey(null);
       }
@@ -545,6 +652,311 @@ export default function MedicationsScreen() {
       today,
     ]
   );
+
+  const currentVoiceMedicationSignature = voiceMedicationSnapshot
+    ? buildVoiceMedicationSignature({
+        medicationId: voiceMedicationSnapshot.medicationId,
+        time: voiceMedicationSnapshot.time,
+        status: voiceMedicationSnapshot.status,
+        note: noteDraft,
+      })
+    : "";
+  const voiceMedicationSummaryText = voiceMedicationSnapshot
+    ? `Medication log: Mark ${voiceMedicationSnapshot.name} scheduled at ${voiceMedicationSnapshot.timeLabel} today as ${voiceMedicationSnapshot.status}.`
+    : "No medication voice log is ready.";
+  const canUseCurrentVoiceMedicationReview =
+    voiceMedicationSnapshot !== null
+      ? voiceMedicationSnapshot.signature === currentVoiceMedicationSignature &&
+        (voiceMedicationState === "reviewLog" ||
+          voiceMedicationState === "awaitingVoiceConfirmation" ||
+          voiceMedicationState === "confirmedLog")
+      : false;
+
+  const handlePrepareVoiceMedicationReview = useCallback(
+    (input: {
+      medicationId: string;
+      name: string;
+      time: string;
+      timeLabel: string;
+      status: "taken" | "skipped";
+    }) => {
+      if (!input.medicationId || !input.time) {
+        clearVoiceMedicationExpiryTimer();
+        setVoiceMedicationSnapshot(null);
+        setIsVoiceMedicationListening(false);
+        setVoiceMedicationMessage("Choose a scheduled dose before voice logging.");
+        updateVoiceMedicationState("needsDose");
+        return;
+      }
+
+      if (input.status !== "taken" && input.status !== "skipped") {
+        clearVoiceMedicationExpiryTimer();
+        setVoiceMedicationSnapshot(null);
+        setIsVoiceMedicationListening(false);
+        setVoiceMedicationMessage("Choose taken or skipped before voice logging.");
+        updateVoiceMedicationState("needsStatus");
+        return;
+      }
+
+      const note = noteDraft.trim().slice(0, 280);
+      const nextSignature = buildVoiceMedicationSignature({
+        medicationId: input.medicationId,
+        time: input.time,
+        status: input.status,
+        note,
+      });
+      const previousSnapshot = voiceMedicationSnapshot;
+
+      setVoiceMedicationSnapshot({
+        ...input,
+        note: note ? note : undefined,
+        signature: nextSignature,
+      });
+      setVoiceMedicationMessage(
+        previousSnapshot &&
+          (previousSnapshot.medicationId !== input.medicationId ||
+            previousSnapshot.time !== input.time ||
+            previousSnapshot.status !== input.status)
+          ? "Medication selection changed. Review this new summary, then say yes log or press Confirm log."
+          : "Review this medication log, then say yes log or press Confirm log.",
+      );
+      updateVoiceMedicationState("reviewLog");
+      startVoiceMedicationExpiryTimer();
+    },
+    [
+      clearVoiceMedicationExpiryTimer,
+      noteDraft,
+      startVoiceMedicationExpiryTimer,
+      updateVoiceMedicationState,
+      voiceMedicationSnapshot,
+    ],
+  );
+
+  const handleCancelVoiceMedicationLog = useCallback(
+    (message = "Medication voice log cancelled.") => {
+      clearVoiceMedicationExpiryTimer();
+      setVoiceMedicationSnapshot(null);
+      setIsVoiceMedicationListening(false);
+      setVoiceMedicationMessage(message);
+      updateVoiceMedicationState("cancelled");
+      if (isVoiceMedicationListening) {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    },
+    [
+      clearVoiceMedicationExpiryTimer,
+      isVoiceMedicationListening,
+      updateVoiceMedicationState,
+    ],
+  );
+
+  const submitReviewedVoiceMedicationLog = useCallback(async () => {
+    if (!voiceMedicationSnapshot) {
+      setVoiceMedicationMessage("Choose a scheduled dose and status before voice logging.");
+      updateVoiceMedicationState("needsDose");
+      return;
+    }
+
+    if (!canUseCurrentVoiceMedicationReview) {
+      setVoiceMedicationMessage("Medication selection changed. Review again before voice logging.");
+      updateVoiceMedicationState("draftReady");
+      return;
+    }
+
+    updateVoiceMedicationState("confirmedLog");
+    setVoiceMedicationMessage("Medication voice log confirmed.");
+    clearVoiceMedicationExpiryTimer();
+    setIsVoiceMedicationListening(false);
+    updateVoiceMedicationState("logging");
+    setVoiceMedicationMessage("Logging this reviewed medication status.");
+
+    const outcome = await handleDoseAction({
+      medicationId: voiceMedicationSnapshot.medicationId,
+      date: today,
+      time: voiceMedicationSnapshot.time,
+      status: voiceMedicationSnapshot.status,
+    });
+
+    if (outcome.status === "logged") {
+      setVoiceMedicationSnapshot(null);
+      setVoiceMedicationMessage(outcome.message ?? "Medication status logged.");
+      updateVoiceMedicationState("logged");
+      return;
+    }
+
+    if (outcome.status === "queued") {
+      setVoiceMedicationSnapshot(null);
+      setVoiceMedicationMessage(outcome.message ?? "Saved on this device.");
+      updateVoiceMedicationState(isOffline ? "offlineBlocked" : "logged");
+      return;
+    }
+
+    if (outcome.status === "validationBlocked") {
+      setVoiceMedicationMessage(outcome.message ?? "Invalid medication log.");
+      updateVoiceMedicationState("validationBlocked");
+      return;
+    }
+
+    setVoiceMedicationMessage(outcome.message ?? "Medication log could not be saved.");
+    updateVoiceMedicationState("reviewLog");
+  }, [
+    canUseCurrentVoiceMedicationReview,
+    clearVoiceMedicationExpiryTimer,
+    handleDoseAction,
+    isOffline,
+    today,
+    updateVoiceMedicationState,
+    voiceMedicationSnapshot,
+  ]);
+
+  const handleVoiceMedicationTranscript = useCallback(
+    (transcript: string) => {
+      setIsVoiceMedicationListening(false);
+      if (voiceMedicationStateRef.current !== "awaitingVoiceConfirmation") {
+        return;
+      }
+
+      if (
+        !voiceMedicationSnapshot ||
+        voiceMedicationSnapshot.signature !== currentVoiceMedicationSignature
+      ) {
+        clearVoiceMedicationExpiryTimer();
+        setVoiceMedicationSnapshot(null);
+        setVoiceMedicationMessage("Medication selection changed. Review again before voice logging.");
+        updateVoiceMedicationState("draftReady");
+        return;
+      }
+
+      const result = parseVoiceHealthLogConfirmation(transcript);
+      if (result === "confirm") {
+        void submitReviewedVoiceMedicationLog();
+        return;
+      }
+
+      if (result === "cancel") {
+        handleCancelVoiceMedicationLog();
+        return;
+      }
+
+      setVoiceMedicationMessage(
+        "That was not a clear log confirmation. Say yes log, confirm log, or log this.",
+      );
+      updateVoiceMedicationState("awaitingVoiceConfirmation");
+    },
+    [
+      clearVoiceMedicationExpiryTimer,
+      currentVoiceMedicationSignature,
+      handleCancelVoiceMedicationLog,
+      submitReviewedVoiceMedicationLog,
+      updateVoiceMedicationState,
+      voiceMedicationSnapshot,
+    ],
+  );
+
+  const handleListenForVoiceMedicationConfirmation = useCallback(async () => {
+    if (!canUseCurrentVoiceMedicationReview) {
+      setVoiceMedicationMessage(
+        voiceMedicationStateRef.current === "expired"
+          ? "Medication voice log review expired. Review again before logging."
+          : "Review again before voice logging.",
+      );
+      updateVoiceMedicationState("expired");
+      return;
+    }
+
+    updateVoiceMedicationState("awaitingVoiceConfirmation");
+    setVoiceMedicationMessage("Listening for yes log, confirm log, or log this.");
+    setIsVoiceMedicationListening(true);
+
+    await stopReadAloud();
+
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setIsVoiceMedicationListening(false);
+      setVoiceMedicationMessage("Voice confirmation is not available on this device. Use Confirm log or manual dose buttons.");
+      return;
+    }
+
+    if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+      setIsVoiceMedicationListening(false);
+      setVoiceMedicationMessage("On-device voice confirmation is not available on this device. Use Confirm log or manual dose buttons.");
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setIsVoiceMedicationListening(false);
+      setVoiceMedicationMessage("Microphone permission was denied. Use Confirm log or manual dose buttons.");
+      return;
+    }
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        continuous: false,
+        interimResults: true,
+        maxAlternatives: 1,
+        requiresOnDeviceRecognition: true,
+        recordingOptions: {
+          persist: false,
+        },
+      });
+    } catch {
+      setIsVoiceMedicationListening(false);
+      setVoiceMedicationMessage("Voice confirmation could not start. Nothing was logged.");
+      updateVoiceMedicationState("reviewLog");
+    }
+  }, [canUseCurrentVoiceMedicationReview, updateVoiceMedicationState]);
+
+  useEffect(() => {
+    const startListener = ExpoSpeechRecognitionModule.addListener("start", () => {
+      if (voiceMedicationStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceMedicationListening(true);
+      }
+    });
+    const endListener = ExpoSpeechRecognitionModule.addListener("end", () => {
+      setIsVoiceMedicationListening(false);
+    });
+    const resultListener = ExpoSpeechRecognitionModule.addListener(
+      "result",
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        if (!event.isFinal || voiceMedicationStateRef.current !== "awaitingVoiceConfirmation") {
+          return;
+        }
+
+        const transcript = event.results
+          .map((result) => result.transcript.trim())
+          .find((candidate) => candidate.length > 0);
+
+        handleVoiceMedicationTranscript(transcript ?? "");
+      },
+    );
+    const errorListener = ExpoSpeechRecognitionModule.addListener(
+      "error",
+      (_event: ExpoSpeechRecognitionErrorEvent) => {
+        if (voiceMedicationStateRef.current === "awaitingVoiceConfirmation") {
+          setIsVoiceMedicationListening(false);
+          setVoiceMedicationMessage("That was not a clear log confirmation. Nothing was logged.");
+        }
+      },
+    );
+    const nomatchListener = ExpoSpeechRecognitionModule.addListener("nomatch", () => {
+      if (voiceMedicationStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceMedicationListening(false);
+        setVoiceMedicationMessage("That was not a clear log confirmation. Nothing was logged.");
+      }
+    });
+
+    return () => {
+      startListener.remove();
+      endListener.remove();
+      resultListener.remove();
+      errorListener.remove();
+      nomatchListener.remove();
+      if (voiceMedicationStateRef.current === "awaitingVoiceConfirmation") {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    };
+  }, [handleVoiceMedicationTranscript]);
 
   const syncPending = useCallback(async () => {
     if (!auth.token || !patientId || isOffline || isSyncing) {
@@ -623,6 +1035,17 @@ export default function MedicationsScreen() {
 
   const listHeader = useMemo(() => {
     const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+    const canReviewVoiceMedicationLog = canUseCurrentVoiceMedicationReview;
+    const canListenForVoiceMedicationLog =
+      canReviewVoiceMedicationLog && voiceMedicationState !== "confirmedLog";
+    const voiceMedicationStatusRole =
+      voiceMedicationState === "needsDose" ||
+      voiceMedicationState === "needsStatus" ||
+      voiceMedicationState === "offlineBlocked" ||
+      voiceMedicationState === "validationBlocked" ||
+      voiceMedicationState === "expired"
+        ? "alert"
+        : "text";
 
     return (
       <View style={styles.listHeader}>
@@ -798,6 +1221,114 @@ export default function MedicationsScreen() {
           </View>
         </Card>
 
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.voiceLogPanel}>
+            <View style={styles.voiceLogHeader}>
+              <View style={styles.voiceLogHeaderText}>
+                <Text accessibilityRole="header" style={styles.noteTitle}>
+                  Voice medication review
+                </Text>
+                <Text style={styles.noteHelper}>
+                  Choose Review mark taken or Review mark skipped on a scheduled dose, review the exact log, then confirm before anything is saved.
+                </Text>
+              </View>
+              <ReadAloudButton
+                text={voiceMedicationSummaryText}
+                label="Read medication voice log summary"
+                sourceId="medication-voice-log-summary"
+                testID="medication-voice-log-read-summary"
+              />
+            </View>
+
+            {voiceMedicationSnapshot ? (
+              <View
+                accessible
+                accessibilityRole="summary"
+                accessibilityLabel={`Medication voice log summary. ${voiceMedicationSummaryText}`}
+                style={styles.voiceSummaryBox}
+              >
+                <Text selectable style={styles.voiceSummaryText}>
+                  {voiceMedicationSummaryText}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.voiceSafetyCopy}>
+              This only records medication status. It does not change your medication plan, dose, or schedule.
+            </Text>
+
+            <View
+              accessible
+              accessibilityRole={voiceMedicationStatusRole}
+              accessibilityLiveRegion="polite"
+              accessibilityLabel="Medication voice log status"
+              accessibilityHint={`State: ${voiceMedicationState}. ${voiceMedicationMessage ?? "Choose a scheduled dose and status before voice logging."}`}
+              style={[
+                styles.voiceStatusBox,
+                voiceMedicationStatusRole === "alert" ? styles.voiceStatusWarning : null,
+              ]}
+            >
+              <Text style={styles.voiceStatusLabel}>Medication voice log status</Text>
+              <Text style={styles.noteHelper}>
+                {voiceMedicationMessage ?? "Choose a scheduled dose and status before voice logging."}
+              </Text>
+            </View>
+
+            <View style={styles.voiceActionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Listen for medication log confirmation"
+                accessibilityHint="Listens once for yes log, confirm log, or log this."
+                accessibilityState={{ disabled: !canListenForVoiceMedicationLog, busy: isVoiceMedicationListening }}
+                disabled={!canListenForVoiceMedicationLog}
+                onPress={() => {
+                  void handleListenForVoiceMedicationConfirmation();
+                }}
+                style={({ pressed }) => [
+                  styles.actionButtonSecondary,
+                  !canListenForVoiceMedicationLog ? styles.actionButtonDisabled : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.actionButtonSecondaryText}>
+                  {isVoiceMedicationListening ? "Listening..." : "Listen for log confirmation"}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Confirm medication voice log"
+                accessibilityHint="Logs the reviewed medication status through the same normal medication path."
+                accessibilityState={{ disabled: !canReviewVoiceMedicationLog, busy: voiceMedicationState === "logging" }}
+                disabled={!canReviewVoiceMedicationLog}
+                onPress={() => {
+                  void submitReviewedVoiceMedicationLog();
+                }}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  !canReviewVoiceMedicationLog ? styles.actionButtonDisabled : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.actionButtonText}>
+                  {voiceMedicationState === "logging" ? "Logging..." : "Confirm log"}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel medication voice log"
+                accessibilityHint="Clears the current medication voice log review without logging."
+                onPress={() => handleCancelVoiceMedicationLog()}
+                style={({ pressed }) => [
+                  styles.actionButtonSecondary,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.actionButtonSecondaryText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Card>
+
         <View style={styles.sectionIntro}>
           <Text style={styles.sectionTitle}>Today’s checklist</Text>
           <Text style={styles.sectionHelper}>
@@ -810,8 +1341,12 @@ export default function MedicationsScreen() {
   }, [
     dueCount,
     doseProgress,
+    canUseCurrentVoiceMedicationReview,
+    handleCancelVoiceMedicationLog,
+    handleListenForVoiceMedicationConfirmation,
     isOffline,
     isSyncing,
+    isVoiceMedicationListening,
     medicationsStatusLabel,
     medicationsStatusTone,
     medicationsStoryNote,
@@ -856,12 +1391,27 @@ export default function MedicationsScreen() {
     styles.storyTitle,
     styles.trackerGrid,
     styles.trackerTileWrap,
+    styles.voiceActionRow,
+    styles.voiceLogHeader,
+    styles.voiceLogHeaderText,
+    styles.voiceLogPanel,
+    styles.voiceSafetyCopy,
+    styles.voiceStatusBox,
+    styles.voiceStatusLabel,
+    styles.voiceStatusWarning,
+    styles.voiceSummaryBox,
+    styles.voiceSummaryText,
+    submitReviewedVoiceMedicationLog,
     syncPending,
     takenCount,
     today,
     tokens.colors.textMuted,
     tokens.spacing.md,
     totalDoses,
+    voiceMedicationMessage,
+    voiceMedicationSnapshot,
+    voiceMedicationState,
+    voiceMedicationSummaryText,
   ]);
 
   if (auth.status === "loading") {
@@ -1037,6 +1587,50 @@ export default function MedicationsScreen() {
                               ]}
                             >
                               <Text style={styles.actionButtonSecondaryText}>Mark skipped</Text>
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Review mark ${item.name} dose at ${formatTimeLabel(dose.time)} as taken`}
+                              accessibilityHint="Shows the exact medication status summary before any voice log can happen."
+                              disabled={isBusy}
+                              onPress={() => {
+                                handlePrepareVoiceMedicationReview({
+                                  medicationId: item.medicationId,
+                                  name: item.name,
+                                  time: dose.time,
+                                  timeLabel: formatTimeLabel(dose.time),
+                                  status: "taken",
+                                });
+                              }}
+                              style={({ pressed }) => [
+                                styles.actionButtonSecondary,
+                                isBusy ? styles.actionButtonDisabled : null,
+                                pressed ? styles.pressed : null,
+                              ]}
+                            >
+                              <Text style={styles.actionButtonSecondaryText}>Review taken</Text>
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Review mark ${item.name} dose at ${formatTimeLabel(dose.time)} as skipped`}
+                              accessibilityHint="Shows the exact medication status summary before any voice log can happen."
+                              disabled={isBusy}
+                              onPress={() => {
+                                handlePrepareVoiceMedicationReview({
+                                  medicationId: item.medicationId,
+                                  name: item.name,
+                                  time: dose.time,
+                                  timeLabel: formatTimeLabel(dose.time),
+                                  status: "skipped",
+                                });
+                              }}
+                              style={({ pressed }) => [
+                                styles.actionButtonSecondary,
+                                isBusy ? styles.actionButtonDisabled : null,
+                                pressed ? styles.pressed : null,
+                              ]}
+                            >
+                              <Text style={styles.actionButtonSecondaryText}>Review skipped</Text>
                             </Pressable>
                           </View>
                         </View>
@@ -1214,6 +1808,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     actionRow: {
       flexDirection: "row",
+      flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
     actionButton: {
@@ -1250,6 +1845,61 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceLogPanel: {
+      gap: tokens.spacing.sm,
+    },
+    voiceLogHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    voiceLogHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    voiceSummaryBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+    },
+    voiceSummaryText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    voiceSafetyCopy: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    voiceStatusBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surface,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    voiceStatusWarning: {
+      backgroundColor: tokens.colors.warningSoft,
+    },
+    voiceStatusLabel: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
     },
     diagToggle: {
       flexDirection: "row",

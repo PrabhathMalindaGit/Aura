@@ -1,6 +1,6 @@
 import React from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type CachedChatWrite = {
   confirmedMessages: Array<Record<string, unknown>>;
@@ -11,6 +11,9 @@ type CachedChatWrite = {
   } | null;
   cachedAt?: string;
 };
+
+type SpeechEventName = "start" | "end" | "result" | "error" | "nomatch";
+type SpeechListener = (event?: any) => void;
 
 const {
   routerPush,
@@ -33,29 +36,66 @@ const {
   canPatientUseMessages,
   getCareModeNotice,
   voiceTranscript,
-} = vi.hoisted(() => ({
-  routerPush: vi.fn(),
-  routerReplace: vi.fn(),
-  routerSetParams: vi.fn(),
-  sendChat: vi.fn(),
-  chatHistory: vi.fn(),
-  listPatientTasks: vi.fn(),
-  getCachedChat: vi.fn(),
-  setCachedChat: vi.fn<(patientId: string, record: CachedChatWrite) => Promise<void>>(
-    async () => undefined
-  ),
-  getCachedTasks: vi.fn(async (): Promise<any> => null),
-  setCachedTasks: vi.fn(async () => undefined),
-  refreshChat: vi.fn(async () => undefined),
-  refreshTasks: vi.fn(async () => undefined),
-  networkState: { offline: false },
-  chatLoadSetError: vi.fn(async () => undefined),
-  chatLoadClear: vi.fn(async () => undefined),
-  chatSendSetError: vi.fn(async () => undefined),
-  chatSendClear: vi.fn(async () => undefined),
-  canPatientUseMessages: vi.fn(() => true),
-  getCareModeNotice: vi.fn((): any => null),
-  voiceTranscript: { current: "dictated update" },
+  speechListeners,
+  speechModule,
+  stopReadAloud,
+} = vi.hoisted(() => {
+  const listeners: Partial<Record<SpeechEventName, SpeechListener[]>> = {};
+
+  return {
+    routerPush: vi.fn(),
+    routerReplace: vi.fn(),
+    routerSetParams: vi.fn(),
+    sendChat: vi.fn(),
+    chatHistory: vi.fn(),
+    listPatientTasks: vi.fn(),
+    getCachedChat: vi.fn(),
+    setCachedChat: vi.fn<(patientId: string, record: CachedChatWrite) => Promise<void>>(
+      async () => undefined
+    ),
+    getCachedTasks: vi.fn(async (): Promise<any> => null),
+    setCachedTasks: vi.fn(async () => undefined),
+    refreshChat: vi.fn(async () => undefined),
+    refreshTasks: vi.fn(async () => undefined),
+    networkState: { offline: false },
+    chatLoadSetError: vi.fn(async () => undefined),
+    chatLoadClear: vi.fn(async () => undefined),
+    chatSendSetError: vi.fn(async () => undefined),
+    chatSendClear: vi.fn(async () => undefined),
+    canPatientUseMessages: vi.fn(() => true),
+    getCareModeNotice: vi.fn((): any => null),
+    voiceTranscript: { current: "dictated update" },
+    stopReadAloud: vi.fn(async () => undefined),
+    speechListeners: listeners,
+    speechModule: {
+      addListener: vi.fn((eventName: SpeechEventName, listener: SpeechListener) => {
+        const currentListeners = listeners[eventName] ?? [];
+        listeners[eventName] = [...currentListeners, listener];
+        return {
+          remove: vi.fn(() => {
+            listeners[eventName] = (listeners[eventName] ?? []).filter(
+              (candidate) => candidate !== listener,
+            );
+          }),
+        };
+      }),
+      abort: vi.fn(),
+      isRecognitionAvailable: vi.fn(() => true),
+      requestPermissionsAsync: vi.fn(async () => ({
+        granted: true,
+        status: "granted",
+        canAskAgain: true,
+        expires: "never",
+      })),
+      start: vi.fn(),
+      stop: vi.fn(),
+      supportsOnDeviceRecognition: vi.fn(() => true),
+    },
+  };
+});
+
+vi.mock("expo-speech-recognition", () => ({
+  ExpoSpeechRecognitionModule: speechModule,
 }));
 
 vi.mock("expo-router", () => ({
@@ -255,6 +295,10 @@ vi.mock("@/src/state/recoverySupport", () => ({
   getCareModeNotice,
 }));
 
+vi.mock("@/src/utils/readAloud", () => ({
+  stopReadAloud,
+}));
+
 vi.mock("@/src/components/Avatar", () => ({
   Avatar: (props: Record<string, unknown>) => React.createElement("mock-avatar", props),
 }));
@@ -440,6 +484,30 @@ async function flush(): Promise<void> {
   await Promise.resolve();
 }
 
+function emitSpeech(eventName: string, event?: any): void {
+  for (const listener of [...(speechListeners[eventName as SpeechEventName] ?? [])]) {
+    listener(event);
+  }
+}
+
+async function reviewForVoiceSend(root: ReactTestInstance): Promise<void> {
+  await act(async () => {
+    findByA11y(root, "Review for voice send").props.onPress();
+    await flush();
+  });
+}
+
+async function listenAndEmitVoiceSend(root: ReactTestInstance, transcript: string): Promise<void> {
+  await act(async () => {
+    await findByA11y(root, "Listen for voice send confirmation").props.onPress();
+    emitSpeech("result", {
+      isFinal: true,
+      results: [{ transcript }],
+    });
+    await flush();
+  });
+}
+
 async function renderScreen(): Promise<ReactTestRenderer> {
   const renderer = create(<ChatScreen />);
   await act(async () => {
@@ -471,6 +539,7 @@ function getLocalAttemptCard(root: ReactTestInstance): ReactTestInstance | null 
 
 describe("chat truth fix", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     routerPush.mockReset();
     routerReplace.mockReset();
     routerSetParams.mockReset();
@@ -493,11 +562,34 @@ describe("chat truth fix", () => {
     getCareModeNotice.mockReset();
     getCareModeNotice.mockReturnValue(null);
     voiceTranscript.current = "dictated update";
+    for (const eventName of Object.keys(speechListeners) as SpeechEventName[]) {
+      delete speechListeners[eventName];
+    }
+    speechModule.addListener.mockClear();
+    speechModule.abort.mockReset();
+    speechModule.isRecognitionAvailable.mockReset();
+    speechModule.isRecognitionAvailable.mockReturnValue(true);
+    speechModule.supportsOnDeviceRecognition.mockReset();
+    speechModule.supportsOnDeviceRecognition.mockReturnValue(true);
+    speechModule.requestPermissionsAsync.mockReset();
+    speechModule.requestPermissionsAsync.mockResolvedValue({
+      granted: true,
+      status: "granted",
+      canAskAgain: true,
+      expires: "never",
+    });
+    speechModule.start.mockReset();
+    speechModule.stop.mockReset();
+    stopReadAloud.mockReset();
 
     chatHistory.mockResolvedValue([]);
     listPatientTasks.mockResolvedValue([]);
     getCachedChat.mockResolvedValue(null);
     getCachedTasks.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("persists only confirmed history after low-risk success", async () => {
@@ -664,17 +756,19 @@ describe("chat truth fix", () => {
 
     const renderer = await renderScreen();
     const root = renderer.root;
-    const readAloudButtons = root.findAll(
-      (node) => String(node.type) === "mock-read-aloud-button",
+    const assistantReadAloudButtons = root.findAll(
+      (node) =>
+        String(node.type) === "mock-read-aloud-button" &&
+        node.props.text === "Pause and try the next exercise slowly.",
     );
 
-    expect(readAloudButtons).toHaveLength(1);
-    expect(readAloudButtons[0].props.text).toBe(
+    expect(assistantReadAloudButtons).toHaveLength(1);
+    expect(assistantReadAloudButtons[0].props.text).toBe(
       "Pause and try the next exercise slowly.",
     );
 
     await act(async () => {
-      readAloudButtons[0].props.onPress();
+      assistantReadAloudButtons[0].props.onPress();
       await flush();
     });
 
@@ -756,6 +850,333 @@ describe("chat truth fix", () => {
         retryable: true,
       }),
     );
+  });
+
+  it("blocks voice send review for empty or whitespace-only messages", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await reviewForVoiceSend(root);
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(flattenText(root)).toContain("Voice send needs a message.");
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("    ");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(flattenText(root)).toContain("Voice send needs a message.");
+  });
+
+  it("shows the exact trimmed draft in voice send review before any send can happen", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("  Pain is better today  ");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    const text = flattenText(root);
+    expect(text).toContain("Voice send review");
+    expect(text).toContain("Pain is better today");
+    expect(text).toContain(
+      "I’ll send this exact message after you say ‘yes send.’ High-risk content still goes through Aura’s normal safety review. Aura does not call emergency services.",
+    );
+    expect(findByA11y(root, "Read voice message summary")).toBeTruthy();
+    expect(sendChat).not.toHaveBeenCalled();
+  });
+
+  it.each(["yes send", "confirm send", "send message"])(
+    "sends through the existing chat path after explicit voice confirmation %s",
+    async (phrase) => {
+      sendChat.mockResolvedValue({
+        ok: true,
+        risk: { level: "low", reasonCodes: [] },
+        messages: {
+          user: {
+            id: `user-${phrase.replace(/\s+/g, "-")}`,
+            role: "user",
+            text: "Pain is better today",
+            createdAt: "2026-03-24T12:20:00.000Z",
+          },
+          assistant: {
+            id: `assistant-${phrase.replace(/\s+/g, "-")}`,
+            role: "assistant",
+            text: "Thanks for sharing.",
+            createdAt: "2026-03-24T12:20:01.000Z",
+          },
+        },
+      });
+
+      const renderer = await renderScreen();
+      const root = renderer.root;
+
+      await act(async () => {
+        findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+        await flush();
+      });
+      await reviewForVoiceSend(root);
+      await listenAndEmitVoiceSend(root, phrase);
+
+      expect(sendChat).toHaveBeenCalledWith("token-1", "Pain is better today");
+      expect(flattenText(root)).toContain("Thanks for sharing.");
+    },
+  );
+
+  it.each(["yes", "okay", "maybe", ""])(
+    "does not send ambiguous voice confirmation %s",
+    async (phrase) => {
+      const renderer = await renderScreen();
+      const root = renderer.root;
+
+      await act(async () => {
+        findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+        await flush();
+      });
+      await reviewForVoiceSend(root);
+      await listenAndEmitVoiceSend(root, phrase);
+
+      expect(sendChat).not.toHaveBeenCalled();
+      expect(flattenText(root)).toContain("That was not a clear send confirmation.");
+    },
+  );
+
+  it("does not send on voice confirmation parser errors", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    await act(async () => {
+      await findByA11y(root, "Listen for voice send confirmation").props.onPress();
+      emitSpeech("nomatch");
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(flattenText(root)).toContain("That was not a clear send confirmation. Nothing was sent.");
+  });
+
+  it("does not send on voice recognition error", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    await act(async () => {
+      await findByA11y(root, "Listen for voice send confirmation").props.onPress();
+      emitSpeech("error", { error: "network" });
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(flattenText(root)).toContain("That was not a clear send confirmation. Nothing was sent.");
+  });
+
+  it.each(["cancel", "stop", "do not send", "dont send"])(
+    "clears voice send state for negative phrase %s",
+    async (phrase) => {
+      const renderer = await renderScreen();
+      const root = renderer.root;
+
+      await act(async () => {
+        findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+        await flush();
+      });
+      await reviewForVoiceSend(root);
+      await listenAndEmitVoiceSend(root, phrase);
+
+      expect(sendChat).not.toHaveBeenCalled();
+      expect(flattenText(root)).toContain("Voice send cancelled.");
+      expect(findByA11y(root, "Confirm voice chat send").props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+    },
+  );
+
+  it("clears voice send state when Cancel is pressed", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    await act(async () => {
+      findByA11y(root, "Cancel voice send").props.onPress();
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(flattenText(root)).toContain("Voice send cancelled.");
+  });
+
+  it("prevents voice send after confirmation expiry", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    await act(async () => {
+      vi.advanceTimersByTime(31_000);
+      await flush();
+    });
+    await listenAndEmitVoiceSend(root, "yes send");
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(flattenText(root)).toContain("Voice send review expired.");
+  });
+
+  it("invalidates voice send review when the draft changes", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today ");
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(flattenText(root)).toContain("Message changed. Review again before voice send.");
+    expect(findByA11y(root, "Confirm voice chat send").props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+  });
+
+  it("routes high-risk voice-confirmed sends exactly like manual send", async () => {
+    sendChat.mockResolvedValue({
+      ok: true,
+      risk: { level: "high", reasonCodes: ["CRISIS_LANGUAGE"] },
+      alertId: "alert-voice-confirmed",
+      messages: {
+        user: {
+          id: "user-voice-confirmed",
+          role: "user",
+          text: "I feel unsafe",
+          createdAt: "2026-03-24T12:25:00.000Z",
+        },
+      },
+    });
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("I feel unsafe");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+    await listenAndEmitVoiceSend(root, "yes send");
+
+    expect(sendChat).toHaveBeenCalledWith("token-1", "I feel unsafe");
+    expect(routerPush).toHaveBeenCalledWith({
+      pathname: "/safety",
+      params: {
+        alertId: "alert-voice-confirmed",
+        reasonCodes: "CRISIS_LANGUAGE",
+      },
+    });
+  });
+
+  it("keeps offline voice-confirmed send behavior identical to manual send", async () => {
+    networkState.offline = true;
+    getCachedChat.mockResolvedValue({
+      confirmedMessages: [],
+      localAttempt: null,
+    });
+    getCachedTasks.mockResolvedValue({ items: [] });
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain increased after walking");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    await act(async () => {
+      findByA11y(root, "Confirm voice chat send").props.onPress();
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(chatSendSetError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "offline",
+        retryable: true,
+      }),
+    );
+    expect(flattenText(root)).toContain("Voice send is paused while you’re offline. Nothing was sent.");
+  });
+
+  it("does not expose unsafe voice actions, persistence, or OpenAI keys from chat voice send", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    expect(flattenText(root)).not.toContain("appointment");
+    expect(flattenText(root)).not.toContain("medication dosage");
+    expect(flattenText(root)).not.toContain("create alert");
+    expect(JSON.stringify(setCachedChat.mock.calls)).not.toContain("Pain is better today");
+    expect(flattenText(root)).not.toContain("OPENAI_API_KEY");
+    expect(flattenText(root)).not.toContain("EXPO_PUBLIC_OPENAI_API_KEY");
+  });
+
+  it("exposes accessible voice send controls and live status", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
+      await flush();
+    });
+    await reviewForVoiceSend(root);
+
+    expect(findByA11y(root, "Review for voice send").props.accessibilityHint).toBe(
+      "Builds a current exact message review before any voice send can happen.",
+    );
+    expect(findByA11y(root, "Listen for voice send confirmation").props.accessibilityHint).toBe(
+      "Listens once for yes send, confirm send, or send message.",
+    );
+    expect(findByA11y(root, "Confirm voice chat send").props.accessibilityHint).toBe(
+      "Sends the reviewed message through the same normal chat send path.",
+    );
+    const status = root.findAll(
+      (node) =>
+        String(node.type) === "mock-view" &&
+        node.props.accessibilityLabel?.startsWith("Voice send state:"),
+    )[0];
+    expect(status.props.accessibilityLiveRegion).toBe("polite");
   });
 
   it("marks 502 AI-unavailable sends as failed with retry", async () => {

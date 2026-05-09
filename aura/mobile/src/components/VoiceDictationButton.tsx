@@ -118,6 +118,10 @@ export function VoiceDictationButton({
     const resultListener = ExpoSpeechRecognitionModule.addListener(
       "result",
       (event: ExpoSpeechRecognitionResultEvent) => {
+        if (!activeRef.current) {
+          return;
+        }
+
         if (!event.isFinal) {
           return;
         }

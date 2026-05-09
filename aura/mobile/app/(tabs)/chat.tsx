@@ -2,6 +2,11 @@ import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionErrorEvent,
+  type ExpoSpeechRecognitionResultEvent,
+} from "expo-speech-recognition";
+import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
@@ -57,6 +62,7 @@ import { useTokens } from "@/src/theme/tokens";
 import type { PatientTaskItem } from "@/src/types/task";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { stopReadAloud } from "@/src/utils/readAloud";
 import {
   derivePatientTaskAction,
   formatPatientTaskSourceLabel,
@@ -64,6 +70,7 @@ import {
   groupTasksByPatientIntent,
   isCommunicationTask,
 } from "@/src/utils/tasks";
+import { parseVoiceChatSendConfirmation } from "@/src/utils/voiceChatSendConfirmation";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
 type MessageItem = ChatItem & {
@@ -97,6 +104,36 @@ type ChatDevParams = {
 const CHAT_LIMIT = 50;
 const COMPACT_GROUP_GAP_MS = 5 * 60 * 1000;
 const STALE_SYNC_AFTER_MS = 2 * 60 * 60 * 1000;
+const VOICE_SEND_REVIEW_EXPIRES_MS = 30_000;
+const VOICE_SEND_REVIEW_COPY =
+  "I’ll send this exact message after you say ‘yes send.’ High-risk content still goes through Aura’s normal safety review. Aura does not call emergency services.";
+
+type VoiceSendReviewState =
+  | "draftReady"
+  | "needsMessage"
+  | "reviewMessage"
+  | "awaitingVoiceConfirmation"
+  | "confirmedSend"
+  | "cancelled"
+  | "sending"
+  | "sent"
+  | "highRiskRouted"
+  | "offlineBlocked"
+  | "expired";
+
+type VoiceSendReviewSnapshot = {
+  rawDraft: string;
+  messageToReview: string;
+};
+
+type ChatSendOutcome =
+  | "empty"
+  | "authRequired"
+  | "readOnly"
+  | "offlineBlocked"
+  | "sent"
+  | "highRiskRouted"
+  | "failed";
 
 type QuickAction = {
   key: string;
@@ -471,6 +508,8 @@ export default function ChatScreen() {
   const isLoadingHistoryRef = useRef(false);
   const messagesRef = useRef<MessageItem[]>([]);
   const localAttemptRef = useRef<ChatLocalAttempt | null>(null);
+  const voiceSendStateRef = useRef<VoiceSendReviewState>("draftReady");
+  const voiceSendExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
@@ -494,6 +533,10 @@ export default function ChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [isSafetyChecking, setIsSafetyChecking] = useState(false);
   const [showingOfflineCache, setShowingOfflineCache] = useState(false);
+  const [voiceSendState, setVoiceSendState] = useState<VoiceSendReviewState>("draftReady");
+  const [voiceSendSnapshot, setVoiceSendSnapshot] = useState<VoiceSendReviewSnapshot | null>(null);
+  const [voiceSendMessage, setVoiceSendMessage] = useState<string | null>(null);
+  const [isVoiceSendListening, setIsVoiceSendListening] = useState(false);
 
   const chatSyncPill = useMemo(() => {
     if (!chatLastRefreshedAt || !Number.isFinite(chatLastRefreshedAt)) {
@@ -936,16 +979,45 @@ export default function ChatScreen() {
     setLocalAttemptState,
   ]);
 
+  const clearVoiceSendExpiryTimer = useCallback(() => {
+    if (voiceSendExpiryTimerRef.current) {
+      clearTimeout(voiceSendExpiryTimerRef.current);
+      voiceSendExpiryTimerRef.current = null;
+    }
+  }, []);
+
+  const updateVoiceSendState = useCallback((nextState: VoiceSendReviewState) => {
+    voiceSendStateRef.current = nextState;
+    setVoiceSendState(nextState);
+  }, []);
+
+  const startVoiceSendExpiryTimer = useCallback(() => {
+    clearVoiceSendExpiryTimer();
+    voiceSendExpiryTimerRef.current = setTimeout(() => {
+      setVoiceSendSnapshot(null);
+      setIsVoiceSendListening(false);
+      setVoiceSendMessage("Voice send review expired. Review again before sending.");
+      updateVoiceSendState("expired");
+    }, VOICE_SEND_REVIEW_EXPIRES_MS);
+  }, [clearVoiceSendExpiryTimer, updateVoiceSendState]);
+
+  useEffect(
+    () => () => {
+      clearVoiceSendExpiryTimer();
+    },
+    [clearVoiceSendExpiryTimer],
+  );
+
   const handleSend = useCallback(
-    async (overrideMessage?: string) => {
+    async (overrideMessage?: string): Promise<ChatSendOutcome> => {
       if (!auth.token || !patientId) {
         router.replace("/(auth)/login");
-        return;
+        return "authRequired";
       }
 
       const messageToSend = (overrideMessage ?? draft).trim();
       if (!messageToSend) {
-        return;
+        return "empty";
       }
 
       if (!messagesAvailable) {
@@ -956,7 +1028,7 @@ export default function ChatScreen() {
             careModeNotice?.message ??
             "Routine messaging is no longer active here. Earlier messages stay available in this archive view.",
         });
-        return;
+        return "readOnly";
       }
 
       const attemptStartedAt = new Date().toISOString();
@@ -984,7 +1056,7 @@ export default function ChatScreen() {
           title: "Couldn’t send",
           message: failureState.message,
         });
-        return;
+        return "offlineBlocked";
       }
 
       if (!overrideMessage) {
@@ -1033,7 +1105,7 @@ export default function ChatScreen() {
             pathname: "/safety",
             params: routeParams,
           });
-          return;
+          return "highRiskRouted";
         }
 
         if (confirmedMessages.user) {
@@ -1049,6 +1121,7 @@ export default function ChatScreen() {
         }
 
         await refreshChatStamp();
+        return "sent";
       } catch (error) {
         const normalized = normalizeChatError(error);
         const failureState = toSendFailureState(normalized);
@@ -1070,6 +1143,7 @@ export default function ChatScreen() {
           title: "Couldn’t send",
           message: failureState.message,
         });
+        return "failed";
       } finally {
         setIsSafetyChecking(false);
         setIsSending(false);
@@ -1103,6 +1177,287 @@ export default function ChatScreen() {
     setDraft((current) => appendReviewedTranscript(current, transcript, 1000));
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (
+      !voiceSendSnapshot ||
+      voiceSendSnapshot.rawDraft === draft ||
+      voiceSendState === "sending" ||
+      voiceSendState === "sent" ||
+      voiceSendState === "highRiskRouted"
+    ) {
+      return;
+    }
+
+    clearVoiceSendExpiryTimer();
+    setVoiceSendSnapshot(null);
+    setIsVoiceSendListening(false);
+    setVoiceSendMessage("Message changed. Review again before voice send.");
+    updateVoiceSendState("draftReady");
+  }, [
+    clearVoiceSendExpiryTimer,
+    draft,
+    updateVoiceSendState,
+    voiceSendSnapshot,
+    voiceSendState,
+  ]);
+
+  const canUseCurrentVoiceSendReview =
+    Boolean(voiceSendSnapshot) &&
+    voiceSendSnapshot?.rawDraft === draft &&
+    (voiceSendState === "reviewMessage" ||
+      voiceSendState === "awaitingVoiceConfirmation" ||
+      voiceSendState === "confirmedSend");
+
+  const handlePrepareVoiceSendReview = useCallback(() => {
+    const messageToReview = draft.trim();
+    if (!messageToReview) {
+      clearVoiceSendExpiryTimer();
+      setVoiceSendSnapshot(null);
+      setIsVoiceSendListening(false);
+      setVoiceSendMessage("Voice send needs a message.");
+      updateVoiceSendState("needsMessage");
+      return;
+    }
+
+    setVoiceSendSnapshot({
+      rawDraft: draft,
+      messageToReview,
+    });
+    setVoiceSendMessage("Review this message, then say yes send or press Confirm send.");
+    updateVoiceSendState("reviewMessage");
+    startVoiceSendExpiryTimer();
+  }, [
+    clearVoiceSendExpiryTimer,
+    draft,
+    startVoiceSendExpiryTimer,
+    updateVoiceSendState,
+  ]);
+
+  const handleCancelVoiceSend = useCallback((message = "Voice send cancelled.") => {
+    clearVoiceSendExpiryTimer();
+    setVoiceSendSnapshot(null);
+    setIsVoiceSendListening(false);
+    setVoiceSendMessage(message);
+    updateVoiceSendState("cancelled");
+    if (isVoiceSendListening) {
+      ExpoSpeechRecognitionModule.abort();
+    }
+  }, [
+    clearVoiceSendExpiryTimer,
+    isVoiceSendListening,
+    updateVoiceSendState,
+  ]);
+
+  const sendReviewedVoiceMessage = useCallback(async () => {
+    if (!canUseCurrentVoiceSendReview || !voiceSendSnapshot) {
+      setVoiceSendMessage("Review again before voice send.");
+      updateVoiceSendState("expired");
+      return;
+    }
+
+    updateVoiceSendState("confirmedSend");
+    setVoiceSendMessage("Voice send confirmed.");
+    clearVoiceSendExpiryTimer();
+
+    setVoiceSendMessage("Sending this reviewed message.");
+    updateVoiceSendState("sending");
+    const outcome = await handleSend();
+
+    if (outcome === "offlineBlocked") {
+      setVoiceSendSnapshot(null);
+      setVoiceSendMessage("Voice send is paused while you’re offline. Nothing was sent.");
+      updateVoiceSendState("offlineBlocked");
+      return;
+    }
+
+    if (outcome === "highRiskRouted") {
+      setVoiceSendSnapshot(null);
+      setVoiceSendMessage("Sent. Aura is opening the normal Safety review.");
+      updateVoiceSendState("highRiskRouted");
+      return;
+    }
+
+    if (outcome === "sent") {
+      setVoiceSendSnapshot(null);
+      setVoiceSendMessage("Sent.");
+      updateVoiceSendState("sent");
+      return;
+    }
+
+    if (outcome === "empty") {
+      setVoiceSendMessage("Voice send needs a message.");
+      updateVoiceSendState("needsMessage");
+      return;
+    }
+
+    if (outcome === "readOnly") {
+      setVoiceSendSnapshot(null);
+      setVoiceSendMessage("Messages are read-only. Nothing was sent.");
+      updateVoiceSendState("expired");
+      return;
+    }
+
+    if (outcome === "authRequired") {
+      setVoiceSendSnapshot(null);
+      setVoiceSendMessage("Your session expired. Please sign in again.");
+      updateVoiceSendState("expired");
+      return;
+    }
+
+    setVoiceSendMessage("Couldn’t confirm delivery. Review chat before sending again.");
+    updateVoiceSendState("reviewMessage");
+  }, [
+    canUseCurrentVoiceSendReview,
+    clearVoiceSendExpiryTimer,
+    handleSend,
+    updateVoiceSendState,
+    voiceSendSnapshot,
+  ]);
+
+  const handleVoiceSendTranscript = useCallback(
+    (transcript: string) => {
+      setIsVoiceSendListening(false);
+      if (voiceSendStateRef.current !== "awaitingVoiceConfirmation") {
+        return;
+      }
+
+      if (!voiceSendSnapshot || voiceSendSnapshot.rawDraft !== draft) {
+        clearVoiceSendExpiryTimer();
+        setVoiceSendSnapshot(null);
+        setVoiceSendMessage("Message changed. Review again before voice send.");
+        updateVoiceSendState("draftReady");
+        return;
+      }
+
+      const result = parseVoiceChatSendConfirmation(transcript);
+      if (result === "confirm") {
+        void sendReviewedVoiceMessage();
+        return;
+      }
+
+      if (result === "cancel") {
+        handleCancelVoiceSend();
+        return;
+      }
+
+      setVoiceSendMessage("That was not a clear send confirmation. Say yes send, confirm send, or send message.");
+      updateVoiceSendState("awaitingVoiceConfirmation");
+    },
+    [
+      clearVoiceSendExpiryTimer,
+      draft,
+      handleCancelVoiceSend,
+      sendReviewedVoiceMessage,
+      updateVoiceSendState,
+      voiceSendSnapshot,
+    ],
+  );
+
+  const handleListenForVoiceSendConfirmation = useCallback(async () => {
+    if (!canUseCurrentVoiceSendReview) {
+      setVoiceSendMessage(
+        voiceSendStateRef.current === "expired"
+          ? "Voice send review expired. Review again before sending."
+          : "Review again before voice send.",
+      );
+      updateVoiceSendState("expired");
+      return;
+    }
+
+    updateVoiceSendState("awaitingVoiceConfirmation");
+    setVoiceSendMessage("Listening for yes send, confirm send, or send message.");
+    setIsVoiceSendListening(true);
+
+    await stopReadAloud();
+
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setIsVoiceSendListening(false);
+      setVoiceSendMessage("Voice confirmation is not available on this device. Use Confirm send or manual Send.");
+      return;
+    }
+
+    if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+      setIsVoiceSendListening(false);
+      setVoiceSendMessage("On-device voice confirmation is not available on this device. Use Confirm send or manual Send.");
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setIsVoiceSendListening(false);
+      setVoiceSendMessage("Microphone permission was denied. Use Confirm send or manual Send.");
+      return;
+    }
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        continuous: false,
+        interimResults: true,
+        maxAlternatives: 1,
+        requiresOnDeviceRecognition: true,
+        recordingOptions: {
+          persist: false,
+        },
+      });
+    } catch {
+      setIsVoiceSendListening(false);
+      setVoiceSendMessage("Voice confirmation could not start. Nothing was sent.");
+      updateVoiceSendState("reviewMessage");
+    }
+  }, [canUseCurrentVoiceSendReview, updateVoiceSendState]);
+
+  useEffect(() => {
+    const startListener = ExpoSpeechRecognitionModule.addListener("start", () => {
+      if (voiceSendStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceSendListening(true);
+      }
+    });
+    const endListener = ExpoSpeechRecognitionModule.addListener("end", () => {
+      setIsVoiceSendListening(false);
+    });
+    const resultListener = ExpoSpeechRecognitionModule.addListener(
+      "result",
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        if (!event.isFinal || voiceSendStateRef.current !== "awaitingVoiceConfirmation") {
+          return;
+        }
+
+        const transcript = event.results
+          .map((result) => result.transcript.trim())
+          .find((candidate) => candidate.length > 0);
+
+        handleVoiceSendTranscript(transcript ?? "");
+      },
+    );
+    const errorListener = ExpoSpeechRecognitionModule.addListener(
+      "error",
+      (_event: ExpoSpeechRecognitionErrorEvent) => {
+        if (voiceSendStateRef.current === "awaitingVoiceConfirmation") {
+          setIsVoiceSendListening(false);
+          setVoiceSendMessage("That was not a clear send confirmation. Nothing was sent.");
+        }
+      },
+    );
+    const nomatchListener = ExpoSpeechRecognitionModule.addListener("nomatch", () => {
+      if (voiceSendStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceSendListening(false);
+        setVoiceSendMessage("That was not a clear send confirmation. Nothing was sent.");
+      }
+    });
+
+    return () => {
+      startListener.remove();
+      endListener.remove();
+      resultListener.remove();
+      errorListener.remove();
+      nomatchListener.remove();
+      if (voiceSendStateRef.current === "awaitingVoiceConfirmation") {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    };
+  }, [handleVoiceSendTranscript]);
 
   const handleRefreshUnknownAttempt = useCallback(() => {
     void loadHistory();
@@ -1401,6 +1756,19 @@ export default function ChatScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  const canReviewVoiceSend = canUseCurrentVoiceSendReview && !isSending;
+  const canListenForVoiceSend =
+    canReviewVoiceSend && voiceSendState !== "confirmedSend";
+  const voiceSendStatusRole =
+    voiceSendState === "needsMessage" ||
+    voiceSendState === "offlineBlocked" ||
+    voiceSendState === "expired"
+      ? "alert"
+      : "text";
+  const voiceSendSummaryText = voiceSendSnapshot
+    ? `Message to send: ${voiceSendSnapshot.messageToReview}. ${VOICE_SEND_REVIEW_COPY}`
+    : VOICE_SEND_REVIEW_COPY;
+
   return (
     <Screen
       scroll={false}
@@ -1545,56 +1913,181 @@ export default function ChatScreen() {
               ) : null}
 
               {messagesAvailable ? (
-                <View style={styles.inputRow}>
-                  <TextInput
-                    ref={inputRef}
-                    value={draft}
-                    onChangeText={setDraft}
-                    placeholder="Message your care team..."
-                    placeholderTextColor={tokens.colors.textMuted}
-                    accessibilityLabel="Message input"
-                    multiline
-                    maxLength={1000}
-                    style={styles.input}
-                    editable={!isSending}
-                    textAlignVertical="top"
-                  />
-
-                  <VoiceDictationButton
-                    disabled={isSending}
-                    onTranscript={handleDictationTranscript}
-                    testID="chat-voice-dictation"
-                  />
-
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={isSending ? "Sending message" : "Send message"}
-                    accessibilityState={{ disabled: isSendDisabled, busy: isSending || undefined }}
-                    disabled={isSendDisabled}
-                    onPress={() => {
-                      void handleSend();
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={({ pressed }) => [
-                      styles.sendButton,
-                      hasDraft && !isOffline ? styles.sendButtonReady : styles.sendButtonIdle,
-                      isSendDisabled ? styles.sendButtonDisabled : null,
-                      pressed && !isSendDisabled ? styles.sendButtonPressed : null,
-                    ]}
-                  >
-                    {isSending ? (
-                      <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
-                    ) : (
-                      <View accessible={false} importantForAccessibility="no-hide-descendants">
-                        <MaterialCommunityIcons
-                          name="send"
-                          size={18}
-                          color={hasDraft && !isOffline ? tokens.colors.primaryTextOn : tokens.colors.primary}
-                        />
+                <>
+                  <View style={styles.voiceSendCard}>
+                    <View style={styles.voiceSendHeaderRow}>
+                      <View style={styles.voiceSendTitleGroup}>
+                        <Text accessibilityRole="header" style={styles.voiceSendTitle}>
+                          Voice send review
+                        </Text>
+                        <Text style={styles.voiceSendCopy}>
+                          {VOICE_SEND_REVIEW_COPY}
+                        </Text>
                       </View>
-                    )}
-                  </Pressable>
-                </View>
+                      <ReadAloudButton
+                        text={voiceSendSummaryText}
+                        label="Read voice message summary"
+                        sourceId="voice-send-review-summary"
+                        testID="voice-send-review-read-summary"
+                      />
+                    </View>
+
+                    {voiceSendSnapshot ? (
+                      <View
+                        accessible
+                        accessibilityRole="summary"
+                        accessibilityLabel={`Voice send message summary. Message to send: ${voiceSendSnapshot.messageToReview}`}
+                        style={styles.voiceSendSummaryBox}
+                      >
+                        <Text selectable style={styles.voiceSendMessageText}>
+                          {voiceSendSnapshot.messageToReview}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    <View
+                      accessible
+                      accessibilityRole={voiceSendStatusRole}
+                      accessibilityLiveRegion="polite"
+                      accessibilityLabel={`Voice send state: ${voiceSendState}. ${voiceSendMessage ?? "Ready to review."}`}
+                      style={[
+                        styles.voiceSendStatusBox,
+                        voiceSendStatusRole === "alert" ? styles.voiceSendStatusWarning : null,
+                      ]}
+                    >
+                      <Text style={styles.voiceSendStatusLabel}>Voice send state</Text>
+                      <Text style={styles.voiceSendStatusText}>
+                        {voiceSendMessage ?? "Review the message before any voice send can happen."}
+                      </Text>
+                    </View>
+
+                    <View style={styles.voiceSendActions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Review for voice send"
+                        accessibilityHint="Builds a current exact message review before any voice send can happen."
+                        onPress={handlePrepareVoiceSendReview}
+                        style={({ pressed }) => [
+                          styles.voiceSendSecondaryButton,
+                          pressed ? styles.voiceSendButtonPressed : null,
+                        ]}
+                      >
+                        <Text style={styles.voiceSendSecondaryButtonText}>Review for voice send</Text>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Listen for voice send confirmation"
+                        accessibilityHint="Listens once for yes send, confirm send, or send message."
+                        accessibilityState={{
+                          disabled: !canListenForVoiceSend,
+                          busy: isVoiceSendListening || undefined,
+                        }}
+                        disabled={!canListenForVoiceSend}
+                        onPress={() => {
+                          void handleListenForVoiceSendConfirmation();
+                        }}
+                        style={({ pressed }) => [
+                          styles.voiceSendSecondaryButton,
+                          !canListenForVoiceSend ? styles.voiceSendButtonDisabled : null,
+                          pressed && canListenForVoiceSend ? styles.voiceSendButtonPressed : null,
+                        ]}
+                      >
+                        {isVoiceSendListening ? (
+                          <ActivityIndicator size="small" color={tokens.colors.primary} />
+                        ) : null}
+                        <Text style={styles.voiceSendSecondaryButtonText}>
+                          Listen for confirmation
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Confirm voice chat send"
+                        accessibilityHint="Sends the reviewed message through the same normal chat send path."
+                        accessibilityState={{
+                          disabled: !canReviewVoiceSend,
+                          busy: isSending || undefined,
+                        }}
+                        disabled={!canReviewVoiceSend}
+                        onPress={() => {
+                          void sendReviewedVoiceMessage();
+                        }}
+                        style={({ pressed }) => [
+                          styles.voiceSendPrimaryButton,
+                          !canReviewVoiceSend ? styles.voiceSendButtonDisabled : null,
+                          pressed && canReviewVoiceSend ? styles.voiceSendButtonPressed : null,
+                        ]}
+                      >
+                        <Text style={styles.voiceSendPrimaryButtonText}>Confirm send</Text>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel voice send"
+                        accessibilityHint="Clears the current voice send review without sending."
+                        onPress={() => handleCancelVoiceSend()}
+                        style={({ pressed }) => [
+                          styles.voiceSendSecondaryButton,
+                          pressed ? styles.voiceSendButtonPressed : null,
+                        ]}
+                      >
+                        <Text style={styles.voiceSendSecondaryButtonText}>Cancel</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      ref={inputRef}
+                      value={draft}
+                      onChangeText={setDraft}
+                      placeholder="Message your care team..."
+                      placeholderTextColor={tokens.colors.textMuted}
+                      accessibilityLabel="Message input"
+                      multiline
+                      maxLength={1000}
+                      style={styles.input}
+                      editable={!isSending}
+                      textAlignVertical="top"
+                    />
+
+                    <VoiceDictationButton
+                      disabled={isSending}
+                      onTranscript={handleDictationTranscript}
+                      testID="chat-voice-dictation"
+                    />
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={isSending ? "Sending message" : "Send message"}
+                      accessibilityState={{ disabled: isSendDisabled, busy: isSending || undefined }}
+                      disabled={isSendDisabled}
+                      onPress={() => {
+                        void handleSend();
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={({ pressed }) => [
+                        styles.sendButton,
+                        hasDraft && !isOffline ? styles.sendButtonReady : styles.sendButtonIdle,
+                        isSendDisabled ? styles.sendButtonDisabled : null,
+                        pressed && !isSendDisabled ? styles.sendButtonPressed : null,
+                      ]}
+                    >
+                      {isSending ? (
+                        <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
+                      ) : (
+                        <View accessible={false} importantForAccessibility="no-hide-descendants">
+                          <MaterialCommunityIcons
+                            name="send"
+                            size={18}
+                            color={hasDraft && !isOffline ? tokens.colors.primaryTextOn : tokens.colors.primary}
+                          />
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
+                </>
               ) : (
                 <Banner
                   variant="info"
@@ -1870,6 +2363,115 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.xl,
+    },
+    voiceSendCard: {
+      gap: tokens.spacing.sm,
+      padding: tokens.spacing.md,
+      borderRadius: tokens.radius.lg,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surface,
+    },
+    voiceSendHeaderRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    voiceSendTitleGroup: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    voiceSendTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceSendCopy: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    voiceSendSummaryBox: {
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceSubtle,
+      padding: tokens.spacing.md,
+    },
+    voiceSendMessageText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    voiceSendStatusBox: {
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceSubtle,
+      padding: tokens.spacing.sm,
+      gap: 2,
+    },
+    voiceSendStatusWarning: {
+      borderWidth: 1,
+      borderColor: tokens.colors.warning,
+    },
+    voiceSendStatusLabel: {
+      color: tokens.colors.textTertiary,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    voiceSendStatusText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    voiceSendActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    voiceSendPrimaryButton: {
+      minHeight: 44,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.primary,
+      borderWidth: 1,
+      borderColor: tokens.colors.primary,
+    },
+    voiceSendSecondaryButton: {
+      minHeight: 44,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
+      gap: tokens.spacing.xs,
+      backgroundColor: tokens.colors.surface,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+    },
+    voiceSendPrimaryButtonText: {
+      color: tokens.colors.primaryTextOn,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceSendSecondaryButtonText: {
+      color: tokens.colors.primary,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceSendButtonDisabled: {
+      opacity: 0.55,
+    },
+    voiceSendButtonPressed: {
+      opacity: 0.88,
     },
     inputRow: {
       flexDirection: "row",

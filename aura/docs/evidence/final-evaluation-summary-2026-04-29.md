@@ -19,6 +19,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Voice Agent V5-C1 | Mobile-only deterministic safe action proposal layer implemented with local whitelist parsing, visible review UI, and no data-changing voice execution. | `voice-agent-v5c1-safe-action-proposals-2026-04-29.md` |
 | Voice Agent V5-C2 | Mobile-only safe route/control actions and safe workflow-start actions implemented with visible proposal review and no data-changing voice execution. | `voice-agent-v5c2-safe-workflow-starts-2026-04-29.md` |
 | Voice Agent V5-D1 | Mobile-only Check-in-screen-owned confirmed voice check-in submit implemented with explicit review, conservative confirmation, and the existing submit path. | `voice-agent-v5d1-confirmed-checkin-submit-2026-04-29.md` |
+| Voice Agent V5-D2 | Mobile-only Chat-screen-owned confirmed voice chat send implemented with exact message review, explicit confirmation, and the existing manual chat send path. | `voice-agent-v5d2-confirmed-chat-send-2026-04-29.md` |
 | Clinician dashboard | Dashboard behavior is covered by existing dashboard unit and E2E verification; dashboard counts are listed under verification status. | Known verified test results |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
@@ -59,7 +60,7 @@ Interpretation boundary:
 
 ## 4. Mobile Voice Assist And UI/UX Accessibility Evidence
 
-Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, V5-C1 deterministic safe action proposal evidence, V5-C2 safe workflow-start evidence, V5-D1 confirmed voice check-in submit evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
+Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, V5-C1 deterministic safe action proposal evidence, V5-C2 safe workflow-start evidence, V5-D1 confirmed voice check-in submit evidence, V5-D2 confirmed voice chat send evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
 
 Evidence summary:
 
@@ -177,7 +178,22 @@ Evidence summary:
 - V5-D1 submit path safety: same submit wrapper as manual submit, existing validation, preserved offline behavior, `createCheckin`, `POST /patient/checkins`, preserved Safety Router handling, and preserved high-risk routing to `/safety`.
 - V5-D1 added no voice-only API, no direct alert creation, and no Safety Router bypass.
 - V5-D1 safety/privacy boundaries: no Realtime transcript integration, no Realtime tools, no server-side tools, no backend changes, no transcript persistence, no raw audio persistence, no unconfirmed draft persistence, no OpenAI key exposure, no `EXPO_PUBLIC_OPENAI_API_KEY`, no emergency promise, no diagnosis, no treatment advice, no medication dosage advice, no chat sending, no appointment booking/canceling, no medication/hydration/nutrition logging, no photo upload, and no direct alert creation.
-- Latest mobile verification after Voice Agent V5-D1: `npm test -- checkinScreen.test.tsx VoiceGuidedCheckinPanel.test.tsx voiceActionProposals.test.ts` passed; `npm test` passed 56 test files / 401 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke passed; `git diff --check` passed; existing `react-test-renderer` deprecation and `act` warnings appeared but did not fail the suite.
+- V5-D2 was implemented as a Chat-screen-only confirmed voice send flow.
+- V5-D2 lets the patient review the exact trimmed draft, optionally hear the summary, listen for an explicit confirmation phrase, and send through the existing manual chat send path.
+- Dictation still only fills the draft and never sends.
+- V5-D2 added a "Voice send review" card in the existing Chat composer area.
+- The V5-D2 card supports Review for voice send, Listen for confirmation, Confirm send, and Cancel.
+- The patient must review the exact trimmed message before sending.
+- The flow sends only after explicit confirmation.
+- V5-D2 confirmation state is memory-only and includes `draftReady`, `needsMessage`, `reviewMessage`, `awaitingVoiceConfirmation`, `confirmedSend`, `cancelled`, `sending`, `sent`, `highRiskRouted`, `offlineBlocked`, and `expired`.
+- V5-D2 accepted voice confirmations are only "yes send", "confirm send", and "send message".
+- V5-D2 ambiguous phrases, empty phrases, parser failure, recognition error, and negative phrases do not send.
+- V5-D2 reviews expire after 30 seconds.
+- V5-D2 raw draft changes invalidate the review.
+- V5-D2 send path safety: same `handleSend()` path as manual Send, current-review validation, preserved trim/non-empty/read-only/offline validation, preserved `sendChat`, preserved assistant reply behavior, and preserved high-risk routing to `/safety`.
+- V5-D2 added no voice-only chat API, no direct alert creation, and no Safety Router bypass.
+- V5-D2 safety/privacy boundaries: no backend routes, no backend API contract changes, no Realtime tool-calling, no OpenAI mobile keys, no `EXPO_PUBLIC_OPENAI_API_KEY`, no direct alert creation, no transcript persistence, no audio persistence, no unconfirmed draft persistence, `recordingOptions.persist=false` for confirmation speech recognition, no appointment booking/canceling, no medication/hydration/nutrition logging, no photo upload, no emergency calling, no diagnosis, no treatment advice, and no medication dosage advice.
+- Latest mobile verification after Voice Agent V5-D2: `npm test -- chatTruth.test.tsx voiceChatSendConfirmation.test.ts VoiceAgentSessionPanel.test.tsx` passed 3 files / 71 tests; `npm test` passed 57 files / 436 tests; `npm run qa:web` passed; TypeScript passed; web guardrails passed with 0 issues; a11y smoke passed with 0 issues; `git diff --check` passed; existing `react-test-renderer` deprecation and `act` warnings appeared but did not fail the suite.
 - Remaining mobile UI/UX limitations: Home/Demo Hub density, deeper voice UX explanation, full long-screen hierarchy cleanup, keyboard-overlap manual device QA, broader caregiver/patient flow separation polish, and no real device/emulator visual QA pass was run.
 - Manual QA is not applicable yet for V4-A because no UI was added.
 - Manual native QA is still required because V1/V3 use `expo-speech-recognition`, and V4-B guided check-in also uses speech recognition.
@@ -197,8 +213,9 @@ Evidence sources:
 - `voice-agent-v5c1-safe-action-proposals-2026-04-29.md`
 - `voice-agent-v5c2-safe-workflow-starts-2026-04-29.md`
 - `voice-agent-v5d1-confirmed-checkin-submit-2026-04-29.md`
+- `voice-agent-v5d2-confirmed-chat-send-2026-04-29.md`
 
-## 5. Voice Agent V5-A Through V5-D1 Evidence
+## 5. Voice Agent V5-A Through V5-D2 Evidence
 
 Aura Voice Agent V5-A implemented a backend-only OpenAI Realtime session broker. It is not a full voice agent yet and does not add mobile Realtime UI or clinical voice actions.
 
@@ -357,7 +374,52 @@ Evidence summary:
 - On-device speech support depends on platform/runtime capability already used by the guided flow.
 - V5-D1 is prototype support, not clinical validation.
 - V5-D1 is not production voice-agent validation.
-- V5-D2 confirmed chat sending and later voice actions remain future work.
+
+Aura Voice Agent V5-D2 implemented confirmed voice chat send for the mobile Chat screen only. It allows a patient to send the current chat draft hands-free only after exact message review and explicit confirmation, using the same send path as manual Send.
+
+Evidence summary:
+
+- V5-D2 was implemented as a Chat-screen-only confirmed voice send flow.
+- The patient can review the exact trimmed draft, optionally hear the summary, listen for an explicit confirmation phrase, and send through the existing manual chat send path.
+- Dictation still only fills the draft and never sends.
+- V5-D2 added a "Voice send review" card in the existing Chat composer area.
+- The card supports Review for voice send, Listen for confirmation, Confirm send, and Cancel.
+- The patient must review the exact trimmed message before sending.
+- The flow sends only after explicit confirmation.
+- Memory-only states include `draftReady`, `needsMessage`, `reviewMessage`, `awaitingVoiceConfirmation`, `confirmedSend`, `cancelled`, `sending`, `sent`, `highRiskRouted`, `offlineBlocked`, and `expired`.
+- Accepted confirmation phrases only: "yes send", "confirm send", and "send message".
+- Ambiguous phrases do not send.
+- Empty phrases do not send.
+- Parser failure does not send.
+- Recognition error does not send.
+- Negative phrases do not send.
+- Reviews expire after 30 seconds.
+- Any raw draft change invalidates the review.
+- Voice-confirmed send calls the same `handleSend()` path as manual Send.
+- Voice-confirmed send validates that the reviewed draft is still current.
+- Voice-confirmed send preserves trim/non-empty/read-only/offline validation.
+- Voice-confirmed send preserves `sendChat`.
+- Voice-confirmed send preserves assistant reply behavior.
+- Voice-confirmed send preserves high-risk `/safety` navigation.
+- No voice-only chat API was added.
+- No direct alert creation was added.
+- No Safety Router bypass was added.
+- Safety/privacy boundaries: no backend routes, no backend API contract changes, no Realtime tool-calling, no OpenAI mobile keys, no `EXPO_PUBLIC_OPENAI_API_KEY`, no direct alert creation, no transcript persistence, no audio persistence, no unconfirmed draft persistence, `recordingOptions.persist=false` for confirmation speech recognition, no appointment booking/canceling, no medication/hydration/nutrition logging, no photo upload, no emergency calling, no diagnosis, no treatment advice, and no medication dosage advice.
+- Verification recorded: `npm test -- chatTruth.test.tsx voiceChatSendConfirmation.test.ts VoiceAgentSessionPanel.test.tsx` passed: 3 files / 71 tests.
+- Verification recorded: `npm test` passed: 57 files / 436 tests.
+- Verification recorded: `npm run qa:web` passed.
+- Verification recorded: Typecheck passed.
+- Verification recorded: web guardrails passed with 0 issues.
+- Verification recorded: a11y smoke passed with 0 issues.
+- Verification recorded: `git diff --check` passed.
+- Existing React test renderer / `act` warnings appeared but did not fail tests.
+- Confirmation depends on on-device speech recognition accuracy.
+- Explicit phrase gate and exact visible review are the safety controls.
+- The 30-second expiry is intentionally short.
+- Ambiguous phrases do not refresh expiry.
+- V5-D2 is prototype support, not clinical validation.
+- V5-D2 is not production voice-agent validation.
+- V5-D3/V5-D4 later voice actions remain future work.
 
 Evidence sources:
 
@@ -367,6 +429,7 @@ Evidence sources:
 - `voice-agent-v5c1-safe-action-proposals-2026-04-29.md`
 - `voice-agent-v5c2-safe-workflow-starts-2026-04-29.md`
 - `voice-agent-v5d1-confirmed-checkin-submit-2026-04-29.md`
+- `voice-agent-v5d2-confirmed-chat-send-2026-04-29.md`
 
 ## 6. Static RAG Phase 1
 
@@ -480,7 +543,7 @@ Latest known verified results:
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
 | Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Mobile tests | 56 files passed, 401 tests passed | Latest known mobile verification after Voice Agent V5-D1. |
+| Mobile tests | 57 files passed, 436 tests passed | Latest known mobile verification after Voice Agent V5-D2. |
 
 Latest V5-A focused server verification:
 
@@ -553,7 +616,18 @@ Latest V5-D1 mobile verification:
 - `git diff --check` passed.
 - Full mobile suite passed: 56 files / 401 tests.
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-D1 evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+Latest V5-D2 mobile verification:
+
+- `npm test -- chatTruth.test.tsx voiceChatSendConfirmation.test.ts VoiceAgentSessionPanel.test.tsx` passed: 3 files / 71 tests.
+- `npm test` passed: 57 files / 436 tests.
+- `npm run qa:web` passed.
+- Typecheck passed.
+- Web guardrails passed with 0 issues.
+- A11y smoke passed with 0 issues.
+- `git diff --check` passed.
+- Existing React test renderer / `act` warnings appeared but did not fail tests.
+
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-D2 evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
 
 ## 12. Limitations And Cautions
 
@@ -611,7 +685,13 @@ The dashboard count is included as a known verified result supplied for this fin
 - Voice Agent V5-D1 on-device speech support depends on platform/runtime capability already used by the guided flow.
 - Voice Agent V5-D1 is prototype support, not clinical validation.
 - Voice Agent V5-D1 is not production voice-agent validation.
-- Voice Agent V5-D2 confirmed chat sending and later voice actions remain future work.
+- Voice Agent V5-D2 confirmation depends on on-device speech recognition accuracy.
+- Voice Agent V5-D2 explicit phrase gate and exact visible review are the safety controls.
+- Voice Agent V5-D2 30-second expiry is intentionally short.
+- Voice Agent V5-D2 ambiguous phrases do not refresh expiry.
+- Voice Agent V5-D2 is prototype support, not clinical validation.
+- Voice Agent V5-D2 is not production voice-agent validation.
+- Voice Agent V5-D3/V5-D4 later voice actions remain future work.
 
 ## 13. Safe Report Wording
 
@@ -635,7 +715,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 353 server tests across 54 files, 401 mobile tests across 56 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 353 server tests across 54 files, 436 mobile tests across 57 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
 - Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
 - Mobile UI/UX Accessibility Fix Phase 1 completed for scoped accessibility and task-completion blockers from the read-only UI/UX audit, with broader UI/UX polish and real device/emulator visual QA still future work.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
@@ -644,6 +724,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - Voice Agent V5-C1 deterministic safe action proposals implemented on mobile with local whitelist parsing, visible review UI, memory-only drafts, and no mutation APIs or Realtime tool-calling.
 - Voice Agent V5-C2 safe route/control actions and safe workflow-start actions implemented on mobile with visible proposal review, guided check-in workflow start, and no data-changing voice actions.
 - Voice Agent V5-D1 confirmed voice check-in submit implemented on mobile with Check-in-screen-owned review, conservative explicit confirmation, the existing submit path, and no voice-only API, direct alert creation, or Safety Router bypass.
+- Voice Agent V5-D2 confirmed voice chat send implemented on mobile with Chat-screen-owned exact message review, accepted phrases "yes send", "confirm send", and "send message", the existing manual chat send path, and no voice-only API, direct alert creation, or Safety Router bypass.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 

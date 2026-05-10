@@ -16,6 +16,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Dashboard UI/UX Phase 1 | Clinician dashboard accessibility/demo-readiness Phase 1 fixes completed, including V2 shell alignment, collapsed nav accessible names, safe skip links, dark-mode primary button contrast, and symptom photo review in patient history. | `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md` |
 | Dashboard UI/UX Phase 2A | Clinician dashboard Phase 2A accessibility semantics fixes completed, including alert queue roving focus/keyboard scanning, appointment request row native selectable semantics, and visible Selected indicator for worklist/triage rows. | `dashboard-uiux-phase2a-clinician-accessibility-2026-04-29.md` |
 | Dashboard UI/UX Phase 2B | Clinician dashboard Phase 2B responsive polish completed, including communication inbox narrow mode / queue-thread focus parity and settings demo/presentation tool separation. | `dashboard-uiux-phase2b-clinician-responsive-polish-2026-04-29.md` |
+| Dashboard UI/UX Phase 3A | Clinician dashboard Phase 3A shared polish completed, including heading hierarchy cleanup, Patients roster label clarification, and shared clickable target-size polish. | `dashboard-uiux-phase3a-shared-polish-2026-04-29.md` |
 | Voice Agent V5-A | Backend-only OpenAI Realtime session broker implemented for authenticated patient users; no mobile UI or clinical voice actions. | `voice-agent-v5a-realtime-session-broker-2026-04-29.md` |
 | Voice Agent V5-B1 | Mobile-only Voice Agent session request prototype implemented; no live audio, WebRTC, tools, or clinical actions. | `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md` |
 | Voice Agent V5-B2-Web | Browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain out of scope. | `voice-agent-v5b2-web-realtime-audio-2026-04-29.md` |
@@ -28,7 +29,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Voice Agent V5-D4B | Mobile-only Nutrition-screen confirmed voice nutrition logging implemented with exact current-form review, explicit confirmation, existing nutrition save path, and preserved offline queue behavior. | `voice-agent-v5d4b-confirmed-nutrition-log-2026-04-29.md` |
 | Voice Agent V5-D4C | Mobile-only Medications-screen confirmed voice medication status logging implemented for visible scheduled doses with taken/skipped only, exact review, explicit confirmation, existing medication dose action path, and preserved offline sync behavior. | `voice-agent-v5d4c-confirmed-medication-status-log-2026-04-29.md` |
 | Voice Agent V5-D automated QA guardrails | Cross-flow automated QA guardrails implemented for the completed V5-D confirmed-action series, covering review-first behavior, explicit confirmation, ambiguous/cancel handling, expiry, same-path mutation behavior, forbidden side-effect source guards, accessibility checks, and `/voice-agent` boundary protection. | `voice-agent-v5d-automated-qa-guardrails-2026-04-29.md` |
-| Clinician dashboard | Dashboard behavior is covered by existing dashboard unit, E2E, build, and accessibility smoke verification; dashboard counts are listed under verification status. | `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2a-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2b-clinician-responsive-polish-2026-04-29.md` |
+| Clinician dashboard | Dashboard behavior is covered by existing dashboard unit, E2E, build, and accessibility smoke verification; dashboard counts are listed under verification status. | `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2a-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2b-clinician-responsive-polish-2026-04-29.md`; `dashboard-uiux-phase3a-shared-polish-2026-04-29.md` |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
 | PGVector static knowledge retrieval | Optional PGVector persistence/retrieval for curated static rehab knowledge is implemented; JSON remains source of truth. | `rag-pgvector-static-retrieval-2026-04-29.md` |
@@ -933,6 +934,86 @@ Evidence source:
 
 - `dashboard-uiux-phase2b-clinician-responsive-polish-2026-04-29.md`
 
+Aura clinician dashboard Phase 3A shared polish was completed as a narrow dashboard visual/accessibility polish pass.
+
+Dashboard UI/UX Phase 3A evidence summary:
+
+- Dashboard UI/UX Phase 3A was implemented only.
+- Scope covered heading hierarchy cleanup.
+- Scope covered one Patients roster label clarification.
+- Scope covered shared clickable target-size polish.
+
+Heading hierarchy evidence:
+
+- Route-internal repeated page headings were demoted from `h1` to `h2` in shared/status/header patterns.
+- `DashboardV2Shell` remains the only `h1` owner.
+- Final heading scan reported only `src/dashboard-v2/shell/DashboardV2Shell.tsx:266`.
+
+Patients label clarity evidence:
+
+- `PatientsRoute` label changed from `Closer review` to `Needs closer review`.
+- No patient filtering, sorting, risk, adherence, or trend behavior changed.
+
+Target-size polish evidence:
+
+- `.v2-button--row` min-height changed to `2.5rem`.
+- Clinician action-bar row/quiet buttons min-height changed to `2.5rem`.
+- `.v2-drawer__close` changed to `2.75rem` square.
+
+Accessibility preservation:
+
+- No focus rings changed.
+- No button semantics changed.
+- No reduced-motion behavior changed.
+- No drawer semantics changed.
+- No skip links changed.
+- No selected states changed.
+- No keyboard behavior changed.
+- A11y smoke passed.
+
+Safety/product boundaries preserved:
+
+- No backend changes.
+- No mobile changes.
+- No AI changes.
+- No n8n changes.
+- No seed changes.
+- No clinical workflow behavior changed.
+- No route state behavior changed.
+- No data contracts changed.
+- Phase 3B visual rhythm work was left untouched.
+
+Tests and verification recorded:
+
+- Focused tests were updated to assert route-internal headings are `h2` and not `h1`.
+- Shell title remains `h1`.
+- Patients label was updated in tests.
+- Shared pattern coverage was added in `ClinicianPatterns.test.tsx`.
+- `rg -n '<h1|as="h1"' src/dashboard-v2`: only shell `h1` remains.
+- `npm run typecheck` passed.
+- Required unit slice passed: 7 files / 52 tests.
+- Extra focused red/green slice including shared patterns passed: 8 files / 56 tests after expected red failure before implementation.
+- Required V2 E2E sweep passed: 11 tests.
+- A11y smoke passed: 1 test.
+- `npm run build` passed with existing Vite large-chunk warning.
+- `git diff --check` passed.
+
+Remaining dashboard UI/UX limitations after Phase 3A:
+
+- Phase 3B visual rhythm remains future work.
+- Route-level card rhythm redesign remains future work.
+- Status-bar density normalization remains future work.
+- Support/context copy pass remains future work.
+- Route visual redesigns remain future work.
+- Final screenshot/manual QA remains future work.
+- Responsive screenshot capture remains future work.
+- Build still emits the existing large-chunk warning.
+- Unit tests still print existing React Router future-flag warnings.
+
+Evidence source:
+
+- `dashboard-uiux-phase3a-shared-polish-2026-04-29.md`
+
 ## 7. Static RAG Phase 1
 
 Aura's Phase 1 static RAG path implemented `/rag/reply` retrieval from curated static rehabilitation knowledge for messages that have already been classified as low risk.
@@ -1043,8 +1124,10 @@ Latest known verified results:
 | Server build | Passed | TypeScript build completed successfully. |
 | AI tests | 50 passed | Normal AI tests. |
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
-| Dashboard unit tests | 83 files passed, 514 tests passed | Latest known dashboard verification after Dashboard UI/UX Phase 2B clinician responsive polish. |
-| Dashboard focused V2 E2E tests | 3 passed | `communication v2` and `settings v2` mocked E2E slice. |
+| Dashboard unit tests | 83 files passed, 514 tests passed | Latest known full dashboard verification after Dashboard UI/UX Phase 2B clinician responsive polish; no newer full dashboard count was rerun for Phase 3A. |
+| Dashboard focused Phase 3A unit slice | 7 files passed, 52 tests passed | Required focused Phase 3A dashboard unit slice. |
+| Dashboard focused Phase 3A red/green slice | 8 files passed, 56 tests passed | Extra focused red/green slice including shared patterns, after expected red failure before implementation. |
+| Dashboard focused V2 E2E tests | 11 passed | Required Phase 3A V2 mocked E2E sweep. |
 | Dashboard accessibility smoke E2E | 1 passed | Mocked a11y smoke spec. |
 | Dashboard build | Passed | Production build completed, with existing large chunk warning still reported. |
 | Mobile tests | 64 files passed, 698 tests passed | Latest known mobile verification after Voice Agent V5-D automated QA guardrails. |
@@ -1189,6 +1272,18 @@ Latest Dashboard UI/UX Phase 2B verification:
 - Presentation tools enabled-state warning is covered in unit tests.
 - Default E2E keeps the feature flag disabled and verifies the panel stays hidden.
 
+Latest Dashboard UI/UX Phase 3A verification:
+
+- `rg -n '<h1|as="h1"' src/dashboard-v2`: only shell `h1` remains.
+- `npm run typecheck` passed.
+- Required unit slice passed: 7 files / 52 tests.
+- Extra focused red/green slice including shared patterns passed: 8 files / 56 tests after expected red failure before implementation.
+- Required V2 E2E sweep passed: 11 tests.
+- A11y smoke passed: 1 test.
+- `npm run build` passed with existing Vite large-chunk warning.
+- `git diff --check` passed.
+- No newer full dashboard count was rerun for Phase 3A; the latest known full dashboard count remains the Dashboard UI/UX Phase 2B count.
+
 The latest dashboard count is recorded in the Dashboard UI/UX Phase 2B evidence. The latest mobile count is recorded in the Voice Agent V5-D automated QA guardrail evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
 
 ## 13. Limitations And Cautions
@@ -1211,8 +1306,15 @@ The latest dashboard count is recorded in the Dashboard UI/UX Phase 2B evidence.
 - Dashboard UI/UX Phase 1 addressed scoped clinician accessibility/demo-readiness blockers only.
 - Dashboard UI/UX Phase 2A addressed alert queue roving focus, appointment row semantics, and worklist/triage selected-state visibility only.
 - Dashboard UI/UX Phase 2B addressed communication inbox narrow mode / queue-thread focus parity and settings demo/presentation tool separation only.
+- Dashboard UI/UX Phase 3A addressed shared heading hierarchy cleanup, one Patients roster label clarification, and shared clickable target-size polish only.
 - No new Dashboard UI/UX Phase 2B issues were found.
-- Dashboard Phase 3 visual polish remains intentionally untouched.
+- Phase 3B visual rhythm remains future work.
+- Route-level card rhythm redesign remains future work.
+- Status-bar density normalization remains future work.
+- Support/context copy pass remains future work.
+- Route visual redesigns remain future work.
+- Final screenshot/manual QA remains future work.
+- Responsive screenshot capture remains future work.
 - Presentation tools enabled-state warning is covered in unit tests.
 - Default dashboard E2E keeps the presentation tools feature flag disabled and verifies the panel stays hidden.
 - Dashboard symptom photo viewing depends on existing photo URLs or the existing photo file fetch path.
@@ -1323,6 +1425,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - Dashboard UI/UX Phase 1 completed for scoped clinician dashboard accessibility/demo-readiness blockers, including V2 shell alignment, collapsed nav accessible names, safe skip links, dark-mode primary button contrast, and symptom photo review in patient history, with broader dashboard UI/UX polish still future work.
 - Dashboard UI/UX Phase 2A completed for clinician accessibility semantics, including alert queue roving focus, appointment request row native selectable semantics, and visible worklist/triage selected-state indicators.
 - Dashboard UI/UX Phase 2B completed for clinician responsive polish, including communication inbox narrow mode / queue-thread focus parity and settings demo/presentation tool separation.
+- Dashboard UI/UX Phase 3A completed for shared clinician dashboard polish, including heading hierarchy cleanup, Patients roster label clarification, and shared clickable target-size polish.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
 - Voice Agent V5-B1 mobile session request UI implemented with prepared-session status and expiry; no live audio, WebRTC, tools, or clinical voice actions yet.
 - Voice Agent V5-B2-Web browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain future work.

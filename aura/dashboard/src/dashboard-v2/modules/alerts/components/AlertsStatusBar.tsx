@@ -105,6 +105,7 @@ export function AlertsStatusBar({
             className={[
               'v2-alerts-status-bar__metric',
               item.active ? 'v2-alerts-status-bar__metric--active' : '',
+              item.status ? 'v2-alerts-status-bar__metric--filter' : 'v2-alerts-status-bar__metric--static',
             ]
               .filter(Boolean)
               .join(' ')}

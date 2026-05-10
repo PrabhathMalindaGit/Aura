@@ -1,6 +1,6 @@
 .v2-patient-route {
   display: grid;
-  gap: clamp(1.1rem, 1.6vw, 1.55rem);
+  gap: clamp(0.95rem, 1.35vw, 1.35rem);
 }
 
 .v2-patient-route,
@@ -12,12 +12,12 @@
   display: grid;
   gap: clamp(0.78rem, 1.1vw, 1.05rem);
   padding: clamp(0.95rem, 1.45vw, 1.25rem);
-  border: 1px solid hsl(var(--v2-border) / 0.62);
-  border-radius: clamp(1.55rem, 2vw, var(--v2-radius-shell));
+  border: 1px solid hsl(var(--v2-border) / 0.46);
+  border-radius: clamp(1.25rem, 1.65vw, var(--v2-radius-xl));
   background:
-    linear-gradient(180deg, hsl(var(--v2-surface) / 0.99), hsl(var(--v2-surface-muted) / 0.82)),
-    linear-gradient(135deg, hsl(var(--v2-primary) / 0.045), transparent 62%);
-  box-shadow: var(--v2-shadow-sm);
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.99), hsl(var(--v2-surface-muted) / 0.62)),
+    linear-gradient(135deg, hsl(var(--v2-primary) / 0.035), transparent 62%);
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.22);
 }
 
 .v2-patient-route__notices {
@@ -136,8 +136,8 @@
   display: inline-flex;
   align-items: center;
   padding: 0.16rem 0.72rem;
-  border: 1px solid hsl(var(--v2-border) / 0.54);
-  background: hsl(var(--v2-surface-quiet) / 0.84);
+  border: 1px solid hsl(var(--v2-border) / 0.36);
+  background: hsl(var(--v2-surface-quiet) / 0.68);
   color: hsl(var(--v2-text-muted));
 }
 
@@ -176,10 +176,10 @@
   display: inline-flex;
   align-items: center;
   min-height: 1.58rem;
-  padding: 0 0.62rem;
+  padding: 0;
   border-radius: var(--v2-radius-control);
-  background: hsl(var(--v2-surface) / 0.74);
-  border: 1px solid hsl(var(--v2-border) / 0.44);
+  background: transparent;
+  border: 0;
 }
 
 .v2-patient-header__facts {
@@ -203,10 +203,10 @@
 .v2-patient-header__fact {
   min-height: 5.15rem;
   padding: 0.9rem 1rem;
-  border: 1px solid hsl(var(--v2-border) / 0.48);
+  border: 1px solid hsl(var(--v2-border) / 0.36);
   border-radius: var(--v2-radius-lg);
   background:
-    linear-gradient(180deg, hsl(var(--v2-surface) / 0.95), hsl(var(--v2-surface-muted) / 0.78));
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.88), hsl(var(--v2-surface-muted) / 0.56));
   align-content: center;
 }
 
@@ -268,13 +268,16 @@
 
 .v2-patient-decision-strip {
   display: grid;
-  gap: var(--v2-space-5);
+  gap: clamp(var(--v2-space-4), 1.35vw, var(--v2-space-5));
   padding: clamp(0.95rem, 1.35vw, 1.18rem);
-  border: 1px solid hsl(var(--v2-border) / 0.44);
-  border-radius: var(--v2-radius-xl);
+  border: 1px solid hsl(var(--v2-primary) / 0.22);
+  border-radius: clamp(1.15rem, 1.55vw, var(--v2-radius-xl));
   background:
-    linear-gradient(180deg, hsl(var(--v2-surface) / 0.94), hsl(var(--v2-surface-muted) / 0.82)),
-    linear-gradient(135deg, hsl(var(--v2-primary) / 0.065), transparent 68%);
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.97), hsl(var(--v2-primary-soft) / 0.56)),
+    linear-gradient(135deg, hsl(var(--v2-primary) / 0.075), transparent 68%);
+  box-shadow:
+    inset 4px 0 0 hsl(var(--v2-primary) / 0.45),
+    0 1px 0 hsl(var(--v2-border) / 0.18);
 }
 
 .v2-patient-decision-strip__copy {
@@ -308,9 +311,9 @@
 .v2-patient-guidance-history__item,
 .v2-patient-history-chronology__item {
   padding: var(--v2-space-3);
-  border: 1px solid hsl(var(--v2-border) / 0.42);
+  border: 1px solid hsl(var(--v2-border) / 0.34);
   border-radius: var(--v2-radius-lg);
-  background: hsl(var(--v2-row-surface) / 0.86);
+  background: hsl(var(--v2-row-surface) / 0.72);
 }
 
 .v2-patient-layout {
@@ -348,10 +351,10 @@
   display: grid;
   gap: var(--v2-space-4);
   padding: clamp(1rem, 1.55vw, 1.35rem);
-  border: 1px solid hsl(var(--v2-border) / 0.48);
-  border-radius: var(--v2-radius-xl);
+  border: 1px solid hsl(var(--v2-border) / 0.38);
+  border-radius: clamp(1.05rem, 1.35vw, var(--v2-radius-xl));
   background: hsl(var(--v2-surface) / 0.97);
-  box-shadow: var(--v2-shadow-sm);
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.18);
 }
 
 .v2-patient-pane-intro {
@@ -380,10 +383,10 @@
 .v2-patient-pane--communications .patient-detail-panel,
 .v2-patient-support-rail .patient-detail-panel,
 .v2-patient-support-rail .patient-handoff-panel {
-  border: 1px solid hsl(var(--v2-border) / 0.46);
-  border-radius: var(--v2-radius-xl);
+  border: 1px solid hsl(var(--v2-border) / 0.36);
+  border-radius: clamp(1.05rem, 1.35vw, var(--v2-radius-xl));
   background: hsl(var(--v2-surface) / 0.97);
-  box-shadow: var(--v2-shadow-sm);
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.18);
 }
 
 .v2-patient-pane--overview .patient-decision-surface {
@@ -404,8 +407,8 @@
 .v2-patient-pane--overview .patient-decision-surface__lane {
   padding: var(--v2-space-4);
   border-radius: var(--v2-radius-lg);
-  border-color: hsl(var(--v2-border) / 0.42);
-  background: hsl(var(--v2-row-surface) / 0.82);
+  border-color: hsl(var(--v2-border) / 0.34);
+  background: hsl(var(--v2-row-surface) / 0.7);
 }
 
 .v2-patient-pane--overview .patient-decision-surface__lane--lead {
@@ -992,9 +995,10 @@
   display: grid;
   gap: var(--v2-space-4);
   padding: var(--v2-space-4);
-  border: 1px solid hsl(var(--v2-border) / 0.42);
+  border: 1px solid hsl(var(--v2-primary) / 0.18);
   border-radius: var(--v2-radius-lg);
-  background: hsl(var(--v2-row-surface) / 0.84);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.94), hsl(var(--v2-primary-soft) / 0.5));
 }
 
 .v2-patient-review-summary--cockpit .v2-patient-review-summary__grid,
@@ -1019,9 +1023,9 @@
   gap: var(--v2-space-3);
   align-items: center;
   padding: 0.78rem 0.9rem;
-  border: 1px solid hsl(var(--v2-border) / 0.38);
+  border: 1px solid hsl(var(--v2-border) / 0.28);
   border-radius: var(--v2-radius-lg);
-  background: hsl(var(--v2-surface) / 0.64);
+  background: hsl(var(--v2-surface-muted) / 0.42);
 }
 
 .v2-patient-context-summary--inline .v2-patient-context-summary__facts {
@@ -1037,16 +1041,16 @@
   display: grid;
   gap: var(--v2-space-4);
   padding: clamp(1rem, 1.55vw, 1.35rem);
-  border: 1px solid hsl(var(--v2-border) / 0.48);
+  border: 1px solid hsl(var(--v2-border) / 0.34);
   background: hsl(var(--v2-surface) / 0.97);
-  box-shadow: var(--v2-shadow-sm);
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.18);
 }
 
 .v2-patient-review-digest .v2-patient-overview-card {
   padding: var(--v2-space-4);
-  border: 1px solid hsl(var(--v2-border) / 0.42);
+  border: 1px solid hsl(var(--v2-border) / 0.3);
   border-radius: var(--v2-radius-lg);
-  background: hsl(var(--v2-row-surface) / 0.84);
+  background: hsl(var(--v2-row-surface) / 0.64);
   box-shadow: none;
 }
 
@@ -1056,10 +1060,10 @@
 }
 
 .v2-patient-pane--overview .patient-detail-recent-alerts-card {
-  border: 1px solid hsl(var(--v2-border) / 0.5);
+  border: 1px solid hsl(var(--v2-border) / 0.36);
   border-radius: clamp(1.35rem, 1.8vw, var(--v2-radius-xl));
   background: hsl(var(--v2-surface) / 0.98);
-  box-shadow: var(--v2-shadow-sm);
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.18);
   overflow: hidden;
 }
 
@@ -1104,10 +1108,10 @@
   display: grid;
   gap: var(--v2-space-4);
   padding: clamp(1rem, 1.65vw, 1.45rem);
-  border: 1px solid hsl(var(--v2-border) / 0.5);
+  border: 1px solid hsl(var(--v2-border) / 0.34);
   background:
-    linear-gradient(180deg, hsl(var(--v2-surface) / 0.99), hsl(var(--v2-surface-muted) / 0.66));
-  box-shadow: var(--v2-shadow-sm);
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.99), hsl(var(--v2-surface-muted) / 0.48));
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.18);
 }
 
 .v2-patient-communications-board__header {
@@ -1197,7 +1201,7 @@
 }
 
 .v2-patient-guidance-board .v2-patient-guidance-card {
-  box-shadow: var(--v2-shadow-sm);
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.18);
 }
 
 .v2-patient-guidance-card--rehab {
@@ -1219,7 +1223,7 @@
   grid-template-columns: minmax(12rem, 0.35fr) minmax(0, 1fr);
   align-items: center;
   box-shadow: none;
-  background: hsl(var(--v2-surface-muted) / 0.84);
+  background: hsl(var(--v2-surface-muted) / 0.62);
 }
 
 .v2-patient-guidance-card__body-grid {
@@ -1242,10 +1246,10 @@
   display: grid;
   gap: var(--v2-space-2);
   padding: var(--v2-space-4);
-  border: 1px solid hsl(var(--v2-border) / 0.42);
+  border: 1px solid hsl(var(--v2-border) / 0.32);
   border-radius: var(--v2-radius-lg);
   background:
-    linear-gradient(180deg, hsl(var(--v2-surface) / 0.98), hsl(var(--v2-primary-soft) / 0.5));
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.94), hsl(var(--v2-primary-soft) / 0.42));
 }
 
 .v2-patient-guidance-card--recovery textarea {
@@ -1842,6 +1846,19 @@
 .dark .v2-patient-photo-preview {
   border-color: hsl(var(--v2-border) / 0.58);
   background: hsl(var(--v2-surface) / 0.84);
+}
+
+.dark .v2-patient-header__meta span {
+  border: 0;
+  background: transparent;
+}
+
+.dark .v2-patient-decision-strip,
+.dark .v2-patient-review-summary--cockpit {
+  border-color: hsl(var(--v2-primary) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface-elevated) / 0.94), hsl(var(--v2-primary-soft) / 0.32)),
+    linear-gradient(135deg, hsl(var(--v2-primary) / 0.1), transparent 62%);
 }
 
 @media (max-width: 1279px) {

@@ -18,6 +18,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Dashboard UI/UX Phase 2B | Clinician dashboard Phase 2B responsive polish completed, including communication inbox narrow mode / queue-thread focus parity and settings demo/presentation tool separation. | `dashboard-uiux-phase2b-clinician-responsive-polish-2026-04-29.md` |
 | Dashboard UI/UX Phase 3A | Clinician dashboard Phase 3A shared polish completed, including heading hierarchy cleanup, Patients roster label clarification, and shared clickable target-size polish. | `dashboard-uiux-phase3a-shared-polish-2026-04-29.md` |
 | Dashboard UI/UX Phase 3B-1 | Priority route visual rhythm polish completed for Dashboard/Today, Worklist/Triage queue, and Alerts. | `dashboard-uiux-phase3b1-priority-route-rhythm-2026-04-29.md` |
+| Dashboard UI/UX Phase 3B-2 | Coordination route visual rhythm polish completed for Appointments, Insights, and Communication inbox. | `dashboard-uiux-phase3b2-coordination-route-rhythm-2026-04-29.md` |
 | Voice Agent V5-A | Backend-only OpenAI Realtime session broker implemented for authenticated patient users; no mobile UI or clinical voice actions. | `voice-agent-v5a-realtime-session-broker-2026-04-29.md` |
 | Voice Agent V5-B1 | Mobile-only Voice Agent session request prototype implemented; no live audio, WebRTC, tools, or clinical actions. | `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md` |
 | Voice Agent V5-B2-Web | Browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain out of scope. | `voice-agent-v5b2-web-realtime-audio-2026-04-29.md` |
@@ -30,7 +31,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Voice Agent V5-D4B | Mobile-only Nutrition-screen confirmed voice nutrition logging implemented with exact current-form review, explicit confirmation, existing nutrition save path, and preserved offline queue behavior. | `voice-agent-v5d4b-confirmed-nutrition-log-2026-04-29.md` |
 | Voice Agent V5-D4C | Mobile-only Medications-screen confirmed voice medication status logging implemented for visible scheduled doses with taken/skipped only, exact review, explicit confirmation, existing medication dose action path, and preserved offline sync behavior. | `voice-agent-v5d4c-confirmed-medication-status-log-2026-04-29.md` |
 | Voice Agent V5-D automated QA guardrails | Cross-flow automated QA guardrails implemented for the completed V5-D confirmed-action series, covering review-first behavior, explicit confirmation, ambiguous/cancel handling, expiry, same-path mutation behavior, forbidden side-effect source guards, accessibility checks, and `/voice-agent` boundary protection. | `voice-agent-v5d-automated-qa-guardrails-2026-04-29.md` |
-| Clinician dashboard | Dashboard behavior is covered by existing dashboard unit, E2E, build, and accessibility smoke verification; dashboard counts are listed under verification status. | `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2a-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2b-clinician-responsive-polish-2026-04-29.md`; `dashboard-uiux-phase3a-shared-polish-2026-04-29.md`; `dashboard-uiux-phase3b1-priority-route-rhythm-2026-04-29.md` |
+| Clinician dashboard | Dashboard behavior is covered by existing dashboard unit, E2E, build, and accessibility smoke verification; dashboard counts are listed under verification status. | `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2a-clinician-accessibility-2026-04-29.md`; `dashboard-uiux-phase2b-clinician-responsive-polish-2026-04-29.md`; `dashboard-uiux-phase3a-shared-polish-2026-04-29.md`; `dashboard-uiux-phase3b1-priority-route-rhythm-2026-04-29.md`; `dashboard-uiux-phase3b2-coordination-route-rhythm-2026-04-29.md` |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
 | PGVector static knowledge retrieval | Optional PGVector persistence/retrieval for curated static rehab knowledge is implemented; JSON remains source of truth. | `rag-pgvector-static-retrieval-2026-04-29.md` |
@@ -1086,9 +1087,9 @@ Browser/manual visual QA note:
 
 Remaining dashboard UI/UX limitations after Phase 3B-1:
 
-- Appointments visual rhythm remains future Phase 3B work.
-- Insights visual rhythm remains future Phase 3B work.
-- Communication visual rhythm remains future Phase 3B work.
+- Appointments visual rhythm was later covered by Dashboard UI/UX Phase 3B-2.
+- Insights visual rhythm was later covered by Dashboard UI/UX Phase 3B-2.
+- Communication visual rhythm was later covered by Dashboard UI/UX Phase 3B-2.
 - Patients polish remains future Phase 3B work.
 - Settings polish remains future Phase 3B work.
 - Patient workspace polish remains future Phase 3B work.
@@ -1102,6 +1103,93 @@ Remaining dashboard UI/UX limitations after Phase 3B-1:
 Evidence source:
 
 - `dashboard-uiux-phase3b1-priority-route-rhythm-2026-04-29.md`
+
+Aura clinician dashboard Phase 3B-2 coordination route visual rhythm polish was completed as a narrow dashboard visual rhythm pass.
+
+Dashboard UI/UX Phase 3B-2 evidence summary:
+
+- Dashboard UI/UX Phase 3B-2 was implemented only.
+- Scope covered CSS-only visual rhythm polish for Appointments.
+- Scope covered CSS-only visual rhythm polish for Insights.
+- Scope covered CSS-only visual rhythm polish for Communication inbox.
+- No route behavior, API calls, copy, tests, docs, or backend code changed.
+
+Appointments rhythm evidence:
+
+- Status strip was compressed and quieted.
+- Planner and request review became the stronger desktop workflow.
+- Desktop request lane was converted into a vertical review rail.
+- Capacity and publish panels were softened.
+
+Insights rhythm evidence:
+
+- Selected insight review surface became more dominant.
+- Decision area was widened against the support rail.
+- Framing in basis facts was reduced.
+- Support cards were quieted while keeping provenance/context visible.
+
+Communication rhythm evidence:
+
+- Inbox/status/summary chrome was quieted.
+- Timeline and local private draft surfaces were strengthened.
+- Existing timeline-before-draft stack was preserved.
+- Queue/thread context remains visible but secondary.
+
+Copy-change note:
+
+- No copy changes were made.
+
+Accessibility preservation:
+
+- No ARIA labels changed.
+- No heading structure changed.
+- No focus rings changed.
+- No drawer behavior changed.
+- No keyboard handlers changed.
+- No selected-state semantics changed.
+- No narrow-mode state logic changed.
+- Existing focused route tests and a11y smoke passed.
+
+Safety/product boundaries preserved:
+
+- No fake messaging added.
+- No fake booking added.
+- No fake scheduling added.
+- No insight decision behavior changed.
+- No backend/API changes.
+- No unsupported clinical claims added.
+
+Tests and verification recorded:
+
+- No tests were added or updated.
+- CSS-only pass, so no assertion copy churn was needed.
+- `npm run typecheck` passed.
+- `npm test -- --run src/dashboard-v2/modules/appointments/AppointmentsRoute.test.tsx src/dashboard-v2/modules/insights/InsightsRoute.test.tsx src/dashboard-v2/modules/inbox/InboxRoute.test.tsx` passed: 3 files / 22 tests.
+- `npm run e2e -- --grep "appointments v2|insights v2|communication v2"` passed: 5 tests.
+- `npm run e2e -- tests/e2e/a11y-smoke.spec.ts --project=mocked` passed: 1 test.
+- `npm run build` passed.
+- `git diff --check` passed.
+
+Browser/manual visual QA note:
+
+- Attempted with local preview.
+- The app redirected to `/login` without mocked E2E API/auth setup.
+- Manual route visual inspection was not completed.
+- Automated mocked E2E covered the scoped routes.
+
+Remaining dashboard UI/UX limitations after Phase 3B-2:
+
+- Patients polish remains future Phase 3B work.
+- Settings polish remains future Phase 3B work.
+- Patient workspace polish remains future Phase 3B work.
+- Final screenshot/manual QA evidence remains future work.
+- Full `npm test` was not run for Phase 3B-2.
+- Build still reports existing Vite large chunk warnings.
+- Unit tests still print existing React Router future-flag warnings.
+
+Evidence source:
+
+- `dashboard-uiux-phase3b2-coordination-route-rhythm-2026-04-29.md`
 
 ## 7. Static RAG Phase 1
 
@@ -1213,12 +1301,14 @@ Latest known verified results:
 | Server build | Passed | TypeScript build completed successfully. |
 | AI tests | 50 passed | Normal AI tests. |
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
-| Dashboard unit tests | 83 files passed, 514 tests passed | Latest known full dashboard verification after Dashboard UI/UX Phase 2B clinician responsive polish; no newer full dashboard count was rerun for Phase 3A or Phase 3B-1. |
+| Dashboard unit tests | 83 files passed, 514 tests passed | Latest known full dashboard verification after Dashboard UI/UX Phase 2B clinician responsive polish; no newer full dashboard count was rerun for Phase 3A, Phase 3B-1, or Phase 3B-2. |
 | Dashboard focused Phase 3A unit slice | 7 files passed, 52 tests passed | Required focused Phase 3A dashboard unit slice. |
 | Dashboard focused Phase 3A red/green slice | 8 files passed, 56 tests passed | Extra focused red/green slice including shared patterns, after expected red failure before implementation. |
 | Dashboard focused V2 E2E tests | 11 passed | Required Phase 3A V2 mocked E2E sweep. |
 | Dashboard focused Phase 3B-1 unit slice | 3 files passed, 28 tests passed | Corrected focused Dashboard/Today, Worklist/Triage queue, and Alerts route unit slice; requested `dashboard/...` path form found no files because cwd was already `dashboard`. |
 | Dashboard focused Phase 3B-1 E2E sweep | 4 passed | Mocked Dashboard/Today, Worklist, and Alerts E2E route sweep. |
+| Dashboard focused Phase 3B-2 unit slice | 3 files passed, 22 tests passed | Focused Appointments, Insights, and Inbox route unit slice. |
+| Dashboard focused Phase 3B-2 E2E sweep | 5 passed | Mocked Appointments, Insights, and Communication route E2E sweep. |
 | Dashboard accessibility smoke E2E | 1 passed | Mocked a11y smoke spec. |
 | Dashboard build | Passed | Production build completed, with existing large chunk warning still reported. |
 | Mobile tests | 64 files passed, 698 tests passed | Latest known mobile verification after Voice Agent V5-D automated QA guardrails. |
@@ -1386,6 +1476,18 @@ Latest Dashboard UI/UX Phase 3B-1 focused verification:
 - `git diff --check` passed.
 - No newer full dashboard count was rerun for Phase 3B-1; the latest known full dashboard count remains the Dashboard UI/UX Phase 2B count.
 
+Latest Dashboard UI/UX Phase 3B-2 focused verification:
+
+- `npm run typecheck` passed.
+- `npm test -- --run src/dashboard-v2/modules/appointments/AppointmentsRoute.test.tsx src/dashboard-v2/modules/insights/InsightsRoute.test.tsx src/dashboard-v2/modules/inbox/InboxRoute.test.tsx` passed: 3 files / 22 tests.
+- `npm run e2e -- --grep "appointments v2|insights v2|communication v2"` passed: 5 tests.
+- `npm run e2e -- tests/e2e/a11y-smoke.spec.ts --project=mocked` passed: 1 test.
+- `npm run build` passed.
+- `git diff --check` passed.
+- No tests were added or updated.
+- CSS-only pass, so no assertion copy churn was needed.
+- No newer full dashboard count was rerun for Phase 3B-2; the latest known full dashboard count remains the Dashboard UI/UX Phase 2B count.
+
 The latest dashboard count is recorded in the Dashboard UI/UX Phase 2B evidence. The latest mobile count is recorded in the Voice Agent V5-D automated QA guardrail evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
 
 ## 13. Limitations And Cautions
@@ -1410,16 +1512,15 @@ The latest dashboard count is recorded in the Dashboard UI/UX Phase 2B evidence.
 - Dashboard UI/UX Phase 2B addressed communication inbox narrow mode / queue-thread focus parity and settings demo/presentation tool separation only.
 - Dashboard UI/UX Phase 3A addressed shared heading hierarchy cleanup, one Patients roster label clarification, and shared clickable target-size polish only.
 - Dashboard UI/UX Phase 3B-1 addressed priority route visual rhythm polish for Dashboard/Today, Worklist/Triage queue, and Alerts only.
+- Dashboard UI/UX Phase 3B-2 addressed coordination-route visual rhythm polish for Appointments, Insights, and Communication inbox only.
 - No new Dashboard UI/UX Phase 2B issues were found.
-- Appointments visual rhythm remains future Phase 3B work.
-- Insights visual rhythm remains future Phase 3B work.
-- Communication visual rhythm remains future Phase 3B work.
 - Patients polish remains future Phase 3B work.
 - Settings polish remains future Phase 3B work.
 - Patient workspace polish remains future Phase 3B work.
 - Broad support/context copy pass remains future work.
-- Final screenshot/manual QA remains future work.
+- Final screenshot/manual QA evidence remains future work.
 - Full `npm test` was not run for Phase 3B-1.
+- Full `npm test` was not run for Phase 3B-2.
 - Only focused route tests were run.
 - Existing untracked `.playwright-mcp` artifacts remain outside the repo root status view and were not touched.
 - Responsive screenshot capture remains future work.
@@ -1535,6 +1636,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - Dashboard UI/UX Phase 2B completed for clinician responsive polish, including communication inbox narrow mode / queue-thread focus parity and settings demo/presentation tool separation.
 - Dashboard UI/UX Phase 3A completed for shared clinician dashboard polish, including heading hierarchy cleanup, Patients roster label clarification, and shared clickable target-size polish.
 - Dashboard UI/UX Phase 3B-1 completed for priority-route visual rhythm polish across Dashboard/Today, Worklist/Triage queue, and Alerts; the latest known full dashboard count remains 514 dashboard unit tests across 83 files from Phase 2B because full `npm test` was not rerun for Phase 3B-1.
+- Dashboard UI/UX Phase 3B-2 completed for coordination-route visual rhythm polish across Appointments, Insights, and Communication inbox; the latest known full dashboard count remains 514 dashboard unit tests across 83 files from Phase 2B because full `npm test` was not rerun for Phase 3B-2.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
 - Voice Agent V5-B1 mobile session request UI implemented with prepared-session status and expiry; no live audio, WebRTC, tools, or clinical voice actions yet.
 - Voice Agent V5-B2-Web browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain future work.

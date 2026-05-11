@@ -20,6 +20,82 @@
     },
     {
       "parameters": {
+        "jsCode": "const headers = $('Webhook').first().json.headers ?? {};\nconst expected = ($env.AURA_N8N_WEBHOOK_KEY ?? '').toString().trim();\nconst incoming = (headers['x-aura-n8n-webhook-key'] ?? headers['X-AURA-N8N-WEBHOOK-KEY'] ?? '').toString().trim();\nconst authOk = expected.length > 0 && incoming.length > 0 && incoming === expected;\n\nreturn [{ json: { authOk } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        -96
+      ],
+      "id": "5d64c91a-e957-4ad3-9e0a-8d0649244ac1",
+      "name": "Validate Inbound Webhook Key"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "508e663a-760e-4350-b4ff-d4fb4c9d8b09",
+              "leftValue": "={{$json.authOk === true ? 'true' : 'false'}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        -96
+      ],
+      "id": "1d113de1-8133-43d0-8bec-d1c00620e587",
+      "name": "Authorized?"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, error: 'UNAUTHORIZED' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8,
+        -232
+      ],
+      "id": "96f0b3e0-a8a6-4f5f-b50f-91b506cbd22c",
+      "name": "Build Unauthorized Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        216,
+        -232
+      ],
+      "id": "77a8402d-6e0c-4c68-b1b8-935f81dd4378",
+      "name": "Respond Unauthorized"
+    },
+    {
+      "parameters": {
         "operation": "get",
         "dataTableId": {
           "__rl": true,
@@ -357,13 +433,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://host.docker.internal:3000/events/notification-status",
+        "url": "={{ $env.AURA_API_BASE + '/events/notification-status' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-aura-webhook-key",
-              "value": "dev_aura_webhook_key"
+              "value": "={{$env.AURA_WEBHOOK_KEY}}"
             }
           ]
         },
@@ -389,7 +465,47 @@
       "main": [
         [
           {
+            "node": "Validate Inbound Webhook Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Inbound Webhook Key": {
+      "main": [
+        [
+          {
+            "node": "Authorized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          {
             "node": "Get existing alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Unauthorized Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Unauthorized Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Unauthorized",
             "type": "main",
             "index": 0
           }

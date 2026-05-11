@@ -15,13 +15,16 @@ import {
 
 describe("n8n service client", () => {
   const mutableEnv = env as unknown as {
+    AURA_N8N_WEBHOOK_KEY: string;
     N8N_WEBHOOK_ALERT: string;
     N8N_RETRY_WEBHOOK_URL: string;
   };
+  const originalN8nWebhookKey = mutableEnv.AURA_N8N_WEBHOOK_KEY;
   const originalAlertUrl = mutableEnv.N8N_WEBHOOK_ALERT;
   const originalRetryUrl = mutableEnv.N8N_RETRY_WEBHOOK_URL;
 
   beforeEach(() => {
+    mutableEnv.AURA_N8N_WEBHOOK_KEY = "test-n8n-webhook-key";
     mutableEnv.N8N_WEBHOOK_ALERT = "http://localhost:5678/webhook/alert-created";
     mutableEnv.N8N_RETRY_WEBHOOK_URL = "http://localhost:5678/webhook/alert-retry";
     vi.mocked(axios.post).mockReset();
@@ -29,6 +32,7 @@ describe("n8n service client", () => {
   });
 
   afterEach(() => {
+    mutableEnv.AURA_N8N_WEBHOOK_KEY = originalN8nWebhookKey;
     mutableEnv.N8N_WEBHOOK_ALERT = originalAlertUrl;
     mutableEnv.N8N_RETRY_WEBHOOK_URL = originalRetryUrl;
   });
@@ -68,6 +72,7 @@ describe("n8n service client", () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           "Content-Type": "application/json",
+          "x-aura-n8n-webhook-key": "test-n8n-webhook-key",
           "x-request-id": "req-n8n-1",
         }),
       })

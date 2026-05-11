@@ -53,10 +53,19 @@
 
 ## Required environment
 - `AURA_API_BASE=http://host.docker.internal:3000`
-- `AURA_WEBHOOK_KEY=dev_aura_webhook_key` for the local demo stack, unless you have overridden the backend webhook key
+- `AURA_WEBHOOK_KEY` matching the Aura backend callback/internal route key
+- `AURA_N8N_WEBHOOK_KEY` for backend-to-n8n `01 - Alert Created Webhook` ingress
+- `AURA_N8N_API_KEY` for `02 - List Alerts Proxy`; this proxy fails closed when the key is unset or wrong
 - `TELEGRAM_CLINICIAN_CHAT_ID`
   - Leave this as `CHANGE_ME` if you want the workflow to prove the callback path without attempting a real Telegram send
   - Set a real value only when you want to prove Telegram delivery
+
+Direction of shared keys:
+- Backend to n8n alert-created webhook: `x-aura-n8n-webhook-key: <AURA_N8N_WEBHOOK_KEY>`
+- n8n to Aura backend callbacks/internal routes: `x-aura-webhook-key: <AURA_WEBHOOK_KEY>`
+- External/manual callers to List Alerts Proxy: `x-api-key: <AURA_N8N_API_KEY>`
+
+For self-hosted/free n8n, provide these as Docker Compose environment variables on the `n8n` service. Do not use paid n8n `$vars` for this local stack. When n8n runs in Docker on Mac and the backend runs on the host, use `AURA_API_BASE=http://host.docker.internal:3000`; the host backend can still call n8n at `N8N_WEBHOOK_ALERT=http://localhost:5678/webhook/alert-created`.
 
 ## Alert cadence activation
 - Manual by default:
@@ -90,6 +99,7 @@
 2. Confirm the n8n container has:
    - `AURA_API_BASE=http://host.docker.internal:3000`
    - `AURA_WEBHOOK_KEY` set
+   - Telegram credentials/chat IDs configured only if this is a later provider-proof run
 3. Open the workflow named `07 - Daily Digest (Cron 09:00 → Aura Digest → Telegram → Callback)` in the n8n UI.
 4. Use **Execute workflow** from the n8n UI.
    - Do not rely on `docker exec aura_n8n n8n execute ...` for this workflow in the local demo container; one-off CLI execution can fail because the task-broker port is already bound.

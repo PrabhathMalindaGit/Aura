@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const query = $node['Webhook'].json.query ?? {};\nconst headers = $node['Webhook'].json.headers ?? {};\n\nconst rawStatus = String(query.status ?? 'open').toLowerCase();\nconst allowedStatuses = ['open', 'acknowledged', 'resolved'];\nconst status = allowedStatuses.includes(rawStatus) ? rawStatus : 'open';\n\nconst rawLimit = Number.parseInt(String(query.limit ?? '50'), 10);\nconst limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 50;\n\nconst expectedApiKey = ($env.AURA_N8N_API_KEY ?? '').toString();\nconst incomingApiKey = (headers['x-api-key'] ?? headers['X-API-KEY'] ?? '').toString();\nconst authRequired = expectedApiKey.length > 0;\nconst authOk = !authRequired || incomingApiKey === expectedApiKey;\n\nreturn [{\n  json: {\n    status,\n    limit,\n    authOk\n  }\n}];"
+        "jsCode": "const query = $node['Webhook'].json.query ?? {};\nconst headers = $node['Webhook'].json.headers ?? {};\n\nconst rawStatus = String(query.status ?? 'open').toLowerCase();\nconst allowedStatuses = ['open', 'acknowledged', 'resolved'];\nconst status = allowedStatuses.includes(rawStatus) ? rawStatus : 'open';\n\nconst rawLimit = Number.parseInt(String(query.limit ?? '50'), 10);\nconst limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 50;\n\nconst expectedApiKey = ($env.AURA_N8N_API_KEY ?? '').toString().trim();\nconst incomingApiKey = (headers['x-api-key'] ?? headers['X-API-KEY'] ?? '').toString().trim();\nconst authOk = expectedApiKey.length > 0 && incomingApiKey.length > 0 && incomingApiKey === expectedApiKey;\n\nreturn [{\n  json: {\n    status,\n    limit,\n    authOk\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -66,7 +66,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { ok: false, error: 'unauthorized' } }];"
+        "jsCode": "return [{ json: { ok: false, error: 'UNAUTHORIZED' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

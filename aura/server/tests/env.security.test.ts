@@ -10,7 +10,9 @@ function buildRuntimeEnv(
     CORS_ALLOWED_ORIGINS: string[];
     AI_BASE_URL: string;
     AURA_AI_SERVICE_KEY: string;
+    AURA_N8N_WEBHOOK_KEY: string;
     AI_REQUEST_TIMEOUT_MS: number;
+    N8N_WEBHOOK_ALERT: string;
     OPENAI_API_KEY: string;
     AURA_VOICE_AGENT_ENABLED: boolean;
     AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: number;
@@ -28,7 +30,9 @@ function buildRuntimeEnv(
     CORS_ALLOWED_ORIGINS: ["https://app.example.com"],
     AI_BASE_URL: "https://ai.example.com",
     AURA_AI_SERVICE_KEY: "prod-ai-key",
+    AURA_N8N_WEBHOOK_KEY: "prod-n8n-webhook-key",
     AI_REQUEST_TIMEOUT_MS: 4000,
+    N8N_WEBHOOK_ALERT: "https://n8n.example.com/webhook/alert-created",
     OPENAI_API_KEY: "prod-openai-key",
     AURA_VOICE_AGENT_ENABLED: false,
     AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: 60,
@@ -105,6 +109,35 @@ describe("runtime env safety checks", () => {
         })
       )
     ).toThrow(/AURA_AI_SERVICE_KEY/);
+  });
+
+  it("requires n8n ingress key when alert webhook emission is configured outside local environments", () => {
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_N8N_WEBHOOK_KEY: "",
+        })
+      )
+    ).toThrow(/AURA_N8N_WEBHOOK_KEY/);
+
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          N8N_WEBHOOK_ALERT: "",
+          AURA_N8N_WEBHOOK_KEY: "",
+        })
+      )
+    ).not.toThrow();
+
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          NODE_ENV: "test",
+          CORS_ALLOWED_ORIGINS: [],
+          AURA_N8N_WEBHOOK_KEY: "",
+        })
+      )
+    ).not.toThrow();
   });
 
   it("throws when AI_REQUEST_TIMEOUT_MS is out of bounds", () => {

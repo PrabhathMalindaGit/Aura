@@ -11,11 +11,17 @@
 ## Required n8n container environment variables
 Set these on the `n8n` service in Docker Compose:
 - `AURA_API_BASE`
+- `AURA_WEBHOOK_KEY`
+- `AURA_N8N_WEBHOOK_KEY`
+- `AURA_N8N_API_KEY`
 - `TELEGRAM_CLINICIAN_CHAT_ID`
 - `TELEGRAM_DEV_CHAT_ID`
 
 Recommended local defaults:
 - `AURA_API_BASE=http://host.docker.internal:3000`
+- `AURA_WEBHOOK_KEY=<matches Aura backend AURA_WEBHOOK_KEY>`
+- `AURA_N8N_WEBHOOK_KEY=<matches Aura backend AURA_N8N_WEBHOOK_KEY>`
+- `AURA_N8N_API_KEY=<local List Alerts Proxy API key>`
 - `TELEGRAM_CLINICIAN_CHAT_ID=CHANGE_ME`
 - `TELEGRAM_DEV_CHAT_ID=CHANGE_ME`
 

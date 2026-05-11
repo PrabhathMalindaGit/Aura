@@ -107,6 +107,7 @@ export const env = {
   N8N_WEBHOOK_ALERT:
     process.env.N8N_WEBHOOK_ALERT || "http://localhost:5678/webhook/alert-created",
   N8N_RETRY_WEBHOOK_URL: process.env.N8N_RETRY_WEBHOOK_URL || "",
+  AURA_N8N_WEBHOOK_KEY: process.env.AURA_N8N_WEBHOOK_KEY || "",
   AURA_WEBHOOK_KEY:
     process.env.AURA_WEBHOOK_KEY ||
     (nodeEnv === "production" ? "" : "dev_aura_webhook_key"),
@@ -208,7 +209,9 @@ type RuntimeEnv = {
   AURA_PRESENTATION_SEED_ENABLED: boolean;
   AI_BASE_URL: string;
   AURA_AI_SERVICE_KEY: string;
+  AURA_N8N_WEBHOOK_KEY: string;
   AI_REQUEST_TIMEOUT_MS: number;
+  N8N_WEBHOOK_ALERT: string;
   OPENAI_API_KEY: string;
   AURA_VOICE_AGENT_ENABLED: boolean;
   AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: number;
@@ -260,6 +263,17 @@ export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
     value.RAG_PGVECTOR_PATIENT_MEMORY_TOP_K > 3
   ) {
     throw new Error("RAG_PGVECTOR_PATIENT_MEMORY_TOP_K must be between 1 and 3");
+  }
+
+  if (
+    value.NODE_ENV !== "development" &&
+    value.NODE_ENV !== "test" &&
+    value.N8N_WEBHOOK_ALERT.trim() &&
+    !value.AURA_N8N_WEBHOOK_KEY.trim()
+  ) {
+    throw new Error(
+      "AURA_N8N_WEBHOOK_KEY must be set when N8N_WEBHOOK_ALERT is configured outside local environments"
+    );
   }
 
   if (

@@ -3,6 +3,8 @@
 This guide sets up Telegram notifications for the workflow:
 `01 - Alert Created Webhook (Telegram)`
 
+Current Phase 1 status: the Telegram bot `AURA Rehab alerts` exists, but live provider delivery is not verified in this phase. Configure credentials/chat IDs and run provider proof later in Phase 5. Do not commit bot tokens or real chat IDs to Git.
+
 ## 1) Create Telegram bot and get TELEGRAM_BOT_TOKEN
 1. Open Telegram and chat with `@BotFather`.
 2. Run `/newbot` and follow prompts.
@@ -26,12 +28,15 @@ You can use either a group or a direct chat.
 Use `/Users/University/Final Project/aura/n8n/.env.example` as a template.
 
 Minimum variables:
-- `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CLINICIAN_CHAT_ID`
-- `AURA_API_BASE` (for future n8n -> backend calls)
+- `AURA_API_BASE`
+- `AURA_WEBHOOK_KEY`
+- `AURA_N8N_WEBHOOK_KEY`
+- `AURA_N8N_API_KEY`
 
-Optional security variable for webhook:
-- `N8N_WEBHOOK_API_KEY`
+Telegram bot token:
+- Store the `AURA Rehab alerts` bot token in n8n Credentials UI or local secret storage.
+- Do not put `TELEGRAM_BOT_TOKEN` in workflow JSON or commit it to Git.
 
 ## 4) Docker on macOS note
 If n8n runs in Docker and your Node API runs on host Mac, use:
@@ -40,8 +45,10 @@ If n8n runs in Docker and your Node API runs on host Mac, use:
 
 ## 5) Acceptance tests
 
+These are Phase 5 runtime/provider proof checks, not Phase 1 static hardening checks. Do not run live Telegram delivery tests until credentials and chat IDs are intentionally configured.
+
 ### Test 1: Telegram env vars NOT set
-- Send POST to `/webhook/alert-created` with a new `alertId`.
+- Send POST to `/webhook/alert-created` with a new `alertId` and the `x-aura-n8n-webhook-key` header.
 - Expected behavior:
   - Inserts into Alerts table.
   - Responds with JSON:

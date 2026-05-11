@@ -29,7 +29,9 @@ This first n8n workflow receives `ALERT_CREATED` events from your Aura Node back
 - Docker is running.
 - n8n UI is reachable at `http://localhost:5678`.
 - Node backend is running at `http://localhost:3000`.
-- Set `AURA_WEBHOOK_KEY` in both Aura server and n8n environment.
+- Set `AURA_N8N_WEBHOOK_KEY` in both the Aura server and n8n environment for backend-to-n8n `alert-created` ingress.
+- Set `AURA_WEBHOOK_KEY` in both the Aura server and n8n environment for n8n-to-backend callback/internal API calls.
+- If n8n runs in Docker on a Mac and the backend runs on the host, set `AURA_API_BASE=http://host.docker.internal:3000` for n8n-to-backend calls.
 
 ## Internal n8n API endpoints (webhook-key secured)
 For alert list/ack/resolve automation, workflows should call these endpoints instead of `/clinician/*`:
@@ -92,7 +94,10 @@ Notes:
 
 ```env
 N8N_WEBHOOK_ALERT=http://localhost:5678/webhook/alert-created
+AURA_N8N_WEBHOOK_KEY=<same value configured in the n8n container>
 ```
+
+When the backend runs on the host Mac and n8n exposes port `5678`, the backend-to-n8n webhook URL can stay `http://localhost:5678/webhook/alert-created`. Inside the n8n Docker container, calls back to the host backend should use `AURA_API_BASE=http://host.docker.internal:3000`.
 
 ## Testing the workflow (3 methods)
 ### A) Quick curl test (recommended)
@@ -101,6 +106,7 @@ Use this from Terminal:
 ```bash
 curl -X POST http://localhost:5678/webhook/alert-created \
   -H "Content-Type: application/json" \
+  -H "x-aura-n8n-webhook-key: <AURA_N8N_WEBHOOK_KEY>" \
   -d '{
     "type": "ALERT_CREATED",
     "patientId": "p1",
@@ -181,12 +187,12 @@ curl -X POST http://localhost:3000/chat/send \
   - Ensure `Respond to Webhook` node is set to JSON body `{ "ok": true }`.
 
 ## Security note
-This guide is for local development only. Later, protect n8n with authentication and do not expose your localhost n8n instance publicly.
+Workflow `01 - Alert Created Webhook` rejects requests unless `x-aura-n8n-webhook-key` matches `AURA_N8N_WEBHOOK_KEY` configured in the n8n container. Workflow `02 - List Alerts Proxy` rejects requests unless `x-api-key` matches `AURA_N8N_API_KEY`; an unset proxy key is not an allow-all mode. Do not expose a local n8n instance publicly.
 
 ## Notification status callback (required for truthful delivery state)
 After Telegram send in workflow `01 - Alert Created Webhook`, post delivery status back to Aura backend:
 
-- Endpoint: `POST http://localhost:3000/events/notification-status`
+- Endpoint: `POST <AURA_API_BASE>/events/notification-status`
 - Header: `x-aura-webhook-key: <AURA_WEBHOOK_KEY>`
 - Content-Type: `application/json`
 
@@ -221,6 +227,6 @@ Notes:
 - Do not send chat text/check-in notes in callback payloads.
 
 ## Next steps (do not implement now)
-- Add Email/Slack/Telegram notification nodes.
-- Add a backend writeback call to store additional `care_events` metadata.
+- Finish Telegram runtime/provider proof after credentials and chat IDs are configured across required workflows.
+- Configure the existing `AURA Rehab alerts` bot in n8n Credentials and set the required Telegram chat ID environment variables.
 - Add conditional paths based on reason (`PAIN_GE_THRESHOLD` vs `CRISIS_LANGUAGE`).

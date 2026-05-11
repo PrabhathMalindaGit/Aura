@@ -28,9 +28,15 @@ type N8nEmitContext = RequestCorrelationContext & {
   workflow?: string;
 };
 
-function buildHeaders(context?: N8nEmitContext): Record<string, string> {
+function buildHeaders(
+  context?: N8nEmitContext,
+  options: { includeN8nWebhookKey?: boolean } = {}
+): Record<string, string> {
   return {
     "Content-Type": "application/json",
+    ...(options.includeN8nWebhookKey
+      ? { "x-aura-n8n-webhook-key": env.AURA_N8N_WEBHOOK_KEY }
+      : {}),
     ...(context?.requestId ? { [REQUEST_ID_HEADER]: context.requestId } : {}),
   };
 }
@@ -42,7 +48,7 @@ export async function emitAlertCreated(
   try {
     await axios.post(env.N8N_WEBHOOK_ALERT, payload, {
       timeout: 4000,
-      headers: buildHeaders(context),
+      headers: buildHeaders(context, { includeN8nWebhookKey: true }),
     });
     logger.info("n8n.alert_created.delivered", {
       requestId: context?.requestId,

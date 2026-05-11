@@ -28,6 +28,8 @@ export const PRESENTATION_SEED_ID = "phase-10c-presentation-seed-v1";
 
 const CLINICIAN_ID = "presentation-clinician";
 const CLINICIAN_NAME = "Presentation Clinician";
+const LEGACY_SEED_START = new Date(Date.UTC(2026, 3, 6));
+const DAY_MS = 24 * 60 * 60 * 1000;
 const PRESENTATION_PATIENTS = [
   {
     patientId: "presentation-emily-chen",
@@ -87,10 +89,26 @@ const PRESENTATION_PATIENTS = [
   },
 ] as const;
 
-const seedDates = Array.from({ length: 14 }, (_, index) => {
-  const date = new Date(Date.UTC(2026, 3, 6 + index));
-  return date.toISOString().slice(0, 10);
-});
+type PresentationSeedTimeline = {
+  seedDates: string[];
+  rehabIntakeStartedAt: Date;
+  rehabIntakeCompletedAt: Date;
+  rehabStartedAt: Date;
+  rehabUpdatedAt: Date;
+  medicationStartDate: string;
+  exerciseSessionDates: string[];
+  promDueAt: Date;
+  promCompletedAt: Date;
+  chatMessageDate: string;
+  alertAcknowledgedAt: Date;
+  taskDueAt: Date;
+  taskCompletedAt: Date;
+  insightWindowStart: Date;
+  insightWindowEnd: Date;
+  coordinationUpdatedAt: Date;
+  appointmentSlots: Array<{ date: string; hour: number }>;
+  appointmentReviewedAt: Date;
+};
 
 const promQuestions = [
   {
@@ -115,6 +133,12 @@ const promQuestions = [
 ];
 
 type PresentationCounts = Record<string, number>;
+type PresentationSeedMetadata = {
+  firstPatientId: string | null;
+  patientIds: string[];
+  healthDateRange: { start: string; end: string } | null;
+  appointmentDateRange: { start: string; end: string } | null;
+};
 type CountableModel = {
   countDocuments(filter: Record<string, unknown>): Promise<number>;
 };
@@ -162,8 +186,81 @@ function presentationPatientIds(): string[] {
   return PRESENTATION_PATIENTS.map((patient) => patient.patientId);
 }
 
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+function dateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function utcDateAt(date: Date, hour: number): Date {
+  return dateAt(dateKey(date), hour);
+}
+
 function dateAt(date: string, hour: number): Date {
   return new Date(`${date}T${String(hour).padStart(2, "0")}:00:00.000Z`);
+}
+
+function buildPresentationSeedTimeline(anchorInput = new Date()): PresentationSeedTimeline {
+  const anchor = new Date(anchorInput);
+  anchor.setUTCHours(0, 0, 0, 0);
+  const seedStart = addUtcDays(anchor, -13);
+  const seedDates = Array.from({ length: 14 }, (_, index) =>
+    dateKey(addUtcDays(seedStart, index))
+  );
+
+  return {
+    seedDates,
+    rehabIntakeStartedAt: utcDateAt(addUtcDays(anchor, -20), 9),
+    rehabIntakeCompletedAt: utcDateAt(addUtcDays(anchor, -17), 9),
+    rehabStartedAt: utcDateAt(seedStart, 9),
+    rehabUpdatedAt: utcDateAt(addUtcDays(anchor, -6), 9),
+    medicationStartDate: dateKey(addUtcDays(anchor, -18)),
+    exerciseSessionDates: [dateKey(addUtcDays(anchor, -5)), dateKey(addUtcDays(anchor, -2))],
+    promDueAt: utcDateAt(addUtcDays(anchor, 1), 12),
+    promCompletedAt: utcDateAt(addUtcDays(anchor, -6), 18),
+    chatMessageDate: dateKey(addUtcDays(anchor, -1)),
+    alertAcknowledgedAt: utcDateAt(addUtcDays(anchor, -1), 13),
+    taskDueAt: utcDateAt(anchor, 15),
+    taskCompletedAt: utcDateAt(addUtcDays(anchor, -1), 16),
+    insightWindowStart: dateAt(seedDates[0], 0),
+    insightWindowEnd: new Date(`${seedDates[seedDates.length - 1]}T23:00:00.000Z`),
+    coordinationUpdatedAt: utcDateAt(addUtcDays(anchor, -1), 14),
+    appointmentSlots: [
+      { date: dateKey(anchor), hour: 14 },
+      { date: dateKey(addUtcDays(anchor, 1)), hour: 15 },
+      { date: dateKey(addUtcDays(anchor, 2)), hour: 13 },
+      { date: dateKey(addUtcDays(anchor, 2)), hour: 16 },
+      { date: dateKey(addUtcDays(anchor, 3)), hour: 14 },
+      { date: dateKey(addUtcDays(anchor, 4)), hour: 10 },
+      { date: dateKey(addUtcDays(anchor, 4)), hour: 15 },
+      { date: dateKey(addUtcDays(anchor, 5)), hour: 9 },
+      { date: dateKey(addUtcDays(anchor, 5)), hour: 11 },
+      { date: dateKey(addUtcDays(anchor, 6)), hour: 10 },
+    ],
+    appointmentReviewedAt: utcDateAt(anchor, 12),
+  };
+}
+
+function buildLegacyPresentationSeedTimeline(): PresentationSeedTimeline {
+  const legacy = buildPresentationSeedTimeline(addUtcDays(LEGACY_SEED_START, 13));
+  return {
+    ...legacy,
+    appointmentSlots: [
+      { date: "2026-04-27", hour: 14 },
+      { date: "2026-04-28", hour: 15 },
+      { date: "2026-04-29", hour: 13 },
+      { date: "2026-04-29", hour: 16 },
+      { date: "2026-04-30", hour: 14 },
+      { date: "2026-05-01", hour: 10 },
+      { date: "2026-05-01", hour: 15 },
+      { date: "2026-05-02", hour: 9 },
+      { date: "2026-05-02", hour: 11 },
+      { date: "2026-05-03", hour: 10 },
+    ],
+    appointmentReviewedAt: dateAt("2026-04-12", 12),
+  };
 }
 
 function resolveSeedClinician(
@@ -279,6 +376,49 @@ async function countPresentationRecords(): Promise<PresentationCounts> {
   };
 }
 
+async function getPresentationSeedMetadata(): Promise<PresentationSeedMetadata | null> {
+  const tag = isTaggedQuery();
+  const [patientRecords, healthBounds, appointmentBounds] = await Promise.all([
+    Patient.find(tag).select("patientId").lean(),
+    CheckIn.aggregate<{ _id: null; start: string; end: string }>([
+      { $match: tag },
+      { $group: { _id: null, start: { $min: "$date" }, end: { $max: "$date" } } },
+    ]),
+    AppointmentSlot.aggregate<{ _id: null; start: Date; end: Date }>([
+      { $match: tag },
+      { $group: { _id: null, start: { $min: "$startsAt" }, end: { $max: "$endsAt" } } },
+    ]),
+  ]);
+  const loadedPatientIds = new Set(
+    patientRecords
+      .map((patient) => patient.patientId)
+      .filter((patientId): patientId is string => typeof patientId === "string")
+  );
+  const patientIds = presentationPatientIds().filter((patientId) =>
+    loadedPatientIds.has(patientId)
+  );
+
+  if (patientIds.length === 0) {
+    return null;
+  }
+
+  const appointmentRange = appointmentBounds[0];
+
+  return {
+    firstPatientId: patientIds[0] ?? null,
+    patientIds,
+    healthDateRange: healthBounds[0]
+      ? { start: healthBounds[0].start, end: healthBounds[0].end }
+      : null,
+    appointmentDateRange: appointmentRange
+      ? {
+          start: appointmentRange.start.toISOString().slice(0, 10),
+          end: appointmentRange.end.toISOString().slice(0, 10),
+        }
+      : null,
+  };
+}
+
 export async function getPresentationSeedStatus() {
   if (!env.AURA_PRESENTATION_SEED_ENABLED) {
     return {
@@ -288,6 +428,7 @@ export async function getPresentationSeedStatus() {
       counts: {},
       lastLoadedAt: null,
       message: "Presentation seed is disabled",
+      metadata: null,
     };
   }
 
@@ -310,6 +451,7 @@ export async function getPresentationSeedStatus() {
     seedId: PRESENTATION_SEED_ID,
     counts,
     lastLoadedAt,
+    metadata: loaded ? await getPresentationSeedMetadata() : null,
   };
 }
 
@@ -383,7 +525,9 @@ async function preflightPresentationSeedCollisions(
   }
 }
 
-function buildCommunicationEventManifest() {
+function buildCommunicationEventManifest(
+  timeline: PresentationSeedTimeline = buildPresentationSeedTimeline()
+) {
   return PRESENTATION_PATIENTS.flatMap((patient, index) => [
     {
       patientId: patient.patientId,
@@ -393,7 +537,7 @@ function buildCommunicationEventManifest() {
       actorType: "patient",
       actorId: patient.patientId,
       sourceSurface: "presentation-seed",
-      createdAt: dateAt("2026-04-18", 9 + index),
+      createdAt: dateAt(timeline.chatMessageDate, 9 + index),
     },
     {
       patientId: patient.patientId,
@@ -403,9 +547,16 @@ function buildCommunicationEventManifest() {
       actorType: "automation",
       actorId: "presentation-seed",
       sourceSurface: "presentation-seed",
-      createdAt: dateAt("2026-04-18", 18),
+      createdAt: dateAt(timeline.chatMessageDate, 18),
     },
   ]);
+}
+
+function buildCommunicationEventManifests() {
+  return [
+    ...buildCommunicationEventManifest(),
+    ...buildCommunicationEventManifest(buildLegacyPresentationSeedTimeline()),
+  ];
 }
 
 function communicationEventManifestKey(event: {
@@ -502,7 +653,7 @@ async function retagLegacyPresentationCommunicationEvents(
   context?: PresentationSeedClinicianContext
 ): Promise<void> {
   const manifestByKey = new Map(
-    buildCommunicationEventManifest().map((event) => [
+    buildCommunicationEventManifests().map((event) => [
       communicationEventManifestKey(event),
       event,
     ])
@@ -536,7 +687,7 @@ async function getUnsafeCommunicationEventCollisionDetail(
   context?: PresentationSeedClinicianContext
 ): Promise<PresentationSeedCollisionDetail | null> {
   const manifestByKey = new Map(
-    buildCommunicationEventManifest().map((event) => [
+    buildCommunicationEventManifests().map((event) => [
       communicationEventManifestKey(event),
       event,
     ])
@@ -623,7 +774,7 @@ function appointmentSlotDiagnostic(slot: Record<string, unknown>) {
 async function findUntaggedPresentationSlotCollisions(
   context?: PresentationSeedClinicianContext
 ) {
-  const slotWindows = buildAppointmentSlots(context).map((slot) => ({
+  const slotWindows = buildAppointmentSlotManifests(context).map((slot) => ({
     clinicianId: slot.clinicianId,
     startsAt: slot.startsAt,
   }));
@@ -638,25 +789,20 @@ async function findUntaggedPresentationSlotCollisions(
 async function retagLegacyPresentationAppointmentSlots(
   context?: PresentationSeedClinicianContext
 ): Promise<void> {
-  const safeIds: unknown[] = [];
-  for (const cleanupContext of appointmentSlotCleanupContexts(context)) {
-    const manifestByKey = new Map(
-      buildAppointmentSlots(cleanupContext).map((slot) => [appointmentSlotManifestKey(slot), slot])
-    );
-    const collisions = await findUntaggedPresentationSlotCollisions(cleanupContext);
-    safeIds.push(
-      ...collisions
-        .filter((slot) => {
-          const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
-          const manifestSlot = startsAt
-            ? manifestByKey.get(`${slot.clinicianId}|${startsAt.toISOString()}`)
-            : null;
+  const manifestByKey = new Map(
+    buildAppointmentSlotManifests(context).map((slot) => [appointmentSlotManifestKey(slot), slot])
+  );
+  const collisions = await findUntaggedPresentationSlotCollisions(context);
+  const safeIds = collisions
+    .filter((slot) => {
+      const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
+      const manifestSlot = startsAt
+        ? manifestByKey.get(`${slot.clinicianId}|${startsAt.toISOString()}`)
+        : null;
 
-          return manifestSlot ? matchesAppointmentSlotManifest(slot, manifestSlot) : false;
-        })
-        .map((slot) => slot._id)
-    );
-  }
+      return manifestSlot ? matchesAppointmentSlotManifest(slot, manifestSlot) : false;
+    })
+    .map((slot) => slot._id);
 
   if (safeIds.length === 0) {
     return;
@@ -672,7 +818,7 @@ async function getUnsafeAppointmentSlotCollisionDetail(
   context?: PresentationSeedClinicianContext
 ): Promise<PresentationSeedCollisionDetail | null> {
   const manifestByKey = new Map(
-    buildAppointmentSlots(context).map((slot) => [appointmentSlotManifestKey(slot), slot])
+    buildAppointmentSlotManifests(context).map((slot) => [appointmentSlotManifestKey(slot), slot])
   );
   const collisions = await findUntaggedPresentationSlotCollisions(context);
   const unsafeRecords = collisions
@@ -781,23 +927,15 @@ async function resetPresentationSeedRecords(): Promise<PresentationCounts> {
   };
 }
 
-function buildAppointmentSlots(context?: PresentationSeedClinicianContext) {
+function buildAppointmentSlots(
+  context?: PresentationSeedClinicianContext,
+  timeline: PresentationSeedTimeline = buildPresentationSeedTimeline()
+) {
   const seedClinician = resolveSeedClinician(context);
-  return [
-    ["2026-04-27", 14],
-    ["2026-04-28", 15],
-    ["2026-04-29", 13],
-    ["2026-04-29", 16],
-    ["2026-04-30", 14],
-    ["2026-05-01", 10],
-    ["2026-05-01", 15],
-    ["2026-05-02", 9],
-    ["2026-05-02", 11],
-    ["2026-05-03", 10],
-  ].map(([date, hour], index) => ({
+  return timeline.appointmentSlots.map(({ date, hour }, index) => ({
     clinicianId: seedClinician.clinicianId,
-    startsAt: dateAt(String(date), Number(hour)),
-    endsAt: dateAt(String(date), Number(hour) + 1),
+    startsAt: dateAt(date, hour),
+    endsAt: dateAt(date, hour + 1),
     modality: "video",
     status: index % 3 === 0 ? "closed" : "available",
     meetingLink: `https://meet.example.com/presentation-${index + 1}`,
@@ -805,13 +943,20 @@ function buildAppointmentSlots(context?: PresentationSeedClinicianContext) {
   }));
 }
 
-function buildPatientRecords() {
+function buildAppointmentSlotManifests(context?: PresentationSeedClinicianContext) {
+  return appointmentSlotCleanupContexts(context).flatMap((cleanupContext) => [
+    ...buildAppointmentSlots(cleanupContext),
+    ...buildAppointmentSlots(cleanupContext, buildLegacyPresentationSeedTimeline()),
+  ]);
+}
+
+function buildPatientRecords(seedClinician: ReturnType<typeof resolveSeedClinician>, timeline: PresentationSeedTimeline) {
   return PRESENTATION_PATIENTS.map((patient, index) => ({
     patientId: patient.patientId,
     displayName: patient.displayName,
     accessCode: `presentation-${index + 1}`,
     status: index === 6 ? "on_hold" : "active",
-    clinicianId: CLINICIAN_ID,
+    clinicianId: seedClinician.clinicianId,
     demoTag: PRESENTATION_DEMO_TAG,
     rehab: {
       currentKey: patient.phase,
@@ -822,8 +967,8 @@ function buildPatientRecords() {
           description: "Baseline assessment and education.",
           order: 0,
           status: "done",
-          startedAt: dateAt("2026-03-30", 9),
-          completedAt: dateAt("2026-04-02", 9),
+          startedAt: timeline.rehabIntakeStartedAt,
+          completedAt: timeline.rehabIntakeCompletedAt,
         },
         {
           key: patient.phase,
@@ -831,7 +976,7 @@ function buildPatientRecords() {
           description: "Current conservative rehab focus.",
           order: 1,
           status: "current",
-          startedAt: dateAt("2026-04-06", 9),
+          startedAt: timeline.rehabStartedAt,
         },
         {
           key: "phase-maintenance",
@@ -841,23 +986,23 @@ function buildPatientRecords() {
           status: "locked",
         },
       ],
-      updatedAt: dateAt("2026-04-13", 9),
+      updatedAt: timeline.rehabUpdatedAt,
       updatedBy: {
-        clinicianId: CLINICIAN_ID,
-        name: CLINICIAN_NAME,
+        clinicianId: seedClinician.clinicianId,
+        name: seedClinician.clinicianName,
       },
     },
   }));
 }
 
-function buildDailyRecords() {
+function buildDailyRecords(timeline: PresentationSeedTimeline) {
   const checkIns = [];
   const hydrationLogs = [];
   const nutritionLogs = [];
   const wearableDailies = [];
 
   for (const [patientIndex, patient] of PRESENTATION_PATIENTS.entries()) {
-    for (const [dateIndex, date] of seedDates.entries()) {
+    for (const [dateIndex, date] of timeline.seedDates.entries()) {
       const pain = Math.min(10, Math.max(0, patient.painBase + ((dateIndex + patientIndex) % 3) - 1));
       checkIns.push({
         patientId: patient.patientId,
@@ -938,7 +1083,7 @@ function buildDailyRecords() {
   return { checkIns, hydrationLogs, nutritionLogs, wearableDailies };
 }
 
-function buildExercisePlans() {
+function buildExercisePlans(seedClinician: ReturnType<typeof resolveSeedClinician>) {
   return PRESENTATION_PATIENTS.map((patient) => ({
     patientId: patient.patientId,
     title: `${patient.context} plan`,
@@ -946,8 +1091,8 @@ function buildExercisePlans() {
     daysOfWeek: [1, 3, 5],
     version: 1,
     updatedBy: {
-      clinicianId: CLINICIAN_ID,
-      name: CLINICIAN_NAME,
+      clinicianId: seedClinician.clinicianId,
+      name: seedClinician.clinicianName,
     },
     items: [
       {
@@ -975,7 +1120,7 @@ function buildExercisePlans() {
   }));
 }
 
-function buildProms() {
+function buildProms(timeline: PresentationSeedTimeline) {
   return PRESENTATION_PATIENTS.flatMap((patient, index) => [
     {
       patientId: patient.patientId,
@@ -983,7 +1128,7 @@ function buildProms() {
       templateVersion: 1,
       titleSnapshot: "Recovery check",
       questionsSnapshot: promQuestions,
-      dueAt: dateAt("2026-04-18", 12),
+      dueAt: timeline.promDueAt,
       status: "due",
       demoTag: PRESENTATION_DEMO_TAG,
     },
@@ -993,9 +1138,9 @@ function buildProms() {
       templateVersion: 1,
       titleSnapshot: "Recovery check",
       questionsSnapshot: promQuestions,
-      dueAt: dateAt("2026-04-11", 12),
+      dueAt: timeline.promCompletedAt,
       status: "completed",
-      completedAt: dateAt("2026-04-11", 18),
+      completedAt: timeline.promCompletedAt,
       answers: [
         { questionId: "pain", value: patient.painBase },
         { questionId: "confidence", value: Math.max(3, 8 - index) },
@@ -1015,8 +1160,9 @@ async function insertPresentationData(
   context?: PresentationSeedClinicianContext
 ): Promise<PresentationCounts> {
   const seedClinician = resolveSeedClinician(context);
-  const patients = await Patient.insertMany(buildPatientRecords());
-  const dailyRecords = buildDailyRecords();
+  const timeline = buildPresentationSeedTimeline();
+  const patients = await Patient.insertMany(buildPatientRecords(seedClinician, timeline));
+  const dailyRecords = buildDailyRecords(timeline);
   const [checkIns, hydrationLogs, nutritionLogs, wearableDailies] = await Promise.all([
     CheckIn.insertMany(dailyRecords.checkIns),
     HydrationLog.insertMany(dailyRecords.hydrationLogs),
@@ -1041,14 +1187,14 @@ async function insertPresentationData(
       medicationId: medication._id,
       times: ["08:00"],
       daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-      startDate: "2026-04-01",
+      startDate: timeline.medicationStartDate,
       demoTag: PRESENTATION_DEMO_TAG,
     }))
   );
 
   const medicationLogs = await MedicationLog.insertMany(
     medications.flatMap((medication, index) =>
-      seedDates.slice(7).map((date, dateIndex) => ({
+      timeline.seedDates.slice(7).map((date, dateIndex) => ({
         patientId: medication.patientId,
         medicationId: medication._id,
         date,
@@ -1060,10 +1206,10 @@ async function insertPresentationData(
     )
   );
 
-  const exercisePlans = await ExercisePlan.insertMany(buildExercisePlans());
+  const exercisePlans = await ExercisePlan.insertMany(buildExercisePlans(seedClinician));
   const exerciseSessions = await ExerciseSession.insertMany(
     PRESENTATION_PATIENTS.flatMap((patient, patientIndex) =>
-      ["2026-04-14", "2026-04-17"].map((date, sessionIndex) => ({
+      timeline.exerciseSessionDates.map((date, sessionIndex) => ({
         patientId: patient.patientId,
         planPatientId: patient.patientId,
         planVersion: 1,
@@ -1092,7 +1238,7 @@ async function insertPresentationData(
     )
   );
 
-  const promInstances = await PromInstance.insertMany(buildProms());
+  const promInstances = await PromInstance.insertMany(buildProms(timeline));
   const chatMessages = await ChatMessage.insertMany(
     PRESENTATION_PATIENTS.flatMap((patient, index) => [
       {
@@ -1106,7 +1252,7 @@ async function insertPresentationData(
           patient.painBase >= 6
             ? { level: "high", reasons: ["PATIENT_REQUESTS_FOLLOW_UP"] }
             : { level: "low", reasons: [] },
-        createdAt: dateAt("2026-04-18", 9 + index),
+        createdAt: dateAt(timeline.chatMessageDate, 9 + index),
         demoTag: PRESENTATION_DEMO_TAG,
       },
       {
@@ -1114,7 +1260,7 @@ async function insertPresentationData(
         role: "assistant",
         text: "Thanks for the update. Your clinician can review this in the care workspace.",
         risk: { level: "low", reasons: [] },
-        createdAt: dateAt("2026-04-18", 10 + index),
+        createdAt: dateAt(timeline.chatMessageDate, 10 + index),
         demoTag: PRESENTATION_DEMO_TAG,
       },
     ])
@@ -1135,12 +1281,12 @@ async function insertPresentationData(
         sourceId: String(item.sourceDoc?._id),
       },
       status: index === 3 ? "acknowledged" : "open",
-      acknowledgedAt: index === 3 ? dateAt("2026-04-18", 13) : undefined,
+      acknowledgedAt: index === 3 ? timeline.alertAcknowledgedAt : undefined,
       riskAuto: index === 3 ? "medium" : "high",
       riskFinal: index === 3 ? "medium" : "high",
-      assignedTo: index === 0 ? CLINICIAN_ID : undefined,
-      assignedToName: index === 0 ? CLINICIAN_NAME : undefined,
-      assignedAt: index === 0 ? dateAt("2026-04-18", 13) : undefined,
+      assignedTo: index === 0 ? seedClinician.clinicianId : undefined,
+      assignedToName: index === 0 ? seedClinician.clinicianName : undefined,
+      assignedAt: index === 0 ? timeline.alertAcknowledgedAt : undefined,
       notification: { channel: "telegram", status: "sent", retryCount: 0 },
       demoTag: PRESENTATION_DEMO_TAG,
     }))
@@ -1194,7 +1340,7 @@ async function insertPresentationData(
         actorId: review.patientId,
         sourceSurface: "presentation-seed",
         sourceRecordId: String(review._id),
-        createdAt: review.messageCreatedAt ?? dateAt("2026-04-18", 9),
+        createdAt: review.messageCreatedAt ?? dateAt(timeline.chatMessageDate, 9),
         demoTag: PRESENTATION_DEMO_TAG,
       },
       {
@@ -1207,7 +1353,7 @@ async function insertPresentationData(
         actorId: "presentation-seed",
         sourceSurface: "presentation-seed",
         sourceRecordId: String(review._id),
-        createdAt: dateAt("2026-04-18", 18),
+        createdAt: dateAt(timeline.chatMessageDate, 18),
         demoTag: PRESENTATION_DEMO_TAG,
       },
     ])
@@ -1221,8 +1367,8 @@ async function insertPresentationData(
       type: index % 2 === 0 ? "follow_up" : "appointment",
       priority: patient.painBase >= 6 ? "high" : "medium",
       status: index === 7 ? "completed" : "open",
-      dueAt: dateAt("2026-04-19", 15),
-      assignedTo: CLINICIAN_ID,
+      dueAt: timeline.taskDueAt,
+      assignedTo: seedClinician.clinicianId,
       createdBy: "presentation-seed",
       source: {
         type: "presentation-seed",
@@ -1233,7 +1379,7 @@ async function insertPresentationData(
       linkedAlertId: alerts.find((alert) => alert.patientId === patient.patientId)
         ? String(alerts.find((alert) => alert.patientId === patient.patientId)?._id)
         : undefined,
-      completedAt: index === 7 ? dateAt("2026-04-18", 16) : undefined,
+      completedAt: index === 7 ? timeline.taskCompletedAt : undefined,
       demoTag: PRESENTATION_DEMO_TAG,
     }))
   );
@@ -1242,8 +1388,8 @@ async function insertPresentationData(
     PRESENTATION_PATIENTS.map((patient) => ({
       patientId: patient.patientId,
       windowDays: 14,
-      windowStart: dateAt("2026-04-06", 0),
-      windowEnd: dateAt("2026-04-19", 23),
+      windowStart: timeline.insightWindowStart,
+      windowEnd: timeline.insightWindowEnd,
       status: "pending",
       title: patient.painBase >= 6 ? "Review symptom trend" : "Continue current plan",
       message:
@@ -1274,32 +1420,34 @@ async function insertPresentationData(
         nextStep: index % 3 === 0 ? "appointments" : "monitoring",
         followUpOwner: {
           kind: "clinician",
-          clinicianId: CLINICIAN_ID,
-          displayName: CLINICIAN_NAME,
+          clinicianId: seedClinician.clinicianId,
+          displayName: seedClinician.clinicianName,
         },
         linkedTaskId: `presentation-task-${patient.patientId}`,
         updatedBy: {
-          clinicianId: CLINICIAN_ID,
-          displayName: CLINICIAN_NAME,
+          clinicianId: seedClinician.clinicianId,
+          displayName: seedClinician.clinicianName,
         },
-        updatedAt: dateAt("2026-04-18", 14),
+        updatedAt: timeline.coordinationUpdatedAt,
       },
       noteHistory: [
         {
           id: `presentation-note-${patient.patientId}`,
           text: "Seeded presentation handoff note.",
           createdBy: {
-            clinicianId: CLINICIAN_ID,
-            displayName: CLINICIAN_NAME,
+            clinicianId: seedClinician.clinicianId,
+            displayName: seedClinician.clinicianName,
           },
-          createdAt: dateAt("2026-04-18", 14),
+          createdAt: timeline.coordinationUpdatedAt,
         },
       ],
       demoTag: PRESENTATION_DEMO_TAG,
     }))
   );
 
-  const appointmentSlots = await AppointmentSlot.insertMany(buildAppointmentSlots(context));
+  const appointmentSlots = await AppointmentSlot.insertMany(
+    buildAppointmentSlots(context, timeline)
+  );
   const appointmentRequests = await AppointmentRequest.insertMany(
     PRESENTATION_PATIENTS.slice(0, 6).map((patient, index) => ({
       slotId: appointmentSlots[index]._id,
@@ -1310,7 +1458,7 @@ async function insertPresentationData(
         index % 3 === 0
           ? { clinicianId: seedClinician.clinicianId, name: seedClinician.clinicianName }
           : undefined,
-      reviewedAt: index % 3 === 0 ? dateAt("2026-04-12", 12) : undefined,
+      reviewedAt: index % 3 === 0 ? timeline.appointmentReviewedAt : undefined,
       demoTag: PRESENTATION_DEMO_TAG,
     }))
   );
@@ -1325,8 +1473,8 @@ async function insertPresentationData(
       rationale: "Presentation seed threshold config.",
       version: 1,
       updatedBy: {
-        clinicianId: CLINICIAN_ID,
-        name: CLINICIAN_NAME,
+        clinicianId: seedClinician.clinicianId,
+        name: seedClinician.clinicianName,
       },
       demoTag: PRESENTATION_DEMO_TAG,
     }))
@@ -1340,8 +1488,8 @@ async function insertPresentationData(
       rationale: "Presentation seed recovery support config.",
       version: 1,
       updatedBy: {
-        clinicianId: CLINICIAN_ID,
-        name: CLINICIAN_NAME,
+        clinicianId: seedClinician.clinicianId,
+        name: seedClinician.clinicianName,
       },
       demoTag: PRESENTATION_DEMO_TAG,
     }))
@@ -1387,6 +1535,7 @@ export async function loadPresentationSeed(context?: PresentationSeedClinicianCo
     counts,
     deleted,
     lastLoadedAt: new Date().toISOString(),
+    metadata: await getPresentationSeedMetadata(),
   };
 }
 
@@ -1402,5 +1551,6 @@ export async function resetPresentationSeed() {
     counts,
     deleted,
     lastLoadedAt: null,
+    metadata: null,
   };
 }

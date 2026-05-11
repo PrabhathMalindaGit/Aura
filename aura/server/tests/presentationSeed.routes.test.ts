@@ -43,6 +43,25 @@ function dateAt(date: string, hour: number): Date {
   return new Date(`${date}T${String(hour).padStart(2, "0")}:00:00.000Z`);
 }
 
+function dateKeyFromOffset(offsetDays: number): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
+function isoBoundaryFromOffset(offsetDays: number, endOfDay = false): string {
+  const date = new Date();
+  date.setUTCHours(
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0
+  );
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString();
+}
+
 function buildLegacyPresentationAppointmentSlot(
   index: number,
   overrides: Record<string, unknown> = {}
@@ -267,7 +286,9 @@ describe("presentation seed clinician dev routes", () => {
 
     const slots = await request(app)
       .get(
-        "/clinician/appointments/slots?status=available&from=2026-04-27T00:00:00.000Z&to=2026-05-03T23:59:59.999Z&limit=100"
+        `/clinician/appointments/slots?status=available&from=${encodeURIComponent(
+          isoBoundaryFromOffset(0)
+        )}&to=${encodeURIComponent(isoBoundaryFromOffset(6, true))}&limit=100`
       )
       .set(auth);
     expect(slots.status).toBe(200);
@@ -280,7 +301,9 @@ describe("presentation seed clinician dev routes", () => {
 
     const requests = await request(app)
       .get(
-        "/clinician/appointments/requests?status=pending&from=2026-04-27T00:00:00.000Z&to=2026-05-03T23:59:59.999Z&limit=100"
+        `/clinician/appointments/requests?status=pending&from=${encodeURIComponent(
+          isoBoundaryFromOffset(0)
+        )}&to=${encodeURIComponent(isoBoundaryFromOffset(6, true))}&limit=100`
       )
       .set(auth);
     expect(requests.status).toBe(200);
@@ -296,6 +319,80 @@ describe("presentation seed clinician dev routes", () => {
       clinicianId: String(clinician._id),
       name: "Presentation Tester",
     });
+
+    const presentationPatient = await Patient.findOne({
+      patientId: "presentation-emily-chen",
+    }).lean();
+    expect(presentationPatient?.clinicianId).toBe(String(clinician._id));
+    expect(presentationPatient?.rehab?.updatedBy?.clinicianId).toBe(String(clinician._id));
+    expect(presentationPatient?.rehab?.updatedBy?.name).toBe("Presentation Tester");
+
+    const assignedTask = await Task.findOne({
+      demoTag: PRESENTATION_DEMO_TAG,
+      patientId: "presentation-emily-chen",
+    }).lean();
+    expect(assignedTask?.assignedTo).toBe(String(clinician._id));
+
+    const assignedAlert = await Alert.findOne({
+      demoTag: PRESENTATION_DEMO_TAG,
+      assignedTo: String(clinician._id),
+    }).lean();
+    expect(assignedAlert?.assignedToName).toBe("Presentation Tester");
+  });
+
+  it("seeds health and coordination records inside current rolling dashboard windows", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+
+    const seed = await request(app).post(route);
+
+    expect(seed.status).toBe(200);
+
+    const todayKey = dateKeyFromOffset(0);
+    const sevenDaysAgoKey = dateKeyFromOffset(-6);
+    const tomorrowKey = dateKeyFromOffset(1);
+
+    expect(
+      await CheckIn.countDocuments({
+        demoTag: PRESENTATION_DEMO_TAG,
+        date: { $gte: sevenDaysAgoKey, $lte: todayKey },
+      })
+    ).toBeGreaterThan(0);
+    expect(
+      await HydrationLog.countDocuments({
+        demoTag: PRESENTATION_DEMO_TAG,
+        date: { $gte: sevenDaysAgoKey, $lte: todayKey },
+      })
+    ).toBeGreaterThan(0);
+    expect(
+      await NutritionLog.countDocuments({
+        demoTag: PRESENTATION_DEMO_TAG,
+        date: { $gte: sevenDaysAgoKey, $lte: todayKey },
+      })
+    ).toBeGreaterThan(0);
+    expect(
+      await MedicationLog.countDocuments({
+        demoTag: PRESENTATION_DEMO_TAG,
+        date: { $gte: sevenDaysAgoKey, $lte: todayKey },
+      })
+    ).toBeGreaterThan(0);
+    expect(
+      await WearableDaily.countDocuments({
+        demoTag: PRESENTATION_DEMO_TAG,
+        date: { $gte: sevenDaysAgoKey, $lte: todayKey },
+      })
+    ).toBeGreaterThan(0);
+
+    const dueProm = await PromInstance.findOne({
+      demoTag: PRESENTATION_DEMO_TAG,
+      status: "due",
+    }).lean();
+    expect(dueProm?.dueAt?.toISOString().slice(0, 10)).toBe(tomorrowKey);
+
+    const insight = await InsightSuggestion.findOne({
+      demoTag: PRESENTATION_DEMO_TAG,
+      patientId: "presentation-emily-chen",
+    }).lean();
+    expect(insight?.windowEnd.toISOString().slice(0, 10)).toBe(todayKey);
   });
 
   it("is idempotent and keeps counts stable on repeated seed", async () => {
@@ -539,11 +636,16 @@ describe("presentation seed clinician dev routes", () => {
     expect(afterSeed.body.loaded).toBe(true);
     expect(afterSeed.body.counts.patients).toBe(8);
     expect(afterSeed.body.lastLoadedAt).toEqual(expect.any(String));
+    expect(afterSeed.body.metadata.firstPatientId).toBe("presentation-emily-chen");
+    expect(afterSeed.body.metadata.patientIds).toContain("presentation-emily-chen");
+    expect(afterSeed.body.metadata.healthDateRange.end).toBe(dateKeyFromOffset(0));
+    expect(afterSeed.body.metadata.appointmentDateRange.start).toBe(dateKeyFromOffset(0));
 
     await request(app).delete(route);
     const afterReset = await request(app).get(route);
     expect(afterReset.body.loaded).toBe(false);
     expect(afterReset.body.counts.patients).toBe(0);
     expect(afterReset.body.lastLoadedAt).toBeNull();
+    expect(afterReset.body.metadata).toBeNull();
   });
 });

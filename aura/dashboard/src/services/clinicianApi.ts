@@ -221,6 +221,13 @@ export interface PresentationSeedCounts {
   [key: string]: number;
 }
 
+export interface PresentationSeedMetadata {
+  firstPatientId: string | null;
+  patientIds: string[];
+  healthDateRange: { start: string; end: string } | null;
+  appointmentDateRange: { start: string; end: string } | null;
+}
+
 export interface PresentationSeedStatus {
   ok?: true;
   enabled: boolean;
@@ -228,6 +235,7 @@ export interface PresentationSeedStatus {
   seedId: string;
   counts: PresentationSeedCounts;
   lastLoadedAt: string | null;
+  metadata?: PresentationSeedMetadata | null;
   message?: string;
 }
 

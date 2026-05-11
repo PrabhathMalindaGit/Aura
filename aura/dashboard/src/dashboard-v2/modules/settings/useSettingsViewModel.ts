@@ -870,8 +870,7 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
             presentationStatusQuery.isLoading ||
             presentationStatusUnavailable ||
             !presentationStatus ||
-            presentationStatus?.enabled === false ||
-            presentationStatus?.loaded !== true,
+            presentationStatus?.enabled === false,
           onLoad: () => loadPresentationMutation.mutate(),
           onReset: () => resetPresentationMutation.mutate(),
         }

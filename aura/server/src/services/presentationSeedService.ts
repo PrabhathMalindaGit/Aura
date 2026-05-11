@@ -287,6 +287,48 @@ function isTaggedQuery() {
   return { demoTag: PRESENTATION_DEMO_TAG };
 }
 
+function presentationPatientQuery() {
+  return {
+    $or: [
+      isTaggedQuery(),
+      { patientId: { $in: presentationPatientIds() } },
+    ],
+  };
+}
+
+function presentationAppointmentSlotQuery() {
+  return {
+    $or: [
+      isTaggedQuery(),
+      {
+        meetingLink: /^https:\/\/meet\.example\.com\/presentation-\d+$/,
+      },
+    ],
+  };
+}
+
+function presentationCommunicationEventResetQuery() {
+  return {
+    $or: [
+      isTaggedQuery(),
+      {
+        patientId: { $in: presentationPatientIds() },
+        sourceSurface: "presentation-seed",
+      },
+      {
+        patientId: { $in: presentationPatientIds() },
+        threadKey: /^patient_chat:presentation-/,
+        channel: "patient_chat",
+        eventType: "thread_opened",
+        actorType: "clinician",
+        sourceSurface: {
+          $in: ["communication_inbox", "patient_detail_communication_panel"],
+        },
+      },
+    ],
+  };
+}
+
 function untaggedQuery() {
   return {
     $or: [
@@ -594,11 +636,7 @@ function matchesCommunicationEventManifest(
   );
 }
 
-function matchesPresentationInteractionCommunicationEvent(
-  event: Record<string, unknown>,
-  context?: PresentationSeedClinicianContext
-): boolean {
-  const seedClinician = resolveSeedClinician(context);
+function matchesPresentationInteractionCommunicationEvent(event: Record<string, unknown>): boolean {
   const patientId = typeof event.patientId === "string" ? event.patientId : "";
   const presentationInteractionSurfaces = new Set([
     "communication_inbox",
@@ -611,7 +649,6 @@ function matchesPresentationInteractionCommunicationEvent(
     event.channel === "patient_chat" &&
     event.eventType === "thread_opened" &&
     event.actorType === "clinician" &&
-    event.actorId === seedClinician.clinicianId &&
     typeof event.sourceSurface === "string" &&
     presentationInteractionSurfaces.has(event.sourceSurface) &&
     event.createdAt instanceof Date
@@ -668,7 +705,7 @@ async function retagLegacyPresentationCommunicationEvents(
 
       return (
         (manifestEvent ? matchesCommunicationEventManifest(event, manifestEvent) : false) ||
-        matchesPresentationInteractionCommunicationEvent(event, context)
+        matchesPresentationInteractionCommunicationEvent(event)
       );
     })
     .map((event) => event._id);
@@ -706,7 +743,7 @@ async function getUnsafeCommunicationEventCollisionDetail(
 
       return (
         !matchesSeedManifest &&
-        !matchesPresentationInteractionCommunicationEvent(event, context)
+        !matchesPresentationInteractionCommunicationEvent(event)
       );
     })
     .map(communicationEventDiagnostic);
@@ -848,8 +885,14 @@ async function getUnsafeAppointmentSlotCollisionDetail(
   };
 }
 
-async function resetPresentationSeedRecords(): Promise<PresentationCounts> {
+async function resetPresentationSeedRecords(
+  context?: PresentationSeedClinicianContext
+): Promise<PresentationCounts> {
   const tag = isTaggedQuery();
+  const patientScopedPresentationQuery = presentationPatientQuery();
+  const presentationSlotIds = await AppointmentSlot.find(presentationAppointmentSlotQuery())
+    .select("_id")
+    .lean();
   const [
     appointmentRequests,
     appointmentSlots,
@@ -875,29 +918,37 @@ async function resetPresentationSeedRecords(): Promise<PresentationCounts> {
     recoverySupportConfigs,
     patients,
   ] = await Promise.all([
-    AppointmentRequest.deleteMany(tag),
-    AppointmentSlot.deleteMany(tag),
-    InsightSuggestion.deleteMany(tag),
-    Task.deleteMany(tag),
-    ClinicianCoordination.deleteMany(tag),
-    CommunicationEvent.deleteMany(tag),
-    CommunicationReview.deleteMany(tag),
-    CareEvent.deleteMany(tag),
-    Alert.deleteMany(tag),
-    ChatMessage.deleteMany(tag),
-    PromInstance.deleteMany(tag),
-    ExerciseSession.deleteMany(tag),
-    ExercisePlan.deleteMany(tag),
-    MedicationLog.deleteMany(tag),
-    MedicationSchedule.deleteMany(tag),
-    Medication.deleteMany(tag),
-    WearableDaily.deleteMany(tag),
-    NutritionLog.deleteMany(tag),
-    HydrationLog.deleteMany(tag),
-    CheckIn.deleteMany(tag),
-    PatientThresholdConfig.deleteMany(tag),
-    PatientRecoverySupportConfig.deleteMany(tag),
-    Patient.deleteMany(tag),
+    AppointmentRequest.deleteMany({
+      $or: [
+        tag,
+        { patientId: { $in: presentationPatientIds() } },
+        { slotId: { $in: presentationSlotIds.map((slot) => slot._id) } },
+      ],
+    }),
+    AppointmentSlot.deleteMany({
+      _id: { $in: presentationSlotIds.map((slot) => slot._id) },
+    }),
+    InsightSuggestion.deleteMany(patientScopedPresentationQuery),
+    Task.deleteMany(patientScopedPresentationQuery),
+    ClinicianCoordination.deleteMany(patientScopedPresentationQuery),
+    CommunicationEvent.deleteMany(presentationCommunicationEventResetQuery()),
+    CommunicationReview.deleteMany(patientScopedPresentationQuery),
+    CareEvent.deleteMany(patientScopedPresentationQuery),
+    Alert.deleteMany(patientScopedPresentationQuery),
+    ChatMessage.deleteMany(patientScopedPresentationQuery),
+    PromInstance.deleteMany(patientScopedPresentationQuery),
+    ExerciseSession.deleteMany(patientScopedPresentationQuery),
+    ExercisePlan.deleteMany(patientScopedPresentationQuery),
+    MedicationLog.deleteMany(patientScopedPresentationQuery),
+    MedicationSchedule.deleteMany(patientScopedPresentationQuery),
+    Medication.deleteMany(patientScopedPresentationQuery),
+    WearableDaily.deleteMany(patientScopedPresentationQuery),
+    NutritionLog.deleteMany(patientScopedPresentationQuery),
+    HydrationLog.deleteMany(patientScopedPresentationQuery),
+    CheckIn.deleteMany(patientScopedPresentationQuery),
+    PatientThresholdConfig.deleteMany(patientScopedPresentationQuery),
+    PatientRecoverySupportConfig.deleteMany(patientScopedPresentationQuery),
+    Patient.deleteMany(patientScopedPresentationQuery),
   ]);
 
   return {
@@ -1524,8 +1575,8 @@ async function insertPresentationData(
 
 export async function loadPresentationSeed(context?: PresentationSeedClinicianContext) {
   assertPresentationSeedEnabled();
+  const deleted = await resetPresentationSeedRecords(context);
   await preflightPresentationSeedCollisions(context);
-  const deleted = await resetPresentationSeedRecords();
   const counts = await insertPresentationData(context);
 
   return {
@@ -1539,9 +1590,9 @@ export async function loadPresentationSeed(context?: PresentationSeedClinicianCo
   };
 }
 
-export async function resetPresentationSeed() {
+export async function resetPresentationSeed(context?: PresentationSeedClinicianContext) {
   assertPresentationSeedEnabled();
-  const deleted = await resetPresentationSeedRecords();
+  const deleted = await resetPresentationSeedRecords(context);
   const counts = await countPresentationRecords();
 
   return {

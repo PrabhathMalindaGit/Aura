@@ -223,7 +223,44 @@ function safeMessageForStatus(status: number): { message: string; hint?: string 
   return { message: 'The request could not be completed.' };
 }
 
-function buildHttpError(status: number): AppError {
+interface ApiErrorPayload {
+  error?: unknown;
+  message?: unknown;
+  collisions?: unknown;
+}
+
+function formatCollisionMessage(payload: ApiErrorPayload): string {
+  const baseMessage =
+    typeof payload.message === 'string' && payload.message.trim()
+      ? payload.message.trim()
+      : 'Presentation seed data conflicts with existing local records.';
+  const collisions = Array.isArray(payload.collisions)
+    ? payload.collisions.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+
+  if (collisions.length === 0) {
+    return baseMessage;
+  }
+
+  return `${baseMessage} Conflicts: ${collisions.join(', ')}.`;
+}
+
+async function buildHttpError(response: Response): Promise<AppError> {
+  if (response.status === 409) {
+    try {
+      const payload = (await response.json()) as ApiErrorPayload;
+      if (payload.error === 'PRESENTATION_SEED_COLLISION') {
+        return createAppError('HTTP', formatCollisionMessage(payload), {
+          status: response.status,
+          hint: 'Reset presentation data, then retry. If this remains, inspect the listed local records.',
+        });
+      }
+    } catch {
+      // Fall through to the generic status message below.
+    }
+  }
+
+  const status = response.status;
   const { message, hint } = safeMessageForStatus(status);
   return createAppError('HTTP', message, { status, hint });
 }
@@ -302,7 +339,7 @@ export async function fetchJson<T>(path: string, options: FetchJsonOptions = {})
     });
 
     if (!response.ok) {
-      throw buildHttpError(response.status);
+      throw await buildHttpError(response);
     }
 
     if (response.status === 204) {

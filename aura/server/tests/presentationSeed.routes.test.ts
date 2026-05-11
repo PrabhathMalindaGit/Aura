@@ -411,6 +411,69 @@ describe("presentation seed clinician dev routes", () => {
     expect(await CheckIn.countDocuments({ demoTag: PRESENTATION_DEMO_TAG })).toBe(112);
   });
 
+  it("recovers from untagged legacy presentation patient records during load", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    await Patient.create({
+      patientId: "presentation-emily-chen",
+      displayName: "Emily Chen",
+      accessCode: "presentation-1",
+      status: "active",
+    });
+    await CheckIn.create({
+      patientId: "presentation-emily-chen",
+      date: "2026-04-18",
+      mood: 4,
+      pain: 3,
+      adherence: { exercises: 0.9, medication: true },
+      risk: { level: "low", reasons: [] },
+    });
+
+    const seed = await request(app).post(route);
+
+    expect(seed.status).toBe(200);
+    expect(seed.body.deleted.patients).toBe(1);
+    expect(seed.body.deleted.checkIns).toBe(1);
+    expect(seed.body.counts.patients).toBe(8);
+    expect(await Patient.countDocuments({ patientId: "presentation-emily-chen" })).toBe(1);
+    expect(await Patient.countDocuments({ demoTag: PRESENTATION_DEMO_TAG })).toBe(8);
+    expect(await CheckIn.countDocuments({ demoTag: PRESENTATION_DEMO_TAG })).toBe(112);
+  });
+
+  it("reset removes untagged legacy presentation appointments without touching normal appointments", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    const legacySlot = await AppointmentSlot.create(buildLegacyPresentationAppointmentSlot(0));
+    const legacyRequest = await AppointmentRequest.create({
+      slotId: legacySlot._id,
+      patientId: "presentation-emily-chen",
+      status: "pending",
+      note: "Presentation request for scheduling review.",
+    });
+    const realSlot = await AppointmentSlot.create({
+      clinicianId: "real-clinician",
+      startsAt: dateAt("2026-04-27", 14),
+      endsAt: dateAt("2026-04-27", 15),
+      modality: "video",
+      status: "available",
+      meetingLink: "https://example.com/meet/real-slot",
+    });
+    const realRequest = await AppointmentRequest.create({
+      slotId: realSlot._id,
+      patientId: "p1",
+      status: "pending",
+      note: "Normal request",
+    });
+
+    const reset = await request(app).delete(route);
+
+    expect(reset.status).toBe(200);
+    expect(reset.body.deleted.appointmentSlots).toBe(1);
+    expect(reset.body.deleted.appointmentRequests).toBe(1);
+    expect(await AppointmentSlot.exists({ _id: legacySlot._id })).toBeFalsy();
+    expect(await AppointmentRequest.exists({ _id: legacyRequest._id })).toBeFalsy();
+    expect(await AppointmentSlot.exists({ _id: realSlot._id })).toBeTruthy();
+    expect(await AppointmentRequest.exists({ _id: realRequest._id })).toBeTruthy();
+  });
+
   it("resets only presentation records and leaves real patient data untouched", async () => {
     mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
     await Patient.create({
@@ -496,13 +559,62 @@ describe("presentation seed clinician dev routes", () => {
     })).toBe(0);
   });
 
+  it("cleans legacy service-recorded presentation communication events before loading seed", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    const legacyEvents = await CommunicationEvent.insertMany(
+      Array.from({ length: 7 }, (_value, index) => ({
+        patientId: "presentation-maria-gonzalez",
+        threadKey: "patient_chat:presentation-maria-gonzalez",
+        channel: "patient_chat",
+        eventType: "thread_opened",
+        actorType: "clinician",
+        actorId: "69f00dec65b8b3b35331d7f7",
+        sourceSurface: "communication_inbox",
+        createdAt: dateAt("2026-04-28", 9 + index),
+      }))
+    );
+    const realEvent = await CommunicationEvent.create({
+      patientId: "p1",
+      threadKey: "patient_chat:p1",
+      channel: "patient_chat",
+      eventType: "thread_opened",
+      actorType: "clinician",
+      actorId: "69f00dec65b8b3b35331d7f7",
+      sourceSurface: "communication_inbox",
+      createdAt: dateAt("2026-04-28", 12),
+    });
+
+    const seed = await request(app).post(route);
+    const reset = await request(app).delete(route);
+
+    expect(seed.status).toBe(200);
+    expect(seed.body.deleted.communicationEvents).toBe(7);
+    expect(seed.body.counts.communicationEvents).toBe(16);
+    expect(
+      await CommunicationEvent.countDocuments({
+        _id: { $in: legacyEvents.map((event) => event._id) },
+      })
+    ).toBe(0);
+    expect(await CommunicationEvent.exists({ _id: realEvent._id })).toBeTruthy();
+    expect(reset.status).toBe(200);
+    expect(reset.body.deleted.communicationEvents).toBe(16);
+    expect(await CommunicationEvent.exists({ _id: realEvent._id })).toBeTruthy();
+  });
+
   it("fails safely with diagnostics for unsafe untagged communication event collisions", async () => {
     mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
-    const realEvent = await CommunicationEvent.create(
-      buildLegacyPresentationCommunicationEvent(0, "patient_message_sent", {
-        createdAt: dateAt("2026-04-18", 8),
-      })
-    );
+    const realEvent = await CommunicationEvent.create({
+      patientId: "presentation-emily-chen",
+      threadKey: "presentation-thread-presentation-emily-chen",
+      channel: "patient_chat",
+      messageId: "real-message-id",
+      eventType: "patient_message_sent",
+      actorType: "patient",
+      actorId: "presentation-emily-chen",
+      sourceSurface: "clinician-inbox",
+      sourceRecordId: "real-record-id",
+      createdAt: dateAt("2026-04-18", 8),
+    });
 
     const seed = await request(app).post(route);
     const reset = await request(app).delete(route);
@@ -524,7 +636,7 @@ describe("presentation seed clinician dev routes", () => {
         patientId: "presentation-emily-chen",
         threadKey: "presentation-thread-presentation-emily-chen",
         eventType: "patient_message_sent",
-        sourceSurface: "presentation-seed",
+        sourceSurface: "clinician-inbox",
         createdAt: "2026-04-18T08:00:00.000Z",
         demoTag: null,
       }),
@@ -604,23 +716,24 @@ describe("presentation seed clinician dev routes", () => {
     expect(await AppointmentSlot.exists({ _id: realSlot._id })).toBeTruthy();
   });
 
-  it("fails safely when untagged data uses reserved presentation patient IDs", async () => {
+  it("treats reserved presentation patient IDs as presentation-owned during load", async () => {
     mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
     await Patient.create({
       patientId: "presentation-emily-chen",
-      displayName: "Real Collision",
+      displayName: "Legacy Presentation Patient",
       status: "active",
     });
 
     const seed = await request(app).post(route);
+
+    expect(seed.status).toBe(200);
+    expect(seed.body.deleted.patients).toBe(1);
+    expect(await Patient.countDocuments({ patientId: "presentation-emily-chen" })).toBe(1);
+    expect(await Patient.countDocuments({ demoTag: PRESENTATION_DEMO_TAG })).toBe(8);
     const reset = await request(app).delete(route);
 
-    expect(seed.status).toBe(409);
-    expect(seed.body.error).toBe("PRESENTATION_SEED_COLLISION");
-    expect(seed.body.collisions).toContain("patients:1");
-    expect(await Patient.exists({ patientId: "presentation-emily-chen" })).toBeTruthy();
     expect(reset.status).toBe(200);
-    expect(await Patient.exists({ patientId: "presentation-emily-chen" })).toBeTruthy();
+    expect(await Patient.exists({ patientId: "presentation-emily-chen" })).toBeFalsy();
   });
 
   it("reports status before seed, after seed, and after reset", async () => {

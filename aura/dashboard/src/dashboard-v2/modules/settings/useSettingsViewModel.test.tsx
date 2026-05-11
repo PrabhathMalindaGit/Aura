@@ -228,6 +228,7 @@ describe("useSettingsViewModel", () => {
             ok: false,
             error: "PRESENTATION_SEED_COLLISION",
             message: "Presentation seed reserved IDs collide with untagged records",
+            collisions: ["appointmentSlots:1"],
           },
           409,
         );
@@ -259,11 +260,11 @@ describe("useSettingsViewModel", () => {
 
     await waitFor(() => {
       expect(result.current.presentationToolsPanel?.error).toBe(
-        "The request could not be completed.",
+        "Presentation seed reserved IDs collide with untagged records Conflicts: appointmentSlots:1.",
       );
       expect(result.current.presentationToolsPanel?.loaded).toBe(false);
     });
     expect(result.current.presentationToolsPanel?.loadDisabled).toBe(false);
-    expect(result.current.presentationToolsPanel?.resetDisabled).toBe(true);
+    expect(result.current.presentationToolsPanel?.resetDisabled).toBe(false);
   });
 });

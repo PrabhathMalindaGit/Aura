@@ -71,7 +71,11 @@ router.post("/clinician/dev/presentation/seed", async (_req, res) => {
 
 router.delete("/clinician/dev/presentation/seed", async (_req, res) => {
   try {
-    const summary = await resetPresentationSeed();
+    const req = _req as RequestWithUser;
+    const summary = await resetPresentationSeed({
+      clinicianId: req.user?.id,
+      clinicianName: req.user?.name,
+    });
     return res.json({
       ok: true,
       ...summary,

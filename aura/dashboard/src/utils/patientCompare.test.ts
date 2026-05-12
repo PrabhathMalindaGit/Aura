@@ -7,7 +7,9 @@ import type {
 import {
   getCompareAdherenceValue,
   getComparePainSnapshot,
+  getCommunicationPreviewText,
   groupCommunicationSignalsByPatient,
+  isBenchmarkCommunicationText,
   normalizeRequestedComparePatientIds,
   resolveComparePatientSelection,
 } from './patientCompare';
@@ -167,5 +169,40 @@ describe('patientCompare', () => {
     expect(grouped.a.followUpSignal).toBe(true);
     expect(grouped.c.latestItem?.id).toBe('comm-3');
     expect(grouped.c.followUpSignal).toBe(true);
+  });
+
+  it('omits only clearly benchmark-marked communication preview text', () => {
+    const benchmarkItem: DashboardCommunicationOverviewItem = {
+      id: 'comm-bench',
+      patientId: 'a',
+      patientName: 'Taylor Moss',
+      messageId: 'msg-bench',
+      needsResponse: true,
+      flaggedBySafety: false,
+      followUpRequested: false,
+      messageCreatedAt: '2026-03-20T12:00:00.000Z',
+      messagePreview:
+        '[AURA_LATENCY_BENCH:845047b4-7ff6-4ab5-aec7-608a590ee1c9] I cant breathe and need help. Sample 15.',
+    };
+    const normalItem: DashboardCommunicationOverviewItem = {
+      id: 'comm-normal',
+      patientId: 'b',
+      patientName: 'Jordan Lee',
+      messageId: 'msg-normal',
+      needsResponse: false,
+      flaggedBySafety: false,
+      followUpRequested: false,
+      messageCreatedAt: '2026-03-20T12:00:00.000Z',
+      messagePreview: 'Pain is still elevated after the last exercise block.',
+    };
+
+    expect(isBenchmarkCommunicationText(benchmarkItem.messagePreview)).toBe(true);
+    expect(isBenchmarkCommunicationText(normalItem.messagePreview)).toBe(false);
+    expect(getCommunicationPreviewText({ items: [benchmarkItem], latestItem: benchmarkItem, needsResponse: true, followUpSignal: false })).toBe(
+      'No recent communication preview in the current dashboard signals.',
+    );
+    expect(getCommunicationPreviewText({ items: [normalItem], latestItem: normalItem, needsResponse: false, followUpSignal: false })).toBe(
+      'Pain is still elevated after the last exercise block.',
+    );
   });
 });

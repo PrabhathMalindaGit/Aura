@@ -222,7 +222,8 @@ function installCompareFetchMock(): void {
               flaggedBySafety: false,
               followUpRequested: true,
               messageCreatedAt: '2026-03-20T12:15:00.000Z',
-              messagePreview: 'Pain is still elevated after the last exercise block.',
+              messagePreview:
+                '[AURA_LATENCY_BENCH:845047b4-7ff6-4ab5-aec7-608a590ee1c9] I cant breathe and need help. Sample 15.',
             },
             {
               id: 'comm-2',
@@ -310,6 +311,15 @@ describe('PatientComparePage', () => {
     expect(screen.getAllByText('Follow-up signal').length).toBeGreaterThan(0);
     expect(screen.queryByText(/message load|conversation volume/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/improving|worsening|stable/i)).not.toBeInTheDocument();
+  });
+
+  it('uses v2 compare surfaces and filters benchmark-marked communication previews only', async () => {
+    renderPatientComparePage('/patients/compare?patient=a&patient=b');
+
+    expect(await screen.findByTestId('v2-patient-compare-route')).toBeInTheDocument();
+    expect(await screen.findByText('Thanks for the last plan update.')).toBeInTheDocument();
+    expect(screen.queryByText(/AURA_LATENCY_BENCH/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/I cant breathe and need help/i)).not.toBeInTheDocument();
   });
 
   it('preserves first-seen order after de-duplication and keeps the first 3 valid patients', async () => {

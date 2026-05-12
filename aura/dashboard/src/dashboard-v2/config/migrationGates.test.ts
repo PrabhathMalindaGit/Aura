@@ -32,11 +32,11 @@ describe('dashboard v2 migration gates', () => {
     });
   });
 
-  it('resolves the patients roster and patient workspace only for the approved core patient paths', () => {
+  it('resolves the patients roster, compare flow, and patient workspace for approved patient paths', () => {
     expect(resolveDashboardV2RouteId('/patients')).toBe('patients');
+    expect(resolveDashboardV2RouteId('/patients/compare')).toBe('patients');
     expect(resolveDashboardV2RouteId('/patients/p1')).toBe('patient-workspace');
     expect(resolveDashboardV2RouteId('/patients/p1/history')).toBe('patient-workspace');
-    expect(resolveDashboardV2RouteId('/patients/compare')).toBeNull();
     expect(resolveDashboardV2RouteId('/patients/p1/plan')).toBeNull();
   });
 

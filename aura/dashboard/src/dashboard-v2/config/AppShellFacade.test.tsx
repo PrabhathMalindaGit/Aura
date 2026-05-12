@@ -51,14 +51,14 @@ describe('AppShellFacade', () => {
     expect(screen.getByTestId('legacy-shell')).toBeInTheDocument();
   });
 
-  it('keeps legacy shell behavior on out-of-scope routes', () => {
+  it('renders the v2 shell on the patients compare route', () => {
     render(
       <MemoryRouter initialEntries={['/patients/compare']}>
         <AppShellFacade />
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId('legacy-shell')).toBeInTheDocument();
+    expect(screen.getByTestId('v2-shell')).toBeInTheDocument();
   });
 
   it('renders the v2 shell by default on the patients roster route', () => {

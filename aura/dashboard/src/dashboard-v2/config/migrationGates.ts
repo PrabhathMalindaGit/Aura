@@ -278,7 +278,12 @@ export function resolveDashboardV2RouteId(pathname: string): DashboardV2RouteId 
     return 'communication';
   }
 
-  if (pathname === '/patients' || pathname === '/patients/') {
+  if (
+    pathname === '/patients' ||
+    pathname === '/patients/' ||
+    pathname === '/patients/compare' ||
+    pathname === '/patients/compare/'
+  ) {
     return 'patients';
   }
 

@@ -12,7 +12,7 @@
 
 .v2-patients-route__command {
   display: grid;
-  gap: 1rem;
+  gap: 0.95rem;
   padding: 1.15rem 1.2rem;
 }
 
@@ -99,9 +99,12 @@
 
 .v2-patients-route__toolbar {
   display: grid;
-  gap: 0.85rem;
-  padding-top: 0.9rem;
+  gap: 0.7rem;
+  padding: 0.9rem;
   border-top: 1px solid hsl(var(--v2-border) / 0.62);
+  border-radius: 1.1rem;
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface-elevated) / 0.72), hsl(var(--v2-surface-muted) / 0.34));
 }
 
 .v2-patients-route__toolbar-primary {
@@ -114,7 +117,7 @@
   display: flex;
   gap: 0.9rem 1rem;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
 
@@ -133,9 +136,14 @@
   min-height: 3.05rem;
   padding-inline: 0.9rem 1rem;
   border: 1px solid hsl(var(--v2-border) / 0.58);
-  border-radius: 999px;
+  border-radius: 0.9rem;
   background: hsl(var(--v2-surface));
   box-shadow: inset 0 0 0 1px hsl(var(--v2-surface-elevated) / 0.32);
+}
+
+.v2-patients-route__search-shell:focus-within {
+  outline: 2px solid hsl(var(--v2-focus));
+  outline-offset: 2px;
 }
 
 .v2-patients-route__search-icon {
@@ -159,7 +167,7 @@
   min-height: 3.05rem;
   padding: 0.75rem 0.95rem;
   border: 1px solid hsl(var(--v2-border) / 0.58);
-  border-radius: 999px;
+  border-radius: 0.9rem;
   background: hsl(var(--v2-surface));
   color: hsl(var(--v2-text));
   font: inherit;
@@ -174,6 +182,7 @@
 .v2-patients-route__preset-group {
   display: grid;
   gap: 0.45rem;
+  min-width: min(100%, 28rem);
 }
 
 .v2-patients-route__group-label {
@@ -193,8 +202,9 @@
 
 .v2-patients-route__toggle-group {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .v2-patients-route__toggle,
@@ -205,7 +215,7 @@
   min-height: 2.2rem;
   padding: 0.35rem 0.8rem;
   border: 1px solid hsl(var(--v2-border) / 0.54);
-  border-radius: 999px;
+  border-radius: 0.8rem;
   background: hsl(var(--v2-row-surface));
   color: hsl(var(--v2-text));
 }
@@ -518,6 +528,63 @@
   max-width: 36rem;
 }
 
+.v2-patients-route__pagination {
+  display: flex;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.v2-patients-route__pagination-range {
+  white-space: nowrap;
+}
+
+.v2-patients-route__pagination-controls,
+.v2-patients-route__page-stepper,
+.v2-patients-route__page-size {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.v2-patients-route__page-size span {
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: hsl(var(--v2-text-muted));
+}
+
+.v2-patients-route__page-size-select {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid hsl(var(--v2-border) / 0.58);
+  border-radius: 0.75rem;
+  background: hsl(var(--v2-surface));
+  color: hsl(var(--v2-text));
+  font: inherit;
+}
+
+.v2-patients-route__page-size-select:focus-visible {
+  outline: 2px solid hsl(var(--v2-focus));
+  outline-offset: 2px;
+}
+
+.v2-patients-route__page-count {
+  min-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 0.75rem;
+  border: 1px solid hsl(var(--v2-border) / 0.45);
+  border-radius: 0.75rem;
+  background: hsl(var(--v2-surface-muted) / 0.62);
+  color: hsl(var(--v2-text-muted));
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .v2-patients-card-list {
   display: grid;
   gap: 0.9rem;
@@ -629,6 +696,10 @@
   .v2-patients-route__results-meta {
     justify-content: flex-start;
   }
+
+  .v2-patients-route__pagination {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 899px) {
@@ -649,6 +720,183 @@
   }
 }
 
+.v2-patient-compare {
+  display: grid;
+  gap: 1rem;
+}
+
+.v2-patient-compare__hero,
+.v2-patient-compare__selection-card,
+.v2-patient-compare__section,
+.v2-patient-compare__empty,
+.v2-patient-compare__loading-card {
+  border-color: hsl(var(--v2-border) / 0.48);
+  background: hsl(var(--v2-surface));
+  box-shadow: 0 1px 0 hsl(var(--v2-border) / 0.24);
+}
+
+.v2-patient-compare__hero {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1.15rem 1.2rem;
+}
+
+.v2-patient-compare__hero-copy {
+  display: grid;
+  gap: 0.3rem;
+  max-width: 48rem;
+}
+
+.v2-patient-compare__notice {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+}
+
+.v2-patient-compare__notice--info {
+  border-color: hsl(var(--v2-primary) / 0.24);
+  background: hsl(var(--v2-primary-soft) / 0.62);
+}
+
+.v2-patient-compare__notice--warning {
+  border-color: hsl(var(--v2-warning) / 0.32);
+  background: hsl(var(--v2-warning) / 0.08);
+}
+
+.v2-patient-compare__selection-card,
+.v2-patient-compare__section,
+.v2-patient-compare__empty,
+.v2-patient-compare__loading-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.05rem 1.15rem;
+}
+
+.v2-patient-compare__section-header,
+.v2-patient-compare__domain-card-header,
+.v2-patient-compare__summary-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.v2-patient-compare__selection-count {
+  min-height: 1.9rem;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 0.7rem;
+  border: 1px solid hsl(var(--v2-border) / 0.5);
+  border-radius: 999px;
+  background: hsl(var(--v2-surface-muted) / 0.68);
+  color: hsl(var(--v2-text-muted));
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.v2-patient-compare__chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.v2-patient-compare__chip {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid hsl(var(--v2-border) / 0.52);
+  border-radius: 999px;
+  background: hsl(var(--v2-surface));
+  color: hsl(var(--v2-text));
+  font: inherit;
+  cursor: pointer;
+}
+
+.v2-patient-compare__chip:focus-visible {
+  outline: 2px solid hsl(var(--v2-focus));
+  outline-offset: 2px;
+}
+
+.v2-patient-compare__summary-grid,
+.v2-patient-compare__section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 0.85rem;
+}
+
+.v2-patient-compare__summary-card,
+.v2-patient-compare__domain-card {
+  min-width: 0;
+  padding: 0.95rem;
+  border: 1px solid hsl(var(--v2-border) / 0.48);
+  border-radius: 1rem;
+  background: hsl(var(--v2-surface));
+  box-shadow: inset 3px 0 0 hsl(var(--v2-primary) / 0.24);
+}
+
+.v2-patient-compare__summary-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.v2-patient-compare__domain-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.v2-patient-compare__domain-card-title {
+  font-size: 0.98rem;
+}
+
+.v2-patient-compare__metric-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.v2-patient-compare__metric {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.v2-patient-compare__metric dt {
+  color: hsl(var(--v2-text-muted));
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.v2-patient-compare__metric dd {
+  margin: 0;
+  color: hsl(var(--v2-text));
+}
+
+.v2-patient-compare__metric-note {
+  margin: 0;
+  color: hsl(var(--v2-text-muted));
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.v2-patient-compare__skeleton {
+  height: 4rem;
+  border-radius: 0.95rem;
+  background:
+    linear-gradient(
+      90deg,
+      hsl(var(--v2-surface-muted)) 0%,
+      hsl(var(--v2-surface)) 50%,
+      hsl(var(--v2-surface-muted)) 100%
+    );
+  background-size: 200% 100%;
+  animation: v2-patients-shimmer 1.5s linear infinite;
+}
+
 @media (max-width: 767px) {
   .v2-patients-route__toolbar-primary,
   .v2-patients-card__facts {
@@ -659,7 +907,12 @@
 @media (max-width: 599px) {
   .v2-patients-route__command,
   .v2-patients-route__results,
-  .v2-patients-route__banner {
+  .v2-patients-route__banner,
+  .v2-patient-compare__hero,
+  .v2-patient-compare__selection-card,
+  .v2-patient-compare__section,
+  .v2-patient-compare__empty,
+  .v2-patient-compare__loading-card {
     padding: 0.95rem;
   }
 
@@ -668,7 +921,11 @@
   }
 
   .v2-patients-card__topline,
-  .v2-patients-card__header {
+  .v2-patients-card__header,
+  .v2-patient-compare__hero,
+  .v2-patient-compare__section-header,
+  .v2-patient-compare__domain-card-header,
+  .v2-patient-compare__summary-card {
     flex-direction: column;
     align-items: stretch;
   }

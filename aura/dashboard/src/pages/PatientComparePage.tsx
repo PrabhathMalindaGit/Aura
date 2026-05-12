@@ -1,13 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertBanner } from '../components/ui/AlertBanner';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Section } from '../components/ui/Section';
-import { Skeleton } from '../components/ui/Skeleton';
-import { Stack } from '../components/ui/Stack';
+import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 import {
   clinicianQueryKeys,
   getPatientTrends,
@@ -37,6 +31,10 @@ import {
   trendPointHasAnyData,
   type TrendSummaryMetrics,
 } from '../utils/trends';
+import { DashboardV2Button } from '../dashboard-v2/primitives/Button';
+import { DashboardV2Surface } from '../dashboard-v2/primitives/Surface';
+import { DashboardV2Heading, DashboardV2Text } from '../dashboard-v2/primitives/Text';
+import '../dashboard-v2/modules/patients/patients.css';
 
 interface TrendCompareState {
   isLoading: boolean;
@@ -101,22 +99,39 @@ function ComparePatientDomainCard({
   patientName: string;
   action?: JSX.Element | null;
   testId?: string;
-  children: JSX.Element | JSX.Element[];
+  children: ReactNode;
 }): JSX.Element {
   return (
     <article
-      className="patient-compare-domain-card"
+      className="v2-patient-compare__domain-card"
       aria-labelledby={titleId}
       data-testid={testId}
     >
-      <header className="patient-compare-domain-card__header">
-        <h3 id={titleId} className="patient-compare-domain-card__title">
+      <header className="v2-patient-compare__domain-card-header">
+        <DashboardV2Heading as="h3" id={titleId} className="v2-patient-compare__domain-card-title">
           {patientName}
-        </h3>
-        {action ? <div className="patient-compare-domain-card__actions">{action}</div> : null}
+        </DashboardV2Heading>
+        {action ? <div className="v2-patient-compare__domain-card-actions">{action}</div> : null}
       </header>
       {children}
     </article>
+  );
+}
+
+function CompareNotice({
+  tone,
+  title,
+  children,
+}: {
+  tone: 'info' | 'warning';
+  title: string;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <DashboardV2Surface className={`v2-patient-compare__notice v2-patient-compare__notice--${tone}`}>
+      <DashboardV2Text tone="strong">{title}</DashboardV2Text>
+      <DashboardV2Text tone="muted">{children}</DashboardV2Text>
+    </DashboardV2Surface>
   );
 }
 
@@ -208,52 +223,56 @@ export function PatientComparePage(): JSX.Element {
   }
 
   return (
-    <Stack className="page-stack patient-compare-page" gap="5">
-      <Section
-        className="dashboard-page-header patient-compare-page__header"
-        eyebrow="Small-set comparison"
-        title="Compare patients"
-        subtitle="Review 2 or 3 current patients side by side using current dashboard signals before choosing the next deeper follow-up."
-        actions={
-          <Button variant="secondary" onClick={handleBackToPatients}>
-            Back to Patients
-          </Button>
-        }
-      />
+    <div className="v2-patient-compare" data-testid="v2-patient-compare-route">
+      <DashboardV2Surface className="v2-patient-compare__hero" tone="muted">
+        <div className="v2-patient-compare__hero-copy">
+          <DashboardV2Text tone="label">Care roster comparison</DashboardV2Text>
+          <DashboardV2Heading as="h1">Compare patients</DashboardV2Heading>
+          <DashboardV2Text tone="muted">
+            Review 2 or 3 current patients side by side using current roster signals before choosing the next deeper follow-up.
+          </DashboardV2Text>
+        </div>
+        <DashboardV2Button
+          tone="secondary"
+          size="sm"
+          leadingIcon={<ArrowLeft size={15} />}
+          onPress={handleBackToPatients}
+        >
+          Back to Patients
+        </DashboardV2Button>
+      </DashboardV2Surface>
 
       {patientsQuery.error && allPatients.length === 0 ? (
-        <EmptyState
-          title="Patient compare is unavailable right now"
-          description="The compare view needs the current roster before it can line up patients side by side."
-          tone="warning"
-          action={
-            <Button variant="secondary" onClick={() => void patientsQuery.refetch()}>
-              Retry
-            </Button>
-          }
-        />
+        <DashboardV2Surface className="v2-patient-compare__empty" tone="critical" role="status">
+          <DashboardV2Heading as="h2">Patient compare is unavailable right now</DashboardV2Heading>
+          <DashboardV2Text tone="muted">
+            The compare view needs the current roster before it can line up patients side by side.
+          </DashboardV2Text>
+          <DashboardV2Button tone="secondary" onPress={() => void patientsQuery.refetch()}>
+            Retry
+          </DashboardV2Button>
+        </DashboardV2Surface>
       ) : null}
 
       {isLoadingInitialPatients ? (
-        <Card className="patient-compare-page__loading-card" title="Preparing compare view">
-          <Stack gap="3">
-            <Skeleton height={36} />
-            <Skeleton height={88} />
-            <Skeleton height={88} />
-          </Stack>
-        </Card>
+        <DashboardV2Surface className="v2-patient-compare__loading-card">
+          <DashboardV2Heading as="h2">Preparing compare view</DashboardV2Heading>
+          <div className="v2-patient-compare__skeleton" />
+          <div className="v2-patient-compare__skeleton" />
+          <div className="v2-patient-compare__skeleton" />
+        </DashboardV2Surface>
       ) : null}
 
       {!isLoadingInitialPatients && hasInvalidCompareState ? (
-        <EmptyState
-          title="Compare needs 2–3 current patients"
-          description="Choose 2 or 3 current patients from the roster to compare alerts, recent pain snapshot, adherence or recent activity, and current communication signals side by side."
-          action={
-            <Button variant="secondary" onClick={handleBackToPatients}>
-              Return to Patients
-            </Button>
-          }
-        />
+        <DashboardV2Surface className="v2-patient-compare__empty" role="status">
+          <DashboardV2Heading as="h2">Compare needs 2–3 current patients</DashboardV2Heading>
+          <DashboardV2Text tone="muted">
+            Choose 2 or 3 current patients from the roster to compare alerts, recent pain snapshot, adherence or recent activity, and current communication signals side by side.
+          </DashboardV2Text>
+          <DashboardV2Button tone="secondary" onPress={handleBackToPatients}>
+            Return to Patients
+          </DashboardV2Button>
+        </DashboardV2Surface>
       ) : null}
 
       {!isLoadingInitialPatients &&
@@ -262,31 +281,26 @@ export function PatientComparePage(): JSX.Element {
       comparePatients.length >= 2 ? (
         <>
           {hasOverflowNotice ? (
-            <AlertBanner variant="info" title="Compare mode is showing the first 3 current patients from this request.">
+            <CompareNotice tone="info" title="Compare mode is showing the first 3 current patients from this request.">
               Keep compare focused to 2 or 3 patients at a time.
-            </AlertBanner>
+            </CompareNotice>
           ) : null}
 
           {hasUnavailableNotice ? (
-            <AlertBanner variant="warning" title="Some requested patients are no longer available in the current roster.">
+            <CompareNotice tone="warning" title="Some requested patients are no longer available in the current roster.">
               Compare mode omitted unavailable patients and kept the remaining current patients in their first-seen order.
-            </AlertBanner>
+            </CompareNotice>
           ) : null}
 
-          <Card
-            className="patient-compare-page__selection-card"
-            title="Selected patients"
-            action={
-              <span
-                className="patient-compare-page__selection-count"
-                aria-live="polite"
-              >
+          <DashboardV2Surface className="v2-patient-compare__selection-card">
+            <div className="v2-patient-compare__section-header">
+              <DashboardV2Heading as="h2">Selected patients</DashboardV2Heading>
+              <span className="v2-patient-compare__selection-count" aria-live="polite">
                 {comparePatients.length} selected
               </span>
-            }
-          >
+            </div>
             <div
-              className="patient-compare-page__chips"
+              className="v2-patient-compare__chips"
               role="group"
               aria-label="Selected patients for compare"
             >
@@ -296,7 +310,7 @@ export function PatientComparePage(): JSX.Element {
                   <button
                     key={patient.id}
                     type="button"
-                    className="patient-compare-page__chip"
+                    className="v2-patient-compare__chip"
                     onClick={() => handleRemovePatient(patient.id)}
                     aria-label={`Remove ${patientName} from compare`}
                     data-testid={`patient-compare-chip-${patient.id}`}
@@ -307,9 +321,9 @@ export function PatientComparePage(): JSX.Element {
                 );
               })}
             </div>
-          </Card>
+          </DashboardV2Surface>
 
-          <section className="patient-compare-page__summary-grid" aria-label="Patient compare order">
+          <section className="v2-patient-compare__summary-grid" aria-label="Patient compare order">
             {comparePatients.map((patient) => {
               const worklistItem = worklistByPatientId.get(patient.id) ?? null;
               const patientName = getComparePatientName(patient);
@@ -318,33 +332,32 @@ export function PatientComparePage(): JSX.Element {
               return (
                 <article
                   key={patient.id}
-                  className="patient-compare-page__summary-card"
+                  className="v2-patient-compare__summary-card"
                   data-testid={`patient-compare-summary-${patient.id}`}
                 >
-                  <div className="patient-compare-page__summary-copy">
-                    <h3 className="patient-compare-page__summary-title">{patientName}</h3>
-                    <p className="patient-compare-page__summary-support">{supportLine}</p>
+                  <div className="v2-patient-compare__summary-copy">
+                    <DashboardV2Heading as="h3">{patientName}</DashboardV2Heading>
+                    <DashboardV2Text tone="muted">{supportLine}</DashboardV2Text>
                   </div>
-                  <Button
-                    variant="secondary"
+                  <DashboardV2Button
+                    tone="row"
                     size="sm"
-                    onClick={() => openPatientDetail(patient.id)}
+                    trailingIcon={<ArrowUpRight size={14} />}
+                    onPress={() => openPatientDetail(patient.id)}
                   >
                     Open review
-                  </Button>
+                  </DashboardV2Button>
                 </article>
               );
             })}
           </section>
 
-          <Card
-            className="patient-compare-page__section"
-            title="Alerts"
-          >
-            <p className="patient-compare-page__section-intro">
+          <DashboardV2Surface className="v2-patient-compare__section">
+            <DashboardV2Heading as="h2">Alerts</DashboardV2Heading>
+            <DashboardV2Text tone="muted" className="v2-patient-compare__section-intro">
               Compare current open alert counts and the review context already surfaced in the roster.
-            </p>
-            <div className="patient-compare-page__section-grid">
+            </DashboardV2Text>
+            <div className="v2-patient-compare__section-grid">
               {comparePatients.map((patient) => {
                 const worklistItem = worklistByPatientId.get(patient.id) ?? null;
                 const patientName = getComparePatientName(patient);
@@ -358,22 +371,22 @@ export function PatientComparePage(): JSX.Element {
                     testId={`patient-compare-alerts-${patient.id}`}
                     action={
                       hasAlertCompareAction(patient, worklistItem) ? (
-                        <Button
-                          variant="ghost"
+                        <DashboardV2Button
+                          tone="ghost"
                           size="sm"
-                          onClick={() => openAlerts(patient.id)}
+                          onPress={() => openAlerts(patient.id)}
                         >
                           Open alerts
-                        </Button>
+                        </DashboardV2Button>
                       ) : null
                     }
                   >
-                    <dl className="patient-compare-page__metric-list">
-                      <div className="patient-compare-page__metric">
+                    <dl className="v2-patient-compare__metric-list">
+                      <div className="v2-patient-compare__metric">
                         <dt>Open alerts</dt>
                         <dd>{String(alertCount)}</dd>
                       </div>
-                      <div className="patient-compare-page__metric">
+                      <div className="v2-patient-compare__metric">
                         <dt>Current review context</dt>
                         <dd>{getCompareAlertContext(patient, worklistItem)}</dd>
                       </div>
@@ -382,16 +395,14 @@ export function PatientComparePage(): JSX.Element {
                 );
               })}
             </div>
-          </Card>
+          </DashboardV2Surface>
 
-          <Card
-            className="patient-compare-page__section"
-            title="Pain / recent trend"
-          >
-            <p className="patient-compare-page__section-intro">
+          <DashboardV2Surface className="v2-patient-compare__section">
+            <DashboardV2Heading as="h2">Pain / recent trend</DashboardV2Heading>
+            <DashboardV2Text tone="muted" className="v2-patient-compare__section-intro">
               Start with the most recent grounded pain snapshot, then add current trend context when recent check-ins are available.
-            </p>
-            <div className="patient-compare-page__section-grid">
+            </DashboardV2Text>
+            <div className="v2-patient-compare__section-grid">
               {comparePatients.map((patient) => {
                 const worklistItem = worklistByPatientId.get(patient.id) ?? null;
                 const patientName = getComparePatientName(patient);
@@ -414,12 +425,12 @@ export function PatientComparePage(): JSX.Element {
                     patientName={patientName}
                     testId={`patient-compare-pain-${patient.id}`}
                   >
-                    <dl className="patient-compare-page__metric-list">
-                      <div className="patient-compare-page__metric">
+                    <dl className="v2-patient-compare__metric-list">
+                      <div className="v2-patient-compare__metric">
                         <dt>Recent pain snapshot</dt>
                         <dd>{formatPainValue(painSnapshot)}</dd>
                       </div>
-                      <div className="patient-compare-page__metric">
+                      <div className="v2-patient-compare__metric">
                         <dt>Avg pain (7d)</dt>
                         <dd>
                           {averagePain7d !== null
@@ -429,28 +440,26 @@ export function PatientComparePage(): JSX.Element {
                               : '—'}
                         </dd>
                       </div>
-                      <div className="patient-compare-page__metric">
+                      <div className="v2-patient-compare__metric">
                         <dt>Recent activity</dt>
                         <dd>{recentActivityLabel}</dd>
                       </div>
                     </dl>
-                    <p className="patient-compare-page__metric-note">
+                    <p className="v2-patient-compare__metric-note">
                       {formatRecentActivitySupport(recentActivityLabel, trendState?.isLoading === true)}
                     </p>
                   </ComparePatientDomainCard>
                 );
               })}
             </div>
-          </Card>
+          </DashboardV2Surface>
 
-          <Card
-            className="patient-compare-page__section"
-            title="Adherence / recent activity"
-          >
-            <p className="patient-compare-page__section-intro">
+          <DashboardV2Surface className="v2-patient-compare__section">
+            <DashboardV2Heading as="h2">Adherence / recent activity</DashboardV2Heading>
+            <DashboardV2Text tone="muted" className="v2-patient-compare__section-intro">
               Compare current adherence signals and recent activity context without inferring a broader trend story where data is sparse.
-            </p>
-            <div className="patient-compare-page__section-grid">
+            </DashboardV2Text>
+            <div className="v2-patient-compare__section-grid">
               {comparePatients.map((patient) => {
                 const worklistItem = worklistByPatientId.get(patient.id) ?? null;
                 const patientName = getComparePatientName(patient);
@@ -475,8 +484,8 @@ export function PatientComparePage(): JSX.Element {
                     patientName={patientName}
                     testId={`patient-compare-adherence-${patient.id}`}
                   >
-                    <dl className="patient-compare-page__metric-list">
-                      <div className="patient-compare-page__metric">
+                    <dl className="v2-patient-compare__metric-list">
+                      <div className="v2-patient-compare__metric">
                         <dt>Recent adherence</dt>
                         <dd>
                           {adherenceValue !== null
@@ -486,16 +495,16 @@ export function PatientComparePage(): JSX.Element {
                               : '—'}
                         </dd>
                       </div>
-                      <div className="patient-compare-page__metric">
+                      <div className="v2-patient-compare__metric">
                         <dt>Missed recent check-ins</dt>
                         <dd>{missedCheckinLabel}</dd>
                       </div>
-                      <div className="patient-compare-page__metric">
+                      <div className="v2-patient-compare__metric">
                         <dt>Recent activity</dt>
                         <dd>{recentActivityLabel}</dd>
                       </div>
                     </dl>
-                    <p className="patient-compare-page__metric-note">
+                    <p className="v2-patient-compare__metric-note">
                       {adherenceValue !== null
                         ? 'Shown from current check-in and roster signals only.'
                         : worklistQuery.isLoading
@@ -506,16 +515,14 @@ export function PatientComparePage(): JSX.Element {
                 );
               })}
             </div>
-          </Card>
+          </DashboardV2Surface>
 
-          <Card
-            className="patient-compare-page__section"
-            title="Communication"
-          >
-            <p className="patient-compare-page__section-intro">
+          <DashboardV2Surface className="v2-patient-compare__section">
+            <DashboardV2Heading as="h2">Communication</DashboardV2Heading>
+            <DashboardV2Text tone="muted" className="v2-patient-compare__section-intro">
               Compare current dashboard communication signals only, including response-needed and follow-up cues already surfaced in the workspace.
-            </p>
-            <div className="patient-compare-page__section-grid">
+            </DashboardV2Text>
+            <div className="v2-patient-compare__section-grid">
               {comparePatients.map((patient) => {
                 const patientName = getComparePatientName(patient);
                 const communicationSignals = communicationByPatientId[patient.id];
@@ -530,20 +537,20 @@ export function PatientComparePage(): JSX.Element {
                     testId={`patient-compare-communication-${patient.id}`}
                     action={
                       hasCommunicationCompareAction(communicationSignals) ? (
-                        <Button
-                          variant="ghost"
+                        <DashboardV2Button
+                          tone="ghost"
                           size="sm"
-                          onClick={() =>
+                          onPress={() =>
                             openCommunication(patient.id, communicationSignals.needsResponse)
                           }
                         >
                           Open communication
-                        </Button>
+                        </DashboardV2Button>
                       ) : null
                     }
                   >
-                    <dl className="patient-compare-page__metric-list">
-                      <div className="patient-compare-page__metric">
+                    <dl className="v2-patient-compare__metric-list">
+                      <div className="v2-patient-compare__metric">
                         <dt>Needs response</dt>
                         <dd>
                           {formatNeedsResponseLabel(
@@ -553,7 +560,7 @@ export function PatientComparePage(): JSX.Element {
                           )}
                         </dd>
                       </div>
-                      <div className="patient-compare-page__metric">
+                      <div className="v2-patient-compare__metric">
                         <dt>Recent communication activity</dt>
                         <dd>
                           {latestMessageAt
@@ -563,7 +570,7 @@ export function PatientComparePage(): JSX.Element {
                               : 'No current signal'}
                         </dd>
                       </div>
-                      <div className="patient-compare-page__metric">
+                      <div className="v2-patient-compare__metric">
                         <dt>Follow-up signal</dt>
                         <dd>
                           {formatFollowUpSignalLabel(
@@ -574,7 +581,7 @@ export function PatientComparePage(): JSX.Element {
                         </dd>
                       </div>
                     </dl>
-                    <p className="patient-compare-page__metric-note">
+                    <p className="v2-patient-compare__metric-note">
                       {itemsCount > 0
                         ? getCommunicationPreviewText(communicationSignals)
                         : communicationQuery.isLoading
@@ -585,9 +592,9 @@ export function PatientComparePage(): JSX.Element {
                 );
               })}
             </div>
-          </Card>
+          </DashboardV2Surface>
         </>
       ) : null}
-    </Stack>
+    </div>
   );
 }

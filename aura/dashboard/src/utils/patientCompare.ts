@@ -10,6 +10,7 @@ import type { TrendSummaryMetrics } from './trends';
 import { truncateText } from './text';
 
 export const MAX_COMPARE_PATIENTS = 3;
+const AURA_LATENCY_BENCHMARK_MARKER = /\bAURA_LATENCY_BENCH:/i;
 
 export interface ComparePatientSelection {
   requestedIds: string[];
@@ -36,6 +37,10 @@ function normalizeSupportText(value: string | undefined): string {
   }
 
   return value.replace(/\s+/g, ' ').trim();
+}
+
+export function isBenchmarkCommunicationText(value: string | undefined): boolean {
+  return typeof value === 'string' && AURA_LATENCY_BENCHMARK_MARKER.test(value);
 }
 
 export function normalizeRequestedComparePatientIds(
@@ -237,7 +242,7 @@ export function getCommunicationPreviewText(
 ): string {
   const preview = signals?.latestItem?.messagePreview?.trim() ?? '';
 
-  if (preview) {
+  if (preview && !isBenchmarkCommunicationText(preview)) {
     return truncateText(preview, 120).text;
   }
 

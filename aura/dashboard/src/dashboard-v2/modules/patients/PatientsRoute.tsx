@@ -100,6 +100,7 @@ function buildActionSupportLabel(patient: PatientSummary): string {
 interface CompareToolbarProps {
   compareCount: number;
   previewPatients: PatientSummary[];
+  selectedOutsidePageCount: number;
   onClear: () => void;
   onOpenCompare: () => void;
 }
@@ -107,6 +108,7 @@ interface CompareToolbarProps {
 function CompareToolbar({
   compareCount,
   previewPatients,
+  selectedOutsidePageCount,
   onClear,
   onOpenCompare,
 }: CompareToolbarProps): JSX.Element {
@@ -122,7 +124,11 @@ function CompareToolbar({
           <DashboardV2Text tone="strong">{compareCount} selected</DashboardV2Text>
         </div>
         <DashboardV2Text tone="muted" className="v2-patients-route__compare-support">
-          Keep compare explicit so the roster can stay focused on patient-open actions.
+          {selectedOutsidePageCount > 0
+            ? `${selectedOutsidePageCount} selected ${
+                selectedOutsidePageCount === 1 ? 'patient is' : 'patients are'
+              } outside this page.`
+            : 'Keep compare explicit so the roster can stay focused on patient-open actions.'}
         </DashboardV2Text>
         <div className="v2-patients-route__compare-chips">
           {previewPatients.map((patient) => (
@@ -145,6 +151,74 @@ function CompareToolbar({
         >
           Compare selected ({compareCount})
         </DashboardV2Button>
+      </div>
+    </div>
+  );
+}
+
+interface PaginationControlsProps {
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  rangeLabel: string;
+  pageSizeOptions: readonly number[];
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}
+
+function PaginationControls({
+  page,
+  pageSize,
+  pageCount,
+  rangeLabel,
+  pageSizeOptions,
+  onPageChange,
+  onPageSizeChange,
+}: PaginationControlsProps): JSX.Element {
+  return (
+    <div className="v2-patients-route__pagination" aria-label="Patients pagination">
+      <DashboardV2Text tone="muted" className="v2-patients-route__pagination-range">
+        {rangeLabel}
+      </DashboardV2Text>
+
+      <div className="v2-patients-route__pagination-controls">
+        <label className="v2-patients-route__page-size">
+          <span>Rows per page</span>
+          <select
+            aria-label="Rows per page"
+            className="v2-patients-route__page-size-select"
+            value={pageSize}
+            onChange={(event) => onPageSizeChange(Number(event.target.value))}
+          >
+            {pageSizeOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="v2-patients-route__page-stepper" role="group" aria-label="Patient roster pages">
+          <DashboardV2Button
+            tone="quiet"
+            size="sm"
+            onPress={() => onPageChange(page - 1)}
+            isDisabled={page <= 1}
+          >
+            Previous
+          </DashboardV2Button>
+          <span className="v2-patients-route__page-count" aria-live="polite">
+            Page {page} of {pageCount}
+          </span>
+          <DashboardV2Button
+            tone="quiet"
+            size="sm"
+            onPress={() => onPageChange(page + 1)}
+            isDisabled={page >= pageCount}
+          >
+            Next page
+          </DashboardV2Button>
+        </div>
       </div>
     </div>
   );
@@ -378,7 +452,7 @@ export function PatientsRoute(): JSX.Element {
   const isCardLayout = useMediaQuery(CARD_LAYOUT_QUERY);
   const viewModel = usePatientsViewModel();
   const totalPatients = viewModel.rosterSummary.total;
-  const visibleCount = viewModel.visiblePatients.length;
+  const filteredCount = viewModel.filteredPatientsCount;
   const compareCount = viewModel.comparePatients.length;
 
   return (
@@ -422,7 +496,7 @@ export function PatientsRoute(): JSX.Element {
         <div className="v2-patients-route__facts" aria-label="Roster status summary">
           <div className="v2-patients-route__fact">
             <span>Showing</span>
-            <strong>{visibleCount === totalPatients ? totalPatients : `${visibleCount}/${totalPatients}`}</strong>
+            <strong>{filteredCount === totalPatients ? totalPatients : `${filteredCount}/${totalPatients}`}</strong>
           </div>
           <div className="v2-patients-route__fact">
             <span>Needs closer review</span>
@@ -603,6 +677,7 @@ export function PatientsRoute(): JSX.Element {
           <CompareToolbar
             compareCount={compareCount}
             previewPatients={viewModel.comparePreviewPatients}
+            selectedOutsidePageCount={viewModel.pagination.selectedOutsidePageCount}
             onClear={viewModel.clearComparePatients}
             onOpenCompare={viewModel.openCompareMode}
           />
@@ -660,7 +735,7 @@ export function PatientsRoute(): JSX.Element {
             </DashboardV2Text>
             <DashboardV2Text tone="muted">Last updated {viewModel.updatedAtLabel}</DashboardV2Text>
           </div>
-        ) : visibleCount === 0 ? (
+        ) : filteredCount === 0 ? (
           <div className="v2-patients-route__empty" role="status">
             <DashboardV2Heading as="h3">No patients match this view</DashboardV2Heading>
             <DashboardV2Text tone="muted">{viewModel.filteredEmptyDescription}</DashboardV2Text>
@@ -692,9 +767,17 @@ export function PatientsRoute(): JSX.Element {
           <DashboardV2Text tone="muted" className="v2-patients-route__results-footnote">
             Alert burden shows current open-alert count only.
           </DashboardV2Text>
-          <DashboardV2Text tone="muted" className="v2-patients-route__results-footnote">
-            {viewModel.workspaceStatusLine}
-          </DashboardV2Text>
+          {filteredCount > 0 ? (
+            <PaginationControls
+              page={viewModel.pagination.page}
+              pageSize={viewModel.pagination.pageSize}
+              pageCount={viewModel.pagination.pageCount}
+              rangeLabel={viewModel.pagination.rangeLabel}
+              pageSizeOptions={viewModel.pagination.pageSizeOptions}
+              onPageChange={viewModel.setPage}
+              onPageSizeChange={viewModel.setPageSize}
+            />
+          ) : null}
         </div>
       </DashboardV2Surface>
     </div>

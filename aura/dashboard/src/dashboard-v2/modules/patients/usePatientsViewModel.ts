@@ -43,6 +43,8 @@ const PATIENT_SORT_OPTIONS = [
   'name-asc',
   'status-active-first',
 ] as const;
+const DEFAULT_PATIENTS_PAGE_SIZE = 10;
+const PATIENTS_PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
 function buildCompareSearch(patientIds: readonly string[]): string {
   const params = new URLSearchParams();
@@ -130,6 +132,7 @@ function isEndpointMissing(error: unknown): boolean {
 export interface UsePatientsViewModelResult {
   filters: PatientFilters;
   visiblePatients: PatientSummary[];
+  filteredPatientsCount: number;
   comparePatientIds: string[];
   compareSelectionLimitReached: boolean;
   comparePatients: PatientSummary[];
@@ -147,6 +150,16 @@ export interface UsePatientsViewModelResult {
   reviewBurdenLabel: string;
   workspaceStatusLine: string;
   workspaceSupportLine: string;
+  pagination: {
+    page: number;
+    pageSize: number;
+    pageCount: number;
+    start: number;
+    end: number;
+    rangeLabel: string;
+    selectedOutsidePageCount: number;
+    pageSizeOptions: readonly number[];
+  };
   updatedAtLabel: string;
   patientsQuery: ReturnType<typeof usePatients>;
   endpointHint: string;
@@ -156,6 +169,8 @@ export interface UsePatientsViewModelResult {
   setMissedCheckinsOnly: (value: boolean) => void;
   setRecentlyActive: (value: PatientFilters['recentlyActive']) => void;
   setSort: (value: PatientFilters['sort']) => void;
+  setPage: (page: number) => void;
+  setPageSize: (pageSize: number) => void;
   applyTriagePreset: (presetId: 'active-alerts' | 'missed-checkins' | 'recently-active') => void;
   clearSavedPatientsState: () => void;
   openPatientFromRoster: (patientId: string) => void;
@@ -176,6 +191,8 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
   const liveFiltersRef = useRef<PatientFilters>(defaultPatientFilters());
   const searchPersistenceEnabledRef = useRef(false);
   const [comparePatientIds, setComparePatientIds] = useState<string[]>([]);
+  const [page, setCurrentPage] = useState(1);
+  const [pageSize, setCurrentPageSize] = useState(DEFAULT_PATIENTS_PAGE_SIZE);
   const [filters, setFilters] = useState<PatientFilters>(() => {
     const hasSavedPatientsState = hasWorkspaceState(PATIENTS_WORKSPACE_PAGE);
     const restored = readWorkspaceState(
@@ -205,9 +222,17 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
   const debouncedPersistedSearch = useDebouncedValue(filters.search, 250);
 
   const allPatients = useMemo(() => patientsQuery.data ?? [], [patientsQuery.data]);
-  const visiblePatients = useMemo(() => applyPatientFilters(allPatients, filters), [allPatients, filters]);
+  const filteredPatients = useMemo(() => applyPatientFilters(allPatients, filters), [allPatients, filters]);
+  const pageCount = Math.max(1, Math.ceil(filteredPatients.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageStartIndex = filteredPatients.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEndIndex = Math.min(safePage * pageSize, filteredPatients.length);
+  const visiblePatients = useMemo(
+    () => filteredPatients.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredPatients, pageSize, safePage],
+  );
   const rosterSummary = useMemo(() => summarizePatients(allPatients), [allPatients]);
-  const visibleSummary = useMemo(() => summarizePatients(visiblePatients), [visiblePatients]);
+  const visibleSummary = useMemo(() => summarizePatients(filteredPatients), [filteredPatients]);
 
   const showInitialLoading = patientsQuery.isLoading && allPatients.length === 0;
   const endpointMissing = Boolean(patientsQuery.error) && isEndpointMissing(patientsQuery.error);
@@ -223,9 +248,15 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
           visibleSummary.needsReview === 1 ? 'patient needs' : 'patients need'
         } closer review`;
   const workspaceStatusLine =
-    visiblePatients.length === rosterSummary.total
+    filteredPatients.length === rosterSummary.total
       ? `Showing all ${rosterSummary.total} patients`
-      : `Showing ${visiblePatients.length} of ${rosterSummary.total} patients`;
+      : `Showing ${filteredPatients.length} of ${rosterSummary.total} patients`;
+  const paginationRangeLabel =
+    filteredPatients.length === 0
+      ? 'Showing 0 patients'
+      : `Showing ${pageStartIndex}-${pageEndIndex} of ${filteredPatients.length} ${
+          filteredPatients.length === 1 ? 'patient' : 'patients'
+        }`;
   const workspaceSupportLine =
     visibleSummary.needsReview > 0
       ? `${reviewBurdenLabel}${visibleSummary.openAlerts > 0 ? ` · ${visibleSummary.openAlerts} with active alerts` : ''}`
@@ -254,6 +285,11 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
   }, [allPatients, comparePatientIds]);
   const compareSelectionLimitReached = comparePatientIds.length >= MAX_COMPARE_PATIENTS;
   const comparePreviewPatients = comparePatients.slice(0, 3);
+  const visiblePatientIds = useMemo(
+    () => new Set(visiblePatients.map((patient) => patient.id.trim())),
+    [visiblePatients],
+  );
+  const selectedOutsidePageCount = comparePatientIds.filter((patientId) => !visiblePatientIds.has(patientId)).length;
   const trimmedSearch = filters.search.trim();
   const filteredEmptyDescription = useMemo(() => {
     if (activeTriagePreset?.id === 'active-alerts') {
@@ -284,6 +320,10 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
   const retryPatients = useCallback((): void => {
     void patientsQuery.refetch();
   }, [patientsQuery]);
+
+  const resetToFirstPage = useCallback((): void => {
+    setCurrentPage(1);
+  }, []);
 
   const openPatientFromRoster = useCallback(
     (patientId: string): void => {
@@ -359,8 +399,9 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
         persistPatientsState(next);
         return next;
       });
+      resetToFirstPage();
     },
-    [persistPatientsState],
+    [persistPatientsState, resetToFirstPage],
   );
 
   const clearSavedPatientsState = useCallback((): void => {
@@ -369,12 +410,14 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
     searchPersistenceEnabledRef.current = false;
     clearWorkspaceState(PATIENTS_WORKSPACE_PAGE);
     setFilters(nextFilters);
-  }, []);
+    resetToFirstPage();
+  }, [resetToFirstPage]);
 
   const setSearch = useCallback((search: string): void => {
     searchPersistenceEnabledRef.current = true;
     setFilters((current) => ({ ...current, search }));
-  }, []);
+    resetToFirstPage();
+  }, [resetToFirstPage]);
 
   const setStatus = useCallback(
     (status: PatientFilters['status']): void => {
@@ -411,6 +454,22 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
     [applyNonSearchFilters],
   );
 
+  const setPage = useCallback(
+    (nextPage: number): void => {
+      setCurrentPage(Math.min(Math.max(1, nextPage), pageCount));
+    },
+    [pageCount],
+  );
+
+  const setPageSize = useCallback((nextPageSize: number): void => {
+    const normalizedPageSize = PATIENTS_PAGE_SIZE_OPTIONS.includes(nextPageSize as (typeof PATIENTS_PAGE_SIZE_OPTIONS)[number])
+      ? nextPageSize
+      : DEFAULT_PATIENTS_PAGE_SIZE;
+
+    setCurrentPageSize(normalizedPageSize);
+    setCurrentPage(1);
+  }, []);
+
   const applyTriagePreset = useCallback(
     (presetId: 'active-alerts' | 'missed-checkins' | 'recently-active'): void => {
       const preset = PATIENT_TRIAGE_PRESETS.find((candidate) => candidate.id === presetId);
@@ -426,6 +485,12 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
   useEffect(() => {
     liveFiltersRef.current = filters;
   }, [filters]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setCurrentPage(pageCount);
+    }
+  }, [page, pageCount]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -480,6 +545,7 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
   return {
     filters,
     visiblePatients,
+    filteredPatientsCount: filteredPatients.length,
     comparePatientIds,
     compareSelectionLimitReached,
     comparePatients,
@@ -497,6 +563,16 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
     reviewBurdenLabel,
     workspaceStatusLine,
     workspaceSupportLine,
+    pagination: {
+      page: safePage,
+      pageSize,
+      pageCount,
+      start: pageStartIndex,
+      end: pageEndIndex,
+      rangeLabel: paginationRangeLabel,
+      selectedOutsidePageCount,
+      pageSizeOptions: PATIENTS_PAGE_SIZE_OPTIONS,
+    },
     updatedAtLabel,
     patientsQuery,
     endpointHint: PATIENTS_ENDPOINT_HINT,
@@ -506,6 +582,8 @@ export function usePatientsViewModel(): UsePatientsViewModelResult {
     setMissedCheckinsOnly,
     setRecentlyActive,
     setSort,
+    setPage,
+    setPageSize,
     applyTriagePreset,
     clearSavedPatientsState,
     openPatientFromRoster,

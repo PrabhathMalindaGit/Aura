@@ -53,6 +53,90 @@ const PATIENTS: PatientSummary[] = [
   },
 ];
 
+const LARGE_PATIENTS: PatientSummary[] = [
+  ...PATIENTS,
+  {
+    id: 'patient-89',
+    displayName: 'Devon Reed',
+    status: 'active',
+    lastCheckinAt: '2026-04-16T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 4.1,
+  },
+  {
+    id: 'patient-90',
+    displayName: 'Riley Chen',
+    status: 'active',
+    lastCheckinAt: '2026-04-15T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 3.7,
+  },
+  {
+    id: 'patient-91',
+    displayName: 'Avery Patel',
+    status: 'active',
+    lastCheckinAt: '2026-04-14T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 3.3,
+  },
+  {
+    id: 'patient-92',
+    displayName: 'Morgan Stone',
+    status: 'active',
+    lastCheckinAt: '2026-04-13T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 2.9,
+  },
+  {
+    id: 'patient-93',
+    displayName: 'Quinn Rivera',
+    status: 'active',
+    lastCheckinAt: '2026-04-12T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 2.4,
+  },
+  {
+    id: 'patient-94',
+    displayName: 'Samira Holt',
+    status: 'active',
+    lastCheckinAt: '2026-04-11T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 2.2,
+  },
+  {
+    id: 'patient-95',
+    displayName: 'Noah Park',
+    status: 'active',
+    lastCheckinAt: '2026-04-10T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 2,
+  },
+  {
+    id: 'patient-96',
+    displayName: 'Iris Lin',
+    status: 'active',
+    lastCheckinAt: '2026-04-09T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 1.9,
+  },
+  {
+    id: 'patient-97',
+    displayName: 'Mina Brooks',
+    status: 'active',
+    lastCheckinAt: '2026-04-08T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 1.8,
+  },
+  {
+    id: 'patient-98',
+    displayName: 'Owen Blake',
+    status: 'active',
+    lastCheckinAt: '2026-04-07T09:00:00.000Z',
+    openAlertCount: 0,
+    lastPain: 1.7,
+  },
+];
+
 function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
@@ -231,5 +315,60 @@ describe('PatientsRouteFacade', () => {
 
     expect(await screen.findByRole('table', { name: 'Patients roster results' })).toBeInTheDocument();
     expect(screen.queryByTestId('v2-patients-card-patient-42')).not.toBeInTheDocument();
+  });
+
+  it('paginates larger roster views and reports the rendered range', async () => {
+    const user = userEvent.setup();
+    installPatientsFetchMock(LARGE_PATIENTS);
+
+    renderPatientsRoute();
+
+    expect(await screen.findByText('Showing 1-10 of 13 patients')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Noah Park')).toBeInTheDocument();
+    expect(screen.queryByText('Iris Lin')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+
+    expect(await screen.findByText('Showing 11-13 of 13 patients')).toBeInTheDocument();
+    expect(screen.getByText('Iris Lin')).toBeInTheDocument();
+    expect(screen.queryByText('Taylor Moss')).not.toBeInTheDocument();
+  });
+
+  it('resets pagination to the first page when search narrows the roster', async () => {
+    const user = userEvent.setup();
+    installPatientsFetchMock(LARGE_PATIENTS);
+
+    renderPatientsRoute();
+
+    await screen.findByText('Showing 1-10 of 13 patients');
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('Showing 11-13 of 13 patients')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Search patients'), 'Taylor');
+
+    expect(await screen.findByText('Showing 1-1 of 1 patient')).toBeInTheDocument();
+    expect(screen.getByText('Taylor Moss')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+  });
+
+  it('keeps compare selection clear when selected patients are not on the current page', async () => {
+    const user = userEvent.setup();
+    installPatientsFetchMock(LARGE_PATIENTS);
+
+    renderPatientsRoute();
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Select Taylor Moss for compare' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select Jordan Lee for compare' }));
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+
+    expect(await screen.findByText('Showing 11-13 of 13 patients')).toBeInTheDocument();
+    expect(within(screen.getByRole('table', { name: 'Patients roster results' })).queryByText('Taylor Moss')).not.toBeInTheDocument();
+
+    const resultsSurface = screen.getByTestId('v2-patients-results');
+    expect(within(resultsSurface).getByText('2 selected')).toBeInTheDocument();
+    expect(within(resultsSurface).getByText('Taylor Moss')).toBeInTheDocument();
+    expect(within(resultsSurface).getByText('Jordan Lee')).toBeInTheDocument();
+    expect(within(resultsSurface).getByRole('button', { name: 'Compare selected (2)' })).toBeEnabled();
   });
 });

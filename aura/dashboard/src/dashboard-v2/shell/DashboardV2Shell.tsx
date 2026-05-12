@@ -119,11 +119,12 @@ export function DashboardV2Shell(): JSX.Element {
     routeId === 'alerts' ||
     routeId === 'insights' ||
     routeId === 'appointments';
+  const routeSuppressesShellContext = routeId === 'patients' || routeId === 'settings';
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
   const compactRouteDescription = routeId === 'dashboard' ? null : routeDescription;
-  const forceRailDrawer = routeId === 'patients' || routeId === 'settings';
-  const showShellContextDrawer = !routeOwnsContextRail && (useRailDrawer || forceRailDrawer);
+  const routeUsesShellContext = !routeOwnsContextRail && !routeSuppressesShellContext;
+  const showShellContextDrawer = routeUsesShellContext && useRailDrawer;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
@@ -362,7 +363,7 @@ export function DashboardV2Shell(): JSX.Element {
     </form>
   );
 
-  const contextRail = routeOwnsContextRail
+  const contextRail = !routeUsesShellContext
     ? null
     : (
         <DashboardV2ContextRailPanel
@@ -381,6 +382,7 @@ export function DashboardV2Shell(): JSX.Element {
         bannerMeta={bannerMeta}
         contextualRail={showShellContextDrawer ? null : contextRail}
         footer={footer}
+        navigationCollapsed={navCollapsed}
         navigation={
           <DashboardV2ShellNav
             collapsed={navCollapsed}

@@ -5,6 +5,7 @@ import { DashboardV2SkipLinks } from './SkipLinks';
 
 interface DashboardV2ShellFrameProps {
   navigation: ReactNode;
+  navigationCollapsed?: boolean;
   bannerMeta?: ReactNode;
   search?: ReactNode;
   contextualRail?: ReactNode;
@@ -14,6 +15,7 @@ interface DashboardV2ShellFrameProps {
 
 export function DashboardV2ShellFrame({
   navigation,
+  navigationCollapsed = false,
   bannerMeta,
   search,
   contextualRail,
@@ -23,8 +25,20 @@ export function DashboardV2ShellFrame({
   return (
     <div className="dashboard-v2-shell">
       <DashboardV2SkipLinks hasContextRail={Boolean(contextualRail)} />
-      <div className="dashboard-v2-shell__layout">
-        <aside className="dashboard-v2-shell__nav-shell">{navigation}</aside>
+      <div
+        className={cn(
+          'dashboard-v2-shell__layout',
+          navigationCollapsed && 'dashboard-v2-shell__layout--nav-collapsed',
+        )}
+      >
+        <aside
+          className={cn(
+            'dashboard-v2-shell__nav-shell',
+            navigationCollapsed && 'dashboard-v2-shell__nav-shell--collapsed',
+          )}
+        >
+          {navigation}
+        </aside>
         <div className="dashboard-v2-shell__content-shell">
           <header className="dashboard-v2-shell__banner" role="banner">
             <div className="dashboard-v2-shell__banner-main">{bannerMeta}</div>

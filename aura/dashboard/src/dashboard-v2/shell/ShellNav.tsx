@@ -40,6 +40,8 @@ export function DashboardV2ShellNav({
           className="dashboard-v2-shell__nav-toggle"
           tone="ghost"
           size="sm"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           onPress={onToggleCollapse}
           leadingIcon={<DashboardV2Icon icon={collapsed ? PanelLeftOpen : PanelLeftClose} size={16} />}
         >
@@ -53,6 +55,7 @@ export function DashboardV2ShellNav({
             key={item.key}
             to={item.to}
             aria-label={item.accessibleLabel}
+            title={collapsed ? item.label : undefined}
             className={({ isActive }) =>
               cn('dashboard-v2-shell__nav-link', isActive && 'dashboard-v2-shell__nav-link--active')
             }

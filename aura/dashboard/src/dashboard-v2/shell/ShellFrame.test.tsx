@@ -41,4 +41,23 @@ describe('DashboardV2ShellFrame', () => {
     expect(screen.queryByRole('link', { name: 'Skip to context rail' })).not.toBeInTheDocument();
     expect(screen.queryByRole('complementary', { name: 'Contextual governance rail' })).not.toBeInTheDocument();
   });
+
+  it('marks the shell layout and navigation rail when navigation is collapsed', () => {
+    const { container } = render(
+      <DashboardV2ShellFrame
+        navigationCollapsed
+        footer={<div>Footer</div>}
+        navigation={<nav aria-label="Primary navigation">Nav</nav>}
+      >
+        <div>Main content</div>
+      </DashboardV2ShellFrame>,
+    );
+
+    expect(container.querySelector('.dashboard-v2-shell__layout')).toHaveClass(
+      'dashboard-v2-shell__layout--nav-collapsed',
+    );
+    expect(container.querySelector('.dashboard-v2-shell__nav-shell')).toHaveClass(
+      'dashboard-v2-shell__nav-shell--collapsed',
+    );
+  });
 });

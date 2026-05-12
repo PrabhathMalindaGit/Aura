@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DashboardV2ShellNav } from './ShellNav';
 
 describe('DashboardV2ShellNav', () => {
@@ -34,5 +34,16 @@ describe('DashboardV2ShellNav', () => {
 
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Worklist' })).toBeInTheDocument();
+  });
+
+  it('keeps the collapse toggle accessible when rendered as a compact collapsed control', () => {
+    render(
+      <MemoryRouter>
+        <DashboardV2ShellNav collapsed onToggleCollapse={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('title', 'Today overview');
   });
 });

@@ -1311,6 +1311,11 @@ button.v2-review-summary-strip__metric {
   padding: clamp(1rem, 1.8vw, 1.75rem);
 }
 
+.dashboard-v2-shell__layout--nav-collapsed {
+  grid-template-columns: minmax(5.25rem, 5.75rem) minmax(0, 1fr);
+  gap: var(--v2-space-4);
+}
+
 .dashboard-v2-shell__nav-shell {
   position: sticky;
   top: clamp(1rem, 1.8vw, 1.75rem);
@@ -1326,10 +1331,18 @@ button.v2-review-summary-strip__metric {
     inset 0 1px 0 hsl(0 0% 100% / 0.8);
 }
 
+.dashboard-v2-shell__nav-shell--collapsed {
+  padding-inline: var(--v2-space-3);
+}
+
 .dashboard-v2-shell__nav {
   display: grid;
   gap: var(--v2-space-5);
   align-content: start;
+}
+
+.dashboard-v2-shell__nav--collapsed {
+  justify-items: center;
 }
 
 .dashboard-v2-shell__nav--collapsed .dashboard-v2-shell__nav-description,
@@ -1399,19 +1412,37 @@ button.v2-review-summary-strip__metric {
   color: hsl(var(--v2-text-muted));
 }
 
+.dashboard-v2-shell__nav--collapsed .dashboard-v2-shell__brand,
+.dashboard-v2-shell__nav--collapsed .dashboard-v2-shell__nav-toggle.v2-button {
+  justify-content: center;
+}
+
+.dashboard-v2-shell__nav--collapsed .dashboard-v2-shell__nav-toggle.v2-button {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding-inline: 0;
+  border-radius: 1rem;
+}
+
+.dashboard-v2-shell__nav--collapsed .dashboard-v2-shell__nav-toggle .v2-button__label {
+  display: none;
+}
+
 .dashboard-v2-shell__nav-list {
   display: grid;
   gap: 0.36rem;
 }
 
 .dashboard-v2-shell__nav-link {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--v2-space-3);
-  min-height: 2.9rem;
-  padding: 0 var(--v2-space-3);
+  min-height: 4.15rem;
+  padding: 0.62rem var(--v2-space-3);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 1.65rem;
   color: hsl(var(--v2-text-muted));
   text-decoration: none;
   transition:
@@ -1419,6 +1450,22 @@ button.v2-review-summary-strip__metric {
     border-color var(--v2-motion-fast) var(--v2-ease-standard),
     color var(--v2-motion-fast) var(--v2-ease-standard),
     box-shadow var(--v2-motion-fast) var(--v2-ease-standard);
+}
+
+.dashboard-v2-shell__nav--collapsed .dashboard-v2-shell__nav-list {
+  justify-items: center;
+  gap: 0.64rem;
+}
+
+.dashboard-v2-shell__nav--collapsed .dashboard-v2-shell__nav-link {
+  display: inline-flex;
+  justify-content: center;
+  width: 2.85rem;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
+  height: 2.85rem;
+  padding: 0;
+  border-radius: 1.05rem;
 }
 
 .dashboard-v2-shell__nav-link:hover {
@@ -1437,16 +1484,22 @@ button.v2-review-summary-strip__metric {
 .dashboard-v2-shell__nav-copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .dashboard-v2-shell__nav-label {
+  display: block;
   font-size: 0.93rem;
   font-weight: var(--v2-font-weight-semibold);
+  line-height: 1.18;
 }
 
 .dashboard-v2-shell__nav-description {
+  display: block;
   color: hsl(var(--v2-text-muted));
   font-size: 0.72rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-v2-shell__nav-link--active .dashboard-v2-shell__nav-description {
@@ -1695,6 +1748,10 @@ button.v2-review-summary-strip__metric {
     padding-inline: var(--v2-space-3);
   }
 
+  .dashboard-v2-shell__nav {
+    justify-items: center;
+  }
+
   .dashboard-v2-shell__nav-description,
   .dashboard-v2-shell__nav-copy,
   .dashboard-v2-shell__brand-copy,
@@ -1708,8 +1765,27 @@ button.v2-review-summary-strip__metric {
     justify-content: center;
   }
 
-  .dashboard-v2-shell__nav-link {
+  .dashboard-v2-shell__nav-toggle.v2-button {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
     padding-inline: 0;
+    border-radius: 1rem;
+  }
+
+  .dashboard-v2-shell__nav-list {
+    justify-items: center;
+    gap: 0.64rem;
+  }
+
+  .dashboard-v2-shell__nav-link {
+    display: inline-flex;
+    width: 2.85rem;
+    min-width: 2.85rem;
+    min-height: 2.85rem;
+    height: 2.85rem;
+    padding: 0;
+    border-radius: 1.05rem;
   }
 
   .dashboard-v2-shell__banner {

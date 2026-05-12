@@ -110,6 +110,10 @@ export interface AppointmentPublishVm {
   startsAtInput: string;
   endsAtInput: string;
   meetingLinkInput: string;
+  validationErrors: {
+    startsAt?: string;
+    endsAt?: string;
+  };
   canPublish: boolean;
   publishing: boolean;
   outcomeTitle: string | null;
@@ -759,7 +763,7 @@ export function buildAppointmentPlanner(
         label: formatTimeRange(slot.startsAt, slot.endsAt),
         timeLabel: formatTimeRange(slot.startsAt, slot.endsAt),
         title: (slot as AppointmentSlotWithDisplay).displayTitle ?? formatSlotStatusLabel((slot.status ?? 'available') as AppointmentSlotFilter),
-        detailLabel: (slot as AppointmentSlotWithDisplay).displayDetail ?? (slot.meetingLink ? 'Telehealth window' : 'Published clinician time'),
+        detailLabel: (slot as AppointmentSlotWithDisplay).displayDetail ?? 'Published window',
         modeLabel: (slot as AppointmentSlotWithDisplay).displayMode ?? (slot.meetingLink ? 'Telehealth' : 'In-person'),
         statusLabel: formatSlotStatusLabel((slot.status ?? 'available') as AppointmentSlotFilter),
         statusTone: (slot.status ?? 'available') === 'available' ? 'success' : 'unknown',
@@ -847,6 +851,10 @@ export function buildAppointmentPublishVm(params: {
   startsAtInput: string;
   endsAtInput: string;
   meetingLinkInput: string;
+  validationErrors?: {
+    startsAt?: string;
+    endsAt?: string;
+  };
   canPublish: boolean;
   publishing: boolean;
   publishOutcomeState: PublishOutcomeState | null;
@@ -869,6 +877,7 @@ export function buildAppointmentPublishVm(params: {
     startsAtInput: params.startsAtInput,
     endsAtInput: params.endsAtInput,
     meetingLinkInput: params.meetingLinkInput,
+    validationErrors: params.validationErrors ?? {},
     canPublish: params.canPublish,
     publishing: params.publishing,
     outcomeTitle: params.publishOutcomeState ? 'Availability published' : null,

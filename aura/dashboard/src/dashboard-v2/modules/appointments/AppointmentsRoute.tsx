@@ -77,8 +77,8 @@ export function AppointmentsRoute(): JSX.Element {
       />
 
       <section className="v2-appointments-workflow" aria-label="Scheduling workflow">
-        <div className="v2-appointments-workflow__planner">{workspace}</div>
         <div className="v2-appointments-workflow__request-rail">{requestPane}</div>
+        <div className="v2-appointments-workflow__planner">{workspace}</div>
         <div className="v2-appointments-workflow__operations-row">
           <AppointmentCapacityPanel
             capacity={viewModel.capacity}
@@ -90,6 +90,7 @@ export function AppointmentsRoute(): JSX.Element {
             onStartsAtChange={viewModel.setStartsAtInput}
             onEndsAtChange={viewModel.setEndsAtInput}
             onMeetingLinkChange={viewModel.setMeetingLinkInput}
+            onUseNextAvailableHour={viewModel.handleUseNextAvailableHour}
             onPublish={viewModel.handleCreateSlot}
           />
         </div>

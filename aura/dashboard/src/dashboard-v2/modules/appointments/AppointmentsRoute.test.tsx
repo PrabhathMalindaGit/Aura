@@ -31,6 +31,7 @@ import { resetAppointmentsUiStore } from '../../state/useAppointmentsUiStore';
 interface PublishBehavior {
   kind?: 'success' | 'error' | 'unconfirmed';
   errorMessage?: string;
+  status?: number;
 }
 
 const REQUESTS: AppointmentRequestItem[] = [
@@ -255,7 +256,10 @@ function installAppointmentsFetchMock(options: {
     if (url.pathname === '/clinician/appointments/slots' && method === 'POST') {
       const behavior = publishBehaviors.shift() ?? { kind: 'success' };
       if (behavior.kind === 'error') {
-        return createJsonResponse({ ok: false, message: behavior.errorMessage ?? 'Publish failed' }, 500);
+        return createJsonResponse(
+          { ok: false, message: behavior.errorMessage ?? 'Publish failed' },
+          behavior.status ?? 500,
+        );
       }
 
       const payload = init?.body
@@ -295,6 +299,10 @@ function PatientWorkspaceEcho(): JSX.Element {
 function LocationEcho(): JSX.Element {
   const location = useLocation();
   return <div data-testid="appointments-location">{`${location.pathname}${location.search}`}</div>;
+}
+
+function formatTestTimeRange(startsAt: string, endsAt: string): string {
+  return `${new Date(startsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} to ${new Date(endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 }
 
 function renderAppointmentsRoute(initialEntry = '/appointments'): void {
@@ -372,6 +380,22 @@ describe('AppointmentsRoute', () => {
     expect(await screen.findByText(/Patient workspace/)).toHaveTextContent('"returnTo":"/appointments"');
   });
 
+  it('renders review requests before the planner in the scheduling workflow', async () => {
+    installAppointmentsFetchMock();
+
+    renderAppointmentsRoute();
+
+    const route = await screen.findByTestId('v2-appointments-route');
+    const requestPane = await screen.findByTestId('v2-appointments-request-pane');
+    const plannerWorkspace = screen.getByTestId('v2-appointments-planner-workspace');
+
+    expect(route).toContainElement(requestPane);
+    expect(route).toContainElement(plannerWorkspace);
+    expect(
+      requestPane.compareDocumentPosition(plannerWorkspace) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('renders the real-mode scheduling cockpit shell even when requests and capacity are empty', async () => {
     installAppointmentsFetchMock({ requests: [], slots: [] });
 
@@ -399,6 +423,7 @@ describe('AppointmentsRoute', () => {
     expect(screen.getByRole('heading', { name: 'Open only the time still needed' })).toBeVisible();
 
     await userEvent.type(screen.getByLabelText('Start (local datetime)'), '2026-04-20T14:00');
+    await userEvent.clear(screen.getByLabelText('End (local datetime)'));
     await userEvent.type(screen.getByLabelText('End (local datetime)'), '2026-04-20T14:30');
     await userEvent.type(screen.getByLabelText('Meeting link (optional)'), 'https://meet.example.com/new-slot');
     await userEvent.click(screen.getByRole('button', { name: 'Publish availability' }));
@@ -406,20 +431,194 @@ describe('AppointmentsRoute', () => {
     expect(await screen.findByText('Availability published')).toBeInTheDocument();
     expect(screen.getByText(/open capacity is published/i)).toBeInTheDocument();
     expect(screen.queryByText(/Booked|Confirmed visit/i)).not.toBeInTheDocument();
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        const url = new URL(String(input), 'http://localhost');
+        const body = init?.body
+          ? (JSON.parse(String(init.body)) as { startsAt?: string; endsAt?: string; meetingLink?: string })
+          : null;
+        return (
+          url.pathname === '/clinician/appointments/slots' &&
+          String(init?.method ?? 'GET').toUpperCase() === 'POST' &&
+          body?.startsAt === new Date('2026-04-20T14:00').toISOString() &&
+          body?.endsAt === new Date('2026-04-20T14:30').toISOString() &&
+          body?.meetingLink === 'https://meet.example.com/new-slot'
+        );
+      }),
+    ).toBe(true);
   });
 
-  it('keeps the planner first on narrow layouts while preserving request selection', async () => {
+  it('blocks publish when required start or end datetimes are missing', async () => {
+    installAppointmentsFetchMock();
+
+    renderAppointmentsRoute();
+
+    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Publish availability' }));
+
+    expect(await screen.findByText('Start time is required.')).toBeVisible();
+    expect(screen.getByText('End time is required.')).toBeVisible();
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        const url = new URL(String(input), 'http://localhost');
+        return (
+          url.pathname === '/clinician/appointments/slots' &&
+          String(init?.method ?? 'GET').toUpperCase() === 'POST'
+        );
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks publish when the end datetime is before the start datetime', async () => {
+    installAppointmentsFetchMock();
+
+    renderAppointmentsRoute();
+
+    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    await userEvent.type(screen.getByLabelText('Start (local datetime)'), '2026-05-17T22:34');
+    await userEvent.clear(screen.getByLabelText('End (local datetime)'));
+    await userEvent.type(screen.getByLabelText('End (local datetime)'), '2026-05-13T22:34');
+    await userEvent.click(screen.getByRole('button', { name: 'Publish availability' }));
+
+    expect(await screen.findByText('End time must be after start time.')).toBeVisible();
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        const url = new URL(String(input), 'http://localhost');
+        return (
+          url.pathname === '/clinician/appointments/slots' &&
+          String(init?.method ?? 'GET').toUpperCase() === 'POST'
+        );
+      }),
+    ).toBe(false);
+  });
+
+  it('surfaces backend validation detail when a valid-looking publish request is rejected', async () => {
+    installAppointmentsFetchMock({
+      publishBehaviors: [
+        {
+          kind: 'error',
+          status: 400,
+          errorMessage: 'Availability overlaps an existing slot.',
+        },
+      ],
+    });
+
+    renderAppointmentsRoute();
+
+    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    await userEvent.type(screen.getByLabelText('Start (local datetime)'), '2026-05-17T22:34');
+    await userEvent.clear(screen.getByLabelText('End (local datetime)'));
+    await userEvent.type(screen.getByLabelText('End (local datetime)'), '2026-05-17T23:34');
+    await userEvent.click(screen.getByRole('button', { name: 'Publish availability' }));
+
+    expect(await screen.findByText('Availability overlaps an existing slot.')).toBeVisible();
+    expect(screen.queryByText('The request was invalid.')).not.toBeInTheDocument();
+  });
+
+  it('keeps the vertical scheduling workflow on narrow layouts while preserving request selection', async () => {
     installViewportMock(900);
     installAppointmentsFetchMock();
 
     renderAppointmentsRoute();
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
-    await screen.findByTestId('v2-appointment-request-row-request-1');
-    expect(screen.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
+    const requestPane = await screen.findByTestId('v2-appointments-request-pane');
+    const plannerWorkspace = screen.getByTestId('v2-appointments-planner-workspace');
+    expect(
+      requestPane.compareDocumentPosition(plannerWorkspace) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await userEvent.click(screen.getByTestId('v2-appointment-request-row-request-1'));
     expect(screen.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Back to requests' })).not.toBeInTheDocument();
+  });
+
+  it('switches week and day views while previous, today, and next update the visible range', async () => {
+    installAppointmentsFetchMock();
+
+    renderAppointmentsRoute();
+
+    expect(await screen.findByTestId('appointments-schedule-week')).toBeVisible();
+    const initialRangeLabel = screen.getByTestId('appointments-schedule-range-label').textContent;
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('appointments-schedule-range-label').textContent).not.toEqual(initialRangeLabel);
+    });
+    const nextWeekLabel = screen.getByTestId('appointments-schedule-range-label').textContent;
+
+    await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('appointments-schedule-range-label').textContent).toEqual(initialRangeLabel);
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Day' }));
+    expect(await screen.findByTestId('appointments-schedule-day')).toBeVisible();
+    const initialDayLabel = screen.getByTestId('appointments-schedule-range-label').textContent;
+    expect(initialDayLabel).not.toEqual(nextWeekLabel);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('appointments-schedule-range-label').textContent).not.toEqual(initialDayLabel);
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('appointments-schedule-range-label').textContent).toEqual(initialDayLabel);
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Week' }));
+    expect(await screen.findByTestId('appointments-schedule-week')).toBeVisible();
+  });
+
+  it('shows capacity only for the selected calendar range', async () => {
+    installAppointmentsFetchMock({
+      requests: [],
+      slots: [
+        {
+          ...SLOTS[0],
+          slotId: 'slot-current-week',
+          startsAt: '2026-04-18T11:00:00.000Z',
+          endsAt: '2026-04-18T11:30:00.000Z',
+        },
+        {
+          ...SLOTS[0],
+          slotId: 'slot-next-week',
+          startsAt: '2026-04-25T12:00:00.000Z',
+          endsAt: '2026-04-25T12:30:00.000Z',
+        },
+      ],
+    });
+    writeWorkspaceState('appointments', {
+      requestStatus: 'pending',
+      slotStatus: 'available',
+      scheduleView: 'week',
+      scheduleDate: '2026-04-18',
+    });
+
+    renderAppointmentsRoute();
+
+    const currentWeekLabel = formatTestTimeRange('2026-04-18T11:00:00.000Z', '2026-04-18T11:30:00.000Z');
+    const nextRangeSlotLabel = formatTestTimeRange('2026-04-25T12:00:00.000Z', '2026-04-25T12:30:00.000Z');
+    const plannerWorkspace = await screen.findByTestId('v2-appointments-planner-workspace');
+    expect(plannerWorkspace).toHaveTextContent('Apr 13 - Apr 19');
+    await waitFor(() => {
+      expect(plannerWorkspace).toHaveTextContent(currentWeekLabel);
+    });
+    expect(plannerWorkspace).not.toHaveTextContent(nextRangeSlotLabel);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-appointments-planner-workspace')).toHaveTextContent('Apr 20 - Apr 26');
+    });
+    expect(screen.getByTestId('v2-appointments-planner-workspace')).toHaveTextContent(nextRangeSlotLabel);
+    expect(screen.getByTestId('v2-appointments-planner-workspace')).not.toHaveTextContent(currentWeekLabel);
   });
 
   it('uses a native request summary button and keeps selected request actions separate', async () => {

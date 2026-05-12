@@ -56,17 +56,66 @@ interface AppointmentsErrorNotice {
   message: string;
 }
 
+interface PublishValidationErrors {
+  startsAt?: string;
+  endsAt?: string;
+}
+
 export interface UseAppointmentsViewModelOptions {
   isNarrowLayout: boolean;
 }
 
-function toIsoDateTime(value: string): string {
+function parseDateTimeInput(value: string): Date | null {
   const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    throw new Error('Use a valid date/time value.');
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function toDateTimeLocalInput(value: Date): string {
+  const pad = (next: number) => String(next).padStart(2, '0');
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+}
+
+function validatePublishInputs(startsAtInput: string, endsAtInput: string): {
+  errors: PublishValidationErrors;
+  startsAtIso: string | null;
+  endsAtIso: string | null;
+} {
+  const errors: PublishValidationErrors = {};
+  const startsAtValue = startsAtInput.trim();
+  const endsAtValue = endsAtInput.trim();
+  const startsAt = startsAtValue ? parseDateTimeInput(startsAtValue) : null;
+  const endsAt = endsAtValue ? parseDateTimeInput(endsAtValue) : null;
+
+  if (!startsAtValue) {
+    errors.startsAt = 'Start time is required.';
+  } else if (!startsAt) {
+    errors.startsAt = 'Use a valid start date and time.';
   }
 
-  return parsed.toISOString();
+  if (!endsAtValue) {
+    errors.endsAt = 'End time is required.';
+  } else if (!endsAt) {
+    errors.endsAt = 'Use a valid end date and time.';
+  }
+
+  if (startsAt && endsAt && endsAt.getTime() <= startsAt.getTime()) {
+    errors.endsAt = 'End time must be after start time.';
+  }
+
+  return {
+    errors,
+    startsAtIso: startsAt ? startsAt.toISOString() : null,
+    endsAtIso: endsAt ? endsAt.toISOString() : null,
+  };
+}
+
+function formatPublishErrorMessage(error: unknown): string {
+  const appError = asAppError(error);
+  if (appError.kind === 'HTTP' && appError.status === 400 && appError.message === 'The request was invalid.') {
+    return 'The server rejected this availability slot. Check that end time is after start time and the slot does not overlap existing capacity.';
+  }
+
+  return toUserMessage(appError);
 }
 
 function slotOverlapsRange(slot: AppointmentSlot, from: string, to: string): boolean {
@@ -107,6 +156,7 @@ export function useAppointmentsViewModel({
   const [startsAtInput, setStartsAtInput] = useState('');
   const [endsAtInput, setEndsAtInput] = useState('');
   const [meetingLinkInput, setMeetingLinkInput] = useState('');
+  const [publishValidationErrors, setPublishValidationErrors] = useState<PublishValidationErrors>({});
   const [isCreating, setIsCreating] = useState(false);
   const [reviewingKey, setReviewingKey] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState<AppointmentsErrorNotice | null>(null);
@@ -326,7 +376,8 @@ export function useAppointmentsViewModel({
     startsAtInput,
     endsAtInput,
     meetingLinkInput,
-    canPublish: startsAtInput.trim().length > 0 && endsAtInput.trim().length > 0 && !isCreating,
+    validationErrors: publishValidationErrors,
+    canPublish: !isCreating,
     publishing: isCreating,
     publishOutcomeState,
     publishOutcomeLabel: lastPublishOutcome
@@ -374,6 +425,50 @@ export function useAppointmentsViewModel({
 
   function handleScheduleViewChange(view: ScheduleView): void {
     updateWorkspaceState({ scheduleView: view });
+  }
+
+  function handleStartsAtInputChange(value: string): void {
+    setStartsAtInput(value);
+    setPublishValidationErrors({});
+    setErrorNotice((current) => (current?.scope === 'publish' ? null : current));
+
+    const startsAt = parseDateTimeInput(value);
+    const currentEnd = parseDateTimeInput(endsAtInput);
+    if (!startsAt) {
+      return;
+    }
+
+    if (!currentEnd || currentEnd.getTime() <= startsAt.getTime()) {
+      const suggestedEnd = new Date(startsAt);
+      suggestedEnd.setMinutes(suggestedEnd.getMinutes() + 60);
+      setEndsAtInput(toDateTimeLocalInput(suggestedEnd));
+    }
+  }
+
+  function handleEndsAtInputChange(value: string): void {
+    setEndsAtInput(value);
+    setPublishValidationErrors({});
+    setErrorNotice((current) => (current?.scope === 'publish' ? null : current));
+  }
+
+  function handleMeetingLinkInputChange(value: string): void {
+    setMeetingLinkInput(value);
+    setErrorNotice((current) => (current?.scope === 'publish' ? null : current));
+  }
+
+  function handleUseNextAvailableHour(): void {
+    const startsAt = new Date();
+    startsAt.setSeconds(0, 0);
+    startsAt.setMinutes(0);
+    startsAt.setHours(startsAt.getHours() + 1);
+
+    const endsAt = new Date(startsAt);
+    endsAt.setMinutes(endsAt.getMinutes() + 60);
+
+    setStartsAtInput(toDateTimeLocalInput(startsAt));
+    setEndsAtInput(toDateTimeLocalInput(endsAt));
+    setPublishValidationErrors({});
+    setErrorNotice((current) => (current?.scope === 'publish' ? null : current));
   }
 
   function handleScheduleDateShift(direction: 'previous' | 'next'): void {
@@ -448,15 +543,18 @@ export function useAppointmentsViewModel({
   async function handleCreateSlot(): Promise<void> {
     setErrorNotice(null);
     setLastPublishOutcome(null);
+    const validation = validatePublishInputs(startsAtInput, endsAtInput);
+    if (Object.keys(validation.errors).length > 0 || !validation.startsAtIso || !validation.endsAtIso) {
+      setPublishValidationErrors(validation.errors);
+      return;
+    }
+
+    setPublishValidationErrors({});
     setIsCreating(true);
-
     try {
-      const startsAt = toIsoDateTime(startsAtInput);
-      const endsAt = toIsoDateTime(endsAtInput);
-
       const createdSlot = await createAppointmentSlot({
-        startsAt,
-        endsAt,
+        startsAt: validation.startsAtIso,
+        endsAt: validation.endsAtIso,
         meetingLink: meetingLinkInput.trim() || undefined,
       });
 
@@ -524,7 +622,7 @@ export function useAppointmentsViewModel({
     } catch (error) {
       setErrorNotice({
         scope: 'publish',
-        message: toUserMessage(asAppError(error)),
+        message: formatPublishErrorMessage(error),
       });
       setLastPublishOutcome(null);
     } finally {
@@ -593,6 +691,7 @@ export function useAppointmentsViewModel({
     handleScheduleDateShift,
     handleScheduleToday,
     handleScheduleViewChange,
+    handleUseNextAvailableHour,
     handleSlotStatusChange,
     isRefreshing:
       scheduleSlotsQuery.isFetching ||
@@ -633,10 +732,10 @@ export function useAppointmentsViewModel({
     scheduleView,
     selectRequest,
     selectedRequestId,
-    setEndsAtInput,
+    setEndsAtInput: handleEndsAtInputChange,
     setFocusMode,
-    setMeetingLinkInput,
-    setStartsAtInput,
+    setMeetingLinkInput: handleMeetingLinkInputChange,
+    setStartsAtInput: handleStartsAtInputChange,
     showQueueOnly: false,
     slotStatus,
     statusBar,

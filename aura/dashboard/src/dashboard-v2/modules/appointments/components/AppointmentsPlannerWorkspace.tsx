@@ -30,34 +30,42 @@ export function AppointmentsPlannerWorkspace({
         <div className="v2-appointments-planner-workspace__section-header">
           <div>
             <DashboardV2Text tone="label">Planner</DashboardV2Text>
-            <DashboardV2Heading as="h3">{planner.rangeLabel}</DashboardV2Heading>
+            <DashboardV2Heading as="h3" data-testid="appointments-schedule-range-label">
+              {planner.rangeLabel}
+            </DashboardV2Heading>
             <DashboardV2Text tone="muted">{planner.rangeCaption}</DashboardV2Text>
             <DashboardV2Text tone="muted">{plannerHelper}</DashboardV2Text>
           </div>
-          <div className="v2-appointments-planner-workspace__toolbar">
-            <DashboardV2Button
-              tone={planner.scheduleView === 'week' ? 'primary' : 'ghost'}
-              size="sm"
-              onPress={() => onScheduleViewChange('week')}
-            >
-              Week
-            </DashboardV2Button>
-            <DashboardV2Button
-              tone={planner.scheduleView === 'day' ? 'primary' : 'ghost'}
-              size="sm"
-              onPress={() => onScheduleViewChange('day')}
-            >
-              Day
-            </DashboardV2Button>
-            <DashboardV2Button tone="ghost" size="sm" onPress={onPreviousRange}>
-              Previous
-            </DashboardV2Button>
-            <DashboardV2Button tone="ghost" size="sm" onPress={onToday}>
-              Today
-            </DashboardV2Button>
-            <DashboardV2Button tone="ghost" size="sm" onPress={onNextRange}>
-              Next
-            </DashboardV2Button>
+          <div className="v2-appointments-planner-workspace__toolbar" aria-label="Planner calendar controls">
+            <div className="v2-appointments-planner-workspace__control-group" aria-label="Calendar view">
+              <DashboardV2Button
+                tone={planner.scheduleView === 'week' ? 'primary' : 'ghost'}
+                size="sm"
+                aria-pressed={planner.scheduleView === 'week'}
+                onPress={() => onScheduleViewChange('week')}
+              >
+                Week
+              </DashboardV2Button>
+              <DashboardV2Button
+                tone={planner.scheduleView === 'day' ? 'primary' : 'ghost'}
+                size="sm"
+                aria-pressed={planner.scheduleView === 'day'}
+                onPress={() => onScheduleViewChange('day')}
+              >
+                Day
+              </DashboardV2Button>
+            </div>
+            <div className="v2-appointments-planner-workspace__control-group" aria-label="Calendar range">
+              <DashboardV2Button tone="ghost" size="sm" onPress={onPreviousRange}>
+                Previous
+              </DashboardV2Button>
+              <DashboardV2Button tone="secondary" size="sm" onPress={onToday}>
+                Today
+              </DashboardV2Button>
+              <DashboardV2Button tone="ghost" size="sm" onPress={onNextRange}>
+                Next
+              </DashboardV2Button>
+            </div>
           </div>
         </div>
 
@@ -99,11 +107,19 @@ export function AppointmentsPlannerWorkspace({
                       <div
                         key={slot.slotId}
                         className={`v2-appointments-planner-workspace__slot v2-appointments-planner-workspace__slot--${slot.statusTone}`}
+                        aria-label={`${slot.statusLabel}: ${slot.timeLabel}, ${slot.modeLabel}`}
                       >
-                        <DashboardV2Text tone="caption">{slot.timeLabel}</DashboardV2Text>
+                        <div className="v2-appointments-planner-workspace__slot-topline">
+                          <DashboardV2Text tone="caption">{slot.timeLabel}</DashboardV2Text>
+                          <span className={`v2-appointments-planner-workspace__slot-status v2-appointments-planner-workspace__slot-status--${slot.statusTone}`}>
+                            {slot.statusLabel}
+                          </span>
+                        </div>
                         <DashboardV2Text tone="strong">{slot.title}</DashboardV2Text>
-                        <DashboardV2Text tone="muted">{slot.detailLabel}</DashboardV2Text>
-                        <DashboardV2Text tone="label">{slot.modeLabel}</DashboardV2Text>
+                        <div className="v2-appointments-planner-workspace__slot-meta">
+                          <span>{slot.modeLabel}</span>
+                          <span>{slot.detailLabel}</span>
+                        </div>
                         {slot.justPublished ? (
                           <DashboardV2Text tone="label">Just published</DashboardV2Text>
                         ) : null}

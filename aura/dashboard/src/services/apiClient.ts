@@ -246,18 +246,24 @@ function formatCollisionMessage(payload: ApiErrorPayload): string {
 }
 
 async function buildHttpError(response: Response): Promise<AppError> {
+  let payload: ApiErrorPayload | null = null;
+  try {
+    payload = (await response.json()) as ApiErrorPayload;
+  } catch {
+    payload = null;
+  }
+
   if (response.status === 409) {
-    try {
-      const payload = (await response.json()) as ApiErrorPayload;
-      if (payload.error === 'PRESENTATION_SEED_COLLISION') {
-        return createAppError('HTTP', formatCollisionMessage(payload), {
-          status: response.status,
-          hint: 'Reset presentation data, then retry. If this remains, inspect the listed local records.',
-        });
-      }
-    } catch {
-      // Fall through to the generic status message below.
+    if (payload?.error === 'PRESENTATION_SEED_COLLISION') {
+      return createAppError('HTTP', formatCollisionMessage(payload), {
+        status: response.status,
+        hint: 'Reset presentation data, then retry. If this remains, inspect the listed local records.',
+      });
     }
+  }
+
+  if (response.status === 400 && typeof payload?.message === 'string' && payload.message.trim()) {
+    return createAppError('HTTP', payload.message.trim(), { status: response.status });
   }
 
   const status = response.status;

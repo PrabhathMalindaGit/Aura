@@ -10,6 +10,7 @@ interface AppointmentPublishPanelProps {
   onStartsAtChange: (value: string) => void;
   onEndsAtChange: (value: string) => void;
   onMeetingLinkChange: (value: string) => void;
+  onUseNextAvailableHour: () => void;
   onPublish: () => void;
 }
 
@@ -19,6 +20,7 @@ export function AppointmentPublishPanel({
   onStartsAtChange,
   onEndsAtChange,
   onMeetingLinkChange,
+  onUseNextAvailableHour,
   onPublish,
 }: AppointmentPublishPanelProps): JSX.Element {
   return (
@@ -31,6 +33,9 @@ export function AppointmentPublishPanel({
 
       <div className="v2-appointment-publish-panel__meta">
         <span className="v2-appointment-publish-panel__pill">{publishVm.metaLabel}</span>
+        <DashboardV2Button tone="ghost" size="sm" onPress={onUseNextAvailableHour}>
+          Use next available hour
+        </DashboardV2Button>
       </div>
 
       {publishVm.outcomeTitle ? (
@@ -57,12 +62,15 @@ export function AppointmentPublishPanel({
           label="Start (local datetime)"
           type="datetime-local"
           value={publishVm.startsAtInput}
+          errorMessage={publishVm.validationErrors.startsAt}
           onChange={(event) => onStartsAtChange(event.currentTarget.value)}
         />
         <DashboardV2Input
           label="End (local datetime)"
           type="datetime-local"
           value={publishVm.endsAtInput}
+          description={publishVm.validationErrors.endsAt ? undefined : 'End time must be after start time.'}
+          errorMessage={publishVm.validationErrors.endsAt}
           onChange={(event) => onEndsAtChange(event.currentTarget.value)}
         />
         <DashboardV2Input

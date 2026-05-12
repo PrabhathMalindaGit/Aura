@@ -223,6 +223,7 @@ function installViewportMock(width: number): void {
 function installDashboardFetchMock(
   options: {
     safetyEvents?: DashboardSafetyEvent[];
+    priorityQueue?: DashboardPriorityQueueItem[];
     communicationOverview?: DashboardCommunicationOverview;
     appointments?: DashboardTodayAppointmentItem[];
     appointmentRequests?: AppointmentRequestItem[];
@@ -230,6 +231,7 @@ function installDashboardFetchMock(
   } = {},
 ): void {
   const safetyEvents = options.safetyEvents ?? SAFETY_EVENTS;
+  const priorityQueue = options.priorityQueue ?? PRIORITY_QUEUE;
   const communicationOverview =
     options.communicationOverview ?? COMMUNICATION_OVERVIEW;
   const appointments = options.appointments ?? TODAY_APPOINTMENTS;
@@ -245,7 +247,7 @@ function installDashboardFetchMock(
     }
 
     if (url.pathname === "/clinician/dashboard/priority-queue") {
-      return createJsonResponse({ ok: true, items: PRIORITY_QUEUE });
+      return createJsonResponse({ ok: true, items: priorityQueue });
     }
 
     if (url.pathname === "/clinician/dashboard/recent-safety-events") {
@@ -380,9 +382,6 @@ describe("DashboardRoute", () => {
     expect(screen.getByTestId("v2-dashboard-attention-panel")).toHaveTextContent(
       "Start in safety review",
     );
-    expect(screen.getByTestId("v2-dashboard-data-context")).not.toHaveTextContent(
-      "Today",
-    );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
       "Alerts",
     );
@@ -400,18 +399,11 @@ describe("DashboardRoute", () => {
     );
     expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
     expect(screen.getByTestId("v2-dashboard-signals-section")).toBeVisible();
-    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
-      "Review window",
-    );
-    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
-      "Schedule:",
-    );
+    expect(screen.queryByTestId("v2-dashboard-data-context")).not.toBeInTheDocument();
     expect(
-      within(screen.getByTestId("v2-dashboard-data-context")).getByRole(
-        "button",
-        { name: "Open schedule" },
-      ),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: /About this data/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Includes dashboard summary/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Assigned to me alerts")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/foundation|phase 1|migration|staged/i),
@@ -509,7 +501,7 @@ describe("DashboardRoute", () => {
 
   });
 
-  it("keeps narrow data context readable without turning the route into stacked action tiles", async () => {
+  it("keeps narrow Today content readable without rendering the metadata footer", async () => {
     installViewportMock(560);
     installDashboardFetchMock();
 
@@ -517,18 +509,103 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: /About this data/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/This page does not infer historical direction/i),
-    ).not.toBeVisible();
-    expect(
-      screen.getByText(/This route is an operational overview/i),
-    ).not.toBeVisible();
+      screen.queryByRole("button", { name: /About this data/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("v2-dashboard-data-context")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/Short lists, not secondary workbenches/i),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toBeVisible();
+  });
+
+  it("excludes benchmark-marked communication from Today lists while keeping real high-risk messages", async () => {
+    installDashboardFetchMock({
+      priorityQueue: [
+        {
+          id: "priority-benchmark",
+          itemType: "communication",
+          patientId: "patient-1",
+          title: "Delayed patient response",
+          subtitle:
+            "[AURA_LATENCY_BENCH:845047b4-7ff6-4ab5-aec7-608a590ee1c9] I cant breathe and need help. Sample 15.",
+          priority: "urgent",
+          status: "open",
+          source: "communication",
+          createdAt: "2026-04-18T08:15:00.000Z",
+        },
+        {
+          id: "priority-real-high-risk",
+          itemType: "communication",
+          patientId: "patient-2",
+          title: "Delayed patient response",
+          subtitle: "I cant breathe and need help but this has no benchmark marker.",
+          priority: "urgent",
+          status: "open",
+          source: "communication",
+          createdAt: "2026-04-18T08:16:00.000Z",
+        },
+      ],
+      communicationOverview: {
+        counts: {
+          needsResponseCount: 2,
+          flaggedBySafetyCount: 2,
+          followUpRequestedCount: 2,
+        },
+        items: [
+          {
+            id: "communication-benchmark",
+            patientId: "patient-1",
+            patientName: "Patient One",
+            needsResponse: true,
+            flaggedBySafety: true,
+            followUpRequested: true,
+            responseDelayed: true,
+            responseState: "delayed",
+            responseDelayHours: 6,
+            openAlertCount: 2,
+            messageCreatedAt: "2026-04-18T08:15:00.000Z",
+            messagePreview:
+              "[AURA_LATENCY_BENCH:845047b4-7ff6-4ab5-aec7-608a590ee1c9] I cant breathe and need help. Sample 15.",
+          },
+          {
+            id: "communication-real-high-risk",
+            patientId: "patient-2",
+            patientName: "Avery Chen",
+            needsResponse: true,
+            flaggedBySafety: true,
+            followUpRequested: true,
+            responseDelayed: true,
+            responseState: "delayed",
+            responseDelayHours: 24,
+            openAlertCount: 1,
+            patientRiskLevel: "high",
+            messageCreatedAt: "2026-04-18T08:16:00.000Z",
+            messagePreview: "I cant breathe and need help but this has no benchmark marker.",
+          },
+        ],
+      },
+    });
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(screen.queryByText(/AURA_LATENCY_BENCH/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("v2-dashboard-communication-item-communication-benchmark"),
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findAllByText(
+        "I cant breathe and need help but this has no benchmark marker.",
+      ),
+    ).toHaveLength(3);
+    expect(screen.getByTestId("v2-dashboard-urgent-queue")).toHaveTextContent(
+      "I cant breathe and need help but this has no benchmark marker.",
+    );
+    expect(
+      screen.getByTestId(
+        "v2-dashboard-communication-item-communication-real-high-risk",
+      ),
+    ).toHaveTextContent("I cant breathe and need help but this has no benchmark marker.");
   });
 
   it("preserves thread routing from communication rows", async () => {
@@ -592,12 +669,10 @@ describe("DashboardRoute", () => {
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
     expect(await screen.findByText("No replies are waiting")).toBeVisible();
-    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
-      "Schedule:",
-    );
-    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
-      "No visible open capacity",
-    );
+    expect(screen.queryByTestId("v2-dashboard-data-context")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /About this data/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
   });
 
@@ -615,12 +690,7 @@ describe("DashboardRoute", () => {
       "Synthetic scenario",
     );
     expect(screen.getAllByText("Patient One").length).toBeGreaterThan(0);
-    expect(screen.getByText("Data source")).toBeVisible();
-    expect(
-      screen.getByText(
-        "Synthetic presentation dataset · Communication backlog day",
-      ),
-    ).toBeVisible();
+    expect(screen.queryByText("Data source")).not.toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
 
     const communicationItem = await screen.findByTestId(
@@ -755,7 +825,9 @@ describe("DashboardRoute", () => {
     expect(
       screen.getByRole("button", { name: "Real mode" }),
     ).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByText("Synthetic presentation dataset · Urgent safety day")).toBeVisible();
+    expect(
+      screen.queryByText("Synthetic presentation dataset · Urgent safety day"),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText("Patient One").length).toBeGreaterThan(0);
 
     await userEvent.click(screen.getByRole("button", { name: "Real mode" }));

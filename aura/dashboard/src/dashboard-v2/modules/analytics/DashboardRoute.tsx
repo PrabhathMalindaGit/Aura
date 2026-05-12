@@ -1,5 +1,4 @@
 import { DashboardAttentionPanel } from "./components/DashboardAttentionPanel";
-import { DashboardDataContextPanel } from "./components/DashboardDataContextPanel";
 import { DashboardDemoTools } from "./components/DashboardDemoTools";
 import { DashboardSignalsSection } from "./components/DashboardSignalsSection";
 import { DashboardSummaryStrip } from "./components/DashboardSummaryStrip";
@@ -65,13 +64,6 @@ export function DashboardRoute(): JSX.Element {
         onOpenThread={viewModel.openThread}
         guardPatientActions={viewModel.guardPatientActions}
         guardThreadActions={viewModel.guardThreadActions}
-      />
-
-      <DashboardDataContextPanel
-        dataContext={viewModel.freshnessTrust}
-        scheduleStatus={viewModel.capacityRail.capacityStateLabel}
-        scheduleDetail={viewModel.capacityRail.nextOpenSlotValue}
-        onOpenSchedule={() => viewModel.navigateTo("/appointments")}
       />
     </div>
   );

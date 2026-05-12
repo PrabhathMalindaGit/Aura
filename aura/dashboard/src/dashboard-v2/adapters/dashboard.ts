@@ -188,6 +188,38 @@ interface DashboardDataContextInput {
   demoSourceLabel?: string | null;
 }
 
+const AURA_LATENCY_BENCHMARK_MARKER = /\bAURA_LATENCY_BENCH:/i;
+
+export function containsAuraLatencyBenchmarkMarker(
+  value: string | null | undefined,
+): boolean {
+  return typeof value === "string" && AURA_LATENCY_BENCHMARK_MARKER.test(value);
+}
+
+function isSyntheticBenchmarkCommunicationItem(
+  item: DashboardCommunicationOverviewItem,
+): boolean {
+  return (
+    containsAuraLatencyBenchmarkMarker(item.messagePreview) ||
+    containsAuraLatencyBenchmarkMarker(item.messageId) ||
+    containsAuraLatencyBenchmarkMarker(item.id)
+  );
+}
+
+function isSyntheticBenchmarkPriorityItem(
+  item: DashboardPriorityQueueItem,
+): boolean {
+  if (item.itemType !== "communication") {
+    return false;
+  }
+
+  return (
+    containsAuraLatencyBenchmarkMarker(item.title) ||
+    containsAuraLatencyBenchmarkMarker(item.subtitle) ||
+    containsAuraLatencyBenchmarkMarker(item.linkedEntityId)
+  );
+}
+
 function formatCountValue(value: number | null | undefined): string {
   if (typeof value !== "number" || Number.isNaN(value)) {
     return "Unknown";
@@ -904,25 +936,29 @@ export function buildDashboardUrgentQueue({
     rows.push(row);
   };
 
-  priorityItems.slice(0, 4).forEach((item) => {
-    const patientLabel = patientLabels.get(item.patientId) ?? item.patientId;
-    const action = priorityQueueAction(item);
+  priorityItems
+    .filter((item) => !isSyntheticBenchmarkPriorityItem(item))
+    .slice(0, 4)
+    .forEach((item) => {
+      const patientLabel = patientLabels.get(item.patientId) ?? item.patientId;
+      const action = priorityQueueAction(item);
 
-    addRow({
-      id: `priority-${item.id}`,
-      tone: priorityTone(item.priority),
-      title: priorityQueueTitle(item),
-      patientLabel,
-      patientId: item.patientId,
-      contextLine: priorityQueueContext(item),
-      dueLabel: priorityQueueDueLabel(item, nowMs),
-      actionLabel: action.actionLabel,
-      actionKind: action.actionKind,
-      actionPath: action.actionPath,
+      addRow({
+        id: `priority-${item.id}`,
+        tone: priorityTone(item.priority),
+        title: priorityQueueTitle(item),
+        patientLabel,
+        patientId: item.patientId,
+        contextLine: priorityQueueContext(item),
+        dueLabel: priorityQueueDueLabel(item, nowMs),
+        actionLabel: action.actionLabel,
+        actionKind: action.actionKind,
+        actionPath: action.actionPath,
+      });
     });
-  });
 
   communicationItems
+    .filter((item) => !isSyntheticBenchmarkCommunicationItem(item))
     .filter(
       (item) =>
         item.flaggedBySafety ||
@@ -1054,23 +1090,29 @@ export function buildDashboardSignals({
         statusTone: status.tone,
       };
     }),
-    communicationItems: communicationItems.slice(0, 4).map((item) => {
-      const patientLabel = item.patientName?.trim() || item.patientId;
+    communicationItems: communicationItems
+      .filter((item) => !isSyntheticBenchmarkCommunicationItem(item))
+      .slice(0, 4)
+      .map((item) => {
+        const patientLabel = item.patientName?.trim() || item.patientId;
 
-      return {
-        id: item.id,
-        patientId: item.patientId,
-        patientLabel,
-        patientInitials: buildPatientInitials(patientLabel),
-        preview:
-          item.messagePreview?.trim() || "Conversation preview unavailable.",
-        messageAgeLabel: formatDashboardRelativeTime(item.messageCreatedAt, nowMs),
-        messageAgeTitle: formatDashboardDateTime(item.messageCreatedAt),
-        chips: communicationChips(item),
-        contextLine: communicationContextLine(item, nowMs),
-        reviewLine: communicationReviewLine(item, nowMs),
-      };
-    }),
+        return {
+          id: item.id,
+          patientId: item.patientId,
+          patientLabel,
+          patientInitials: buildPatientInitials(patientLabel),
+          preview:
+            item.messagePreview?.trim() || "Conversation preview unavailable.",
+          messageAgeLabel: formatDashboardRelativeTime(
+            item.messageCreatedAt,
+            nowMs,
+          ),
+          messageAgeTitle: formatDashboardDateTime(item.messageCreatedAt),
+          chips: communicationChips(item),
+          contextLine: communicationContextLine(item, nowMs),
+          reviewLine: communicationReviewLine(item, nowMs),
+        };
+      }),
   };
 }
 

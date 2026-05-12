@@ -393,6 +393,26 @@ describe("presentation seed clinician dev routes", () => {
       patientId: "presentation-emily-chen",
     }).lean();
     expect(insight?.windowEnd.toISOString().slice(0, 10)).toBe(todayKey);
+
+    const communicationPressureReviews = await CommunicationReview.find({
+      demoTag: PRESENTATION_DEMO_TAG,
+      needsResponse: true,
+    })
+      .select({ patientId: 1, messagePreview: 1, followUpRequested: 1 })
+      .lean();
+    expect(communicationPressureReviews).toHaveLength(2);
+    expect(communicationPressureReviews.map((review) => review.patientId).sort()).toEqual([
+      "presentation-emily-lee",
+      "presentation-maria-gonzalez",
+    ]);
+    expect(
+      communicationPressureReviews.every((review) => review.followUpRequested === true),
+    ).toBe(true);
+    expect(
+      communicationPressureReviews.some((review) =>
+        String(review.messagePreview).includes("Neck pain flared overnight"),
+      ),
+    ).toBe(true);
   });
 
   it("is idempotent and keeps counts stable on repeated seed", async () => {

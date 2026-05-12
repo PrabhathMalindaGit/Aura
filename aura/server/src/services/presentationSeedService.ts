@@ -89,6 +89,17 @@ const PRESENTATION_PATIENTS = [
   },
 ] as const;
 
+const PRESENTATION_COMMUNICATION_PRESSURE_MESSAGES = new Map<string, string>([
+  [
+    "presentation-maria-gonzalez",
+    "Symptoms are higher after yesterday's activity. I can still walk and do not need urgent help.",
+  ],
+  [
+    "presentation-emily-lee",
+    "Neck pain flared overnight and I would like a clinician to review before I continue exercises.",
+  ],
+]);
+
 type PresentationSeedTimeline = {
   seedDates: string[];
   rehabIntakeStartedAt: Date;
@@ -1296,11 +1307,10 @@ async function insertPresentationData(
         patientId: patient.patientId,
         role: "user",
         text:
-          patient.painBase >= 6
-            ? "Symptoms are higher after yesterday's activity. I can still walk and do not need urgent help."
-            : "Home exercises went well today with mild soreness only.",
+          PRESENTATION_COMMUNICATION_PRESSURE_MESSAGES.get(patient.patientId) ??
+          "Home exercises went well today with mild soreness only.",
         risk:
-          patient.painBase >= 6
+          PRESENTATION_COMMUNICATION_PRESSURE_MESSAGES.has(patient.patientId)
             ? { level: "high", reasons: ["PATIENT_REQUESTS_FOLLOW_UP"] }
             : { level: "low", reasons: [] },
         createdAt: dateAt(timeline.chatMessageDate, 9 + index),

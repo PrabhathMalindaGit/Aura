@@ -1,7 +1,6 @@
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Disclosure } from '../../../primitives/Disclosure';
 import { DashboardV2Input } from '../../../primitives/Input';
-import { DashboardV2Select } from '../../../primitives/Select';
 import type { WorklistFilters as WorklistFiltersState } from '../../../../utils/worklist';
 
 interface QueueFiltersProps {
@@ -26,7 +25,7 @@ interface QueueFiltersProps {
 }
 
 const STATUS_OPTIONS = [
-  { id: 'all', label: 'All' },
+  { id: 'all', label: 'Any status' },
   { id: 'active', label: 'Active' },
   { id: 'on_hold', label: 'On hold' },
   { id: 'discharged', label: 'Discharged' },
@@ -34,11 +33,10 @@ const STATUS_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { id: 'priority', label: 'Priority' },
-  { id: 'updatedAt', label: 'Updated' },
-  { id: 'lastCheckinAt', label: 'Last check-in' },
-  { id: 'patientName', label: 'Patient name' },
-  { id: 'nextAppointmentAt', label: 'Next appointment' },
+  { id: 'priority', label: 'Highest priority' },
+  { id: 'updatedAt', label: 'Most recent update' },
+  { id: 'lastCheckinAt', label: 'Longest delayed response' },
+  { id: 'patientName', label: 'Name A-Z' },
 ];
 
 const PRIMARY_TOGGLES: Array<{
@@ -114,13 +112,22 @@ export function QueueFilters({
   const advancedFilters = (
     <div className="triage-queue-filters__advanced">
       <div className="triage-queue-filters__controls">
-        <DashboardV2Select
-          label="Status"
-          options={STATUS_OPTIONS}
-          selectedKey={filters.status}
-          onSelectionChange={(value) => onStatusChange(value as WorklistFiltersState['status'])}
-          isDisabled={disabled}
-        />
+        <label className="v2-field triage-queue-filters__native-field">
+          <span className="v2-field__label">Status</span>
+          <select
+            className="triage-queue-filters__native-select"
+            value={filters.status}
+            onChange={(event) => onStatusChange(event.currentTarget.value as WorklistFiltersState['status'])}
+            disabled={disabled}
+            aria-label="Filter patients in review by status"
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       {renderToggleGroup({ filters, disabled, onToggleFilter })}
       <div className="triage-queue-filters__footer">
@@ -135,22 +142,30 @@ export function QueueFilters({
     <div className="triage-queue-filters">
       <div className="triage-queue-filters__primary">
         <DashboardV2Input
-          label="Search"
+          label="Search patients"
           name="triage-queue-search"
           type="search"
           value={filters.search}
-          placeholder="Search patient"
+          placeholder="Name, ID, reason, or signal"
           onChange={(event) => onSearchChange(event.currentTarget.value)}
           isDisabled={disabled}
         />
-        <DashboardV2Select
-          className="triage-queue-filters__sort-inline"
-          label="Sort"
-          options={SORT_OPTIONS}
-          selectedKey={filters.sort}
-          onSelectionChange={(value) => onSortChange(value as WorklistFiltersState['sort'])}
-          isDisabled={disabled}
-        />
+        <label className="v2-field triage-queue-filters__native-field triage-queue-filters__sort-inline">
+          <span className="v2-field__label">Sort</span>
+          <select
+            className="triage-queue-filters__native-select"
+            value={filters.sort}
+            onChange={(event) => onSortChange(event.currentTarget.value as WorklistFiltersState['sort'])}
+            disabled={disabled}
+            aria-label="Sort patients in review"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {isCompactLayout || isVeryNarrow ? (

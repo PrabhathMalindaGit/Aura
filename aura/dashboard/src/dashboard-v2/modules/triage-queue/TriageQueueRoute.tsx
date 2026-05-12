@@ -5,7 +5,6 @@ import { DashboardV2Drawer } from '../../primitives/Drawer';
 import { DashboardV2ExplanationDrawer } from '../../patterns/ExplanationDrawer';
 import { DashboardV2Surface } from '../../primitives/Surface';
 import { DashboardV2Text } from '../../primitives/Text';
-import { DashboardV2TriageWorkbenchLayout } from '../../patterns/TriageWorkbenchLayout';
 import { useTriageQueueUiStore } from '../../state/useTriageQueueUiStore';
 import { ActiveReviewWorkspace } from './components/ActiveReviewWorkspace';
 import { QueuePane } from './components/QueuePane';
@@ -23,11 +22,8 @@ export function TriageQueueRoute(): JSX.Element {
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
   const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const governanceOpen = useTriageQueueUiStore((state) => state.governanceOpen);
-  const queueSheetOpen = useTriageQueueUiStore((state) => state.queueSheetOpen);
   const queueScrollTop = useTriageQueueUiStore((state) => state.queueScrollTop);
-  const focusMode = useTriageQueueUiStore((state) => state.focusMode);
   const setGovernanceOpen = useTriageQueueUiStore((state) => state.setGovernanceOpen);
-  const setQueueSheetOpen = useTriageQueueUiStore((state) => state.setQueueSheetOpen);
   const setQueueScrollTop = useTriageQueueUiStore((state) => state.setQueueScrollTop);
   const queueRef = useRef<HTMLDivElement | null>(null);
   const [explanationOpen, setExplanationOpen] = useState(false);
@@ -37,7 +33,6 @@ export function TriageQueueRoute(): JSX.Element {
     blockingOfflineVisible,
     cases,
     clearSavedWorklistState,
-    clearSelectionToQueue,
     errorView,
     guidanceLine,
     queueScopeLabel,
@@ -60,15 +55,8 @@ export function TriageQueueRoute(): JSX.Element {
   } = useTriageQueueViewModel({ isNarrowLayout });
 
   const showInlineRail = false;
-  const showQueueOnly = isNarrowLayout && (!selectedCase || focusMode === 'queue');
   const showGovernanceAction = Boolean(selectedCase);
   const queueDisabled = worklistQuery.isFetching && cases.length === 0;
-
-  useEffect(() => {
-    if (!isNarrowLayout) {
-      setQueueSheetOpen(false);
-    }
-  }, [isNarrowLayout, setQueueSheetOpen]);
 
   useEffect(() => {
     const element = queueRef.current;
@@ -138,7 +126,6 @@ export function TriageQueueRoute(): JSX.Element {
       selectedKey={visibleSelectionKey}
       onSelect={(key) => {
         selectCase(key);
-        setQueueSheetOpen(false);
       }}
       onSearchChange={setSearch}
       onToggleFilter={toggleFilter}
@@ -153,7 +140,7 @@ export function TriageQueueRoute(): JSX.Element {
       statusTitle={queueStatus?.title}
       statusDescription={queueStatus?.description}
       onRetry={queueStatus ? retryWorklist : undefined}
-      queueRef={showQueueOnly || !isNarrowLayout ? queueRef : undefined}
+      queueRef={queueRef}
       onQueueScroll={setQueueScrollTop}
     />
   );
@@ -165,10 +152,10 @@ export function TriageQueueRoute(): JSX.Element {
       onRunAction={runWorkspaceAction}
       showGovernanceAction={showGovernanceAction}
       onOpenGovernance={() => setGovernanceOpen(true)}
-      showBackToQueue={isNarrowLayout}
-      onBackToQueue={clearSelectionToQueue}
-      showQueueSheetAction={isNarrowLayout && Boolean(selectedCase)}
-      onOpenQueueSheet={() => setQueueSheetOpen(true)}
+      showBackToQueue={false}
+      onBackToQueue={() => undefined}
+      showQueueSheetAction={false}
+      onOpenQueueSheet={() => undefined}
       loading={showInitialLoading}
       statusTitle={queueStatus?.title}
       statusDescription={queueStatus?.description}
@@ -210,15 +197,13 @@ export function TriageQueueRoute(): JSX.Element {
           </DashboardV2Surface>
         ) : null}
 
-        {showQueueOnly ? (
-          queuePane
-        ) : (
-          <DashboardV2TriageWorkbenchLayout
-            queue={isNarrowLayout ? null : queuePane}
-            workspace={workspace}
-            rail={showInlineRail ? governance : null}
-          />
-        )}
+        <section className="triage-review-flow" aria-label="Triage scan-to-review workflow">
+          {queuePane}
+          <div className="triage-review-flow__workspace">
+            {workspace}
+          </div>
+          {showInlineRail ? governance : null}
+        </section>
       </div>
 
       <DashboardV2Drawer
@@ -229,16 +214,6 @@ export function TriageQueueRoute(): JSX.Element {
         placement={isNarrowLayout ? 'bottom' : 'right'}
       >
         {governance}
-      </DashboardV2Drawer>
-
-      <DashboardV2Drawer
-        open={isNarrowLayout && queueSheetOpen}
-        onOpenChange={setQueueSheetOpen}
-        title="Triage queue"
-        description="Switch patients without losing the current review context"
-        placement="bottom"
-      >
-        {queuePane}
       </DashboardV2Drawer>
 
       <DashboardV2ExplanationDrawer

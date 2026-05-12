@@ -148,6 +148,34 @@ const WORKLIST_ITEMS: WorklistRecord[] = [
     priorityScore: 48,
     updatedAt: '2026-03-08T10:00:00.000Z',
   },
+  {
+    patientId: 'p3',
+    patientName: 'Mina Patel',
+    patientStatus: 'inactive',
+    rehabPhase: 'Early Recovery',
+    lastCheckinAt: '2026-03-06T08:00:00.000Z',
+    openAlertsCount: 0,
+    latestRiskLevel: 'low',
+    lastPainScore: 2,
+    adherenceSummary: {
+      exercisesPct: 0.9,
+      medicationTaken: true,
+    },
+    missedCheckins: {
+      flag: false,
+      count: 0,
+    },
+    communicationNeedsResponse: false,
+    activeTaskCount: 0,
+    proms: {
+      dueCount: 0,
+      overdueCount: 0,
+    },
+    topIssue: 'Upcoming appointment scheduled',
+    reviewReason: 'Routine mobility review is available for the worklist.',
+    priorityScore: 4,
+    updatedAt: '2026-03-07T10:00:00.000Z',
+  },
 ];
 
 function installWorklistFetchMock(itemsSeed: WorklistRecord[] = WORKLIST_ITEMS): { requests: URL[] } {
@@ -264,7 +292,9 @@ describe('TriageQueueRoute', () => {
     renderWorklistRoute();
 
     expect(await screen.findByTestId('triage-queue-route', undefined, asyncQueryTimeout)).toBeInTheDocument();
-    expect(await screen.findByTestId('triage-active-workspace', undefined, asyncQueryTimeout)).toHaveTextContent('Jordan Lee');
+    await waitFor(() => {
+      expect(screen.getByTestId('triage-active-workspace')).toHaveTextContent('Jordan Lee');
+    }, asyncQueryTimeout);
     expect(within(screen.getByTestId('triage-queue-row-p1')).getByText('Selected')).toBeInTheDocument();
     expect(screen.getByTestId('triage-queue-row-p1')).toHaveAttribute('aria-pressed', 'true');
 
@@ -296,7 +326,7 @@ describe('TriageQueueRoute', () => {
     expect(within(statusStrip).getByText(/in view/)).toBeInTheDocument();
   });
 
-  it('preserves query semantics for v2 filters', async () => {
+  it('applies quick filters to the visible v2 queue', async () => {
     const { requests } = installWorklistFetchMock();
 
     renderWorklistRoute();
@@ -305,10 +335,8 @@ describe('TriageQueueRoute', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'High risk' }));
 
-    await waitFor(() => {
-      expect(requests.some((request) => request.searchParams.get('highRiskOnly') === 'true')).toBe(true);
-    });
-
+    expect(requests.every((request) => !request.searchParams.has('highRiskOnly'))).toBe(true);
+    expect(screen.getByTestId('triage-queue-row-p1')).toBeInTheDocument();
     expect(screen.queryByText('Avery Chen')).not.toBeInTheDocument();
   });
 
@@ -370,14 +398,11 @@ describe('TriageQueueRoute', () => {
     renderWorklistRoute();
 
     expect(await screen.findByTestId('triage-queue-row-p1')).toBeInTheDocument();
-    expect(screen.queryByTestId('triage-active-workspace')).not.toBeInTheDocument();
+    expect(screen.getByTestId('triage-active-workspace')).toHaveTextContent('Select a patient to begin review');
 
     await userEvent.click(screen.getByTestId('triage-queue-row-p1'));
     expect(await screen.findByTestId('triage-active-workspace')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back to queue' })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Back to queue' }));
-    expect(screen.queryByTestId('triage-active-workspace')).not.toBeInTheDocument();
+    expect(screen.getByTestId('triage-active-workspace')).toHaveTextContent('Jordan Lee');
     expect(screen.getByTestId('triage-queue-row-p1')).toBeInTheDocument();
   });
 
@@ -401,8 +426,9 @@ describe('TriageQueueRoute', () => {
 
     renderWorklistRoute();
 
-    expect(await screen.findByTestId('triage-active-workspace')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Governance' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Governance' })).toBeInTheDocument();
+    }, asyncQueryTimeout);
     expect(screen.queryByRole('heading', { name: 'Supporting context' })).not.toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: /Filters/ })).toBeInTheDocument();
@@ -414,8 +440,9 @@ describe('TriageQueueRoute', () => {
 
     renderWorklistRoute();
 
-    expect(await screen.findByTestId('triage-active-workspace')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Governance' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Governance' })).toBeInTheDocument();
+    }, asyncQueryTimeout);
     expect(screen.queryByRole('heading', { name: 'Supporting context' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Governance' }));
@@ -436,5 +463,112 @@ describe('TriageQueueRoute', () => {
     expect(
       nextActions.compareDocumentPosition(whatChanged) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('searches the visible queue by review reason text without relying on server search', async () => {
+    const { requests } = installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    expect(await screen.findByTestId('triage-queue-row-p1', undefined, asyncQueryTimeout)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search patients' }), 'rehab step');
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('triage-queue-row-p1')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('triage-queue-row-p2')).toBeInTheDocument();
+    expect(screen.queryByTestId('triage-queue-row-p3')).not.toBeInTheDocument();
+    expect(requests.every((request) => !request.searchParams.has('search'))).toBe(true);
+  });
+
+  it('sorts the visible queue by patient name', async () => {
+    installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    expect(await screen.findByTestId('triage-queue-row-p1', undefined, asyncQueryTimeout)).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Sort patients in review'), 'patientName');
+
+    await waitFor(() => {
+      const rowButtons = screen.getAllByTestId(/^triage-queue-row-/);
+      expect(rowButtons.map((row) => row.textContent)).toEqual([
+        expect.stringContaining('Avery Chen'),
+        expect.stringContaining('Jordan Lee'),
+        expect.stringContaining('Mina Patel'),
+      ]);
+    });
+  });
+
+  it('applies status and quick chip filters, then reset clears the queue view', async () => {
+    const { requests } = installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    expect(await screen.findByTestId('triage-queue-row-p1', undefined, asyncQueryTimeout)).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Filter patients in review by status'), 'on_hold');
+    await waitFor(() => {
+      expect(screen.getByTestId('triage-queue-row-p2')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('triage-queue-row-p1')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Missed check-ins' }));
+    expect(screen.getByTestId('triage-queue-row-p2')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('triage-queue-row-p1')).toBeInTheDocument();
+      expect(screen.getByTestId('triage-queue-row-p2')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'PROMs due' }));
+    expect(screen.getByTestId('triage-queue-row-p1')).toBeInTheDocument();
+    expect(screen.getByTestId('triage-queue-row-p2')).toBeInTheDocument();
+    expect(screen.queryByTestId('triage-queue-row-p3')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('triage-queue-row-p3')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Assigned to me' }));
+    await waitFor(() => {
+      expect(requests.some((request) => request.searchParams.get('assignedToMe') === 'true')).toBe(true);
+      expect(screen.getByTestId('triage-queue-row-p1')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('triage-queue-row-p2')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Filter patients in review by status')).toHaveValue('all');
+      expect(screen.getByLabelText('Sort patients in review')).toHaveValue('priority');
+      expect(screen.getByTestId('triage-queue-row-p1')).toBeInTheDocument();
+      expect(screen.getByTestId('triage-queue-row-p2')).toBeInTheDocument();
+      expect(screen.getByTestId('triage-queue-row-p3')).toBeInTheDocument();
+    });
+  });
+
+  it('shows an empty filtered state and keeps selection safe after filters hide the active case', async () => {
+    installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('triage-active-workspace')).toHaveTextContent('Jordan Lee');
+    }, asyncQueryTimeout);
+    const workspace = screen.getByTestId('triage-active-workspace');
+    expect(within(workspace).getByRole('button', { name: 'Open alerts' })).toBeInTheDocument();
+    expect(within(workspace).getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+    expect(within(workspace).getByRole('button', { name: 'Open communication' })).toBeInTheDocument();
+    expect(within(workspace).getByRole('button', { name: 'Open appointments' })).toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search patients' }), 'nothing matches this');
+
+    expect(await screen.findByText('No patients match this view')).toBeInTheDocument();
+    expect(screen.getByTestId('triage-active-workspace')).toHaveTextContent('Select a patient to begin review');
   });
 });

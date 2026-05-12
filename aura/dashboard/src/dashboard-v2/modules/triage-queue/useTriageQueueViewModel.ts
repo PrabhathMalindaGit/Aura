@@ -23,8 +23,11 @@ import {
 import {
   defaultWorklistFilters,
   hasWorklistFilterConstraints,
+  getWorklistReviewLabel,
+  getWorklistReviewSupport,
   type WorklistFilters as WorklistFiltersState,
 } from '../../../utils/worklist';
+import type { WorklistRecord } from '../../../types/models';
 import { useTriageQueueUiStore } from '../../state/useTriageQueueUiStore';
 
 const RETRY_EVENT = 'aura:retry';
@@ -35,7 +38,6 @@ const WORKLIST_SORT_OPTIONS = [
   'updatedAt',
   'lastCheckinAt',
   'patientName',
-  'nextAppointmentAt',
 ] as const;
 
 interface UseTriageQueueViewModelOptions {
@@ -68,6 +70,109 @@ export function normalizeWorklistWorkspaceState(value: unknown): WorklistFilters
   };
 }
 
+function toTimestamp(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : fallback;
+}
+
+function getResponseDelayScore(item: WorklistRecord): number {
+  if (typeof item.communicationSummary?.responseAgeHours === 'number') {
+    return item.communicationSummary.responseAgeHours;
+  }
+
+  if (item.communicationSummary?.responseDelayed || item.communicationSummary?.delayedResponse) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function getSearchableWorklistText(item: WorklistRecord): string {
+  return [
+    item.patientName,
+    item.patientId,
+    item.patientStatus,
+    item.rehabPhase,
+    item.latestRiskLevel,
+    item.topIssue,
+    item.reviewReason,
+    getWorklistReviewLabel(item),
+    getWorklistReviewSupport(item),
+    item.openAlertsCount > 0 ? `${item.openAlertsCount} open alert` : null,
+    item.communicationNeedsResponse ? 'needs response patient message clinician follow-up' : null,
+    item.missedCheckins.flag ? `missed ${item.missedCheckins.count} check-ins` : null,
+    (item.proms?.dueCount ?? 0) > 0 ? `${item.proms?.dueCount} PROMs due` : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+export function applyTriageQueueFilters(
+  items: WorklistRecord[],
+  filters: WorklistFiltersState,
+): WorklistRecord[] {
+  const normalizedSearch = filters.search.trim().toLowerCase();
+  const filteredItems = items.filter((item) => {
+    if (normalizedSearch && !getSearchableWorklistText(item).includes(normalizedSearch)) {
+      return false;
+    }
+
+    if (filters.status !== 'all' && item.patientStatus !== filters.status) {
+      return false;
+    }
+
+    if (filters.highRiskOnly && item.latestRiskLevel !== 'high') {
+      return false;
+    }
+
+    if (filters.hasOpenAlerts && item.openAlertsCount <= 0) {
+      return false;
+    }
+
+    if (filters.needsResponse && !item.communicationNeedsResponse) {
+      return false;
+    }
+
+    if (filters.missedCheckins && !item.missedCheckins.flag) {
+      return false;
+    }
+
+    if (filters.needsPromReview && (item.proms?.dueCount ?? 0) <= 0) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return [...filteredItems].sort((left, right) => {
+    if (filters.sort === 'patientName') {
+      return left.patientName.localeCompare(right.patientName);
+    }
+
+    if (filters.sort === 'updatedAt') {
+      return toTimestamp(right.updatedAt, 0) - toTimestamp(left.updatedAt, 0);
+    }
+
+    if (filters.sort === 'lastCheckinAt') {
+      return (
+        getResponseDelayScore(right) - getResponseDelayScore(left) ||
+        Number(right.communicationNeedsResponse) - Number(left.communicationNeedsResponse) ||
+        toTimestamp(right.updatedAt, 0) - toTimestamp(left.updatedAt, 0)
+      );
+    }
+
+    return (
+      right.priorityScore - left.priorityScore ||
+      toTimestamp(right.updatedAt, 0) - toTimestamp(left.updatedAt, 0)
+    );
+  });
+}
+
 export function useTriageQueueViewModel({
   isNarrowLayout,
 }: UseTriageQueueViewModelOptions) {
@@ -94,22 +199,33 @@ export function useTriageQueueViewModel({
 
   const requestFilters = useMemo(
     () => ({
-      search: debouncedSearch || undefined,
-      highRiskOnly: filters.highRiskOnly,
-      hasOpenAlerts: filters.hasOpenAlerts,
-      needsResponse: filters.needsResponse,
-      missedCheckins: filters.missedCheckins,
-      needsPromReview: filters.needsPromReview,
+      search: undefined,
+      highRiskOnly: false,
+      hasOpenAlerts: false,
+      needsResponse: false,
+      missedCheckins: false,
+      needsPromReview: false,
       assignedToMe: filters.assignedToMe,
-      status: filters.status,
-      sort: filters.sort,
+      status: 'all' as const,
+      sort: 'priority' as const,
     }),
-    [debouncedSearch, filters],
+    [filters.assignedToMe],
   );
 
   const worklistQuery = useClinicianWorklist(requestFilters);
-  const items = useMemo(() => worklistQuery.data?.items ?? [], [worklistQuery.data?.items]);
-  const total = worklistQuery.data?.total ?? items.length;
+  const sourceItems = useMemo(() => worklistQuery.data?.items ?? [], [worklistQuery.data?.items]);
+  const effectiveFilters = useMemo(
+    () => ({
+      ...filters,
+      search: debouncedSearch,
+    }),
+    [debouncedSearch, filters],
+  );
+  const items = useMemo(
+    () => applyTriageQueueFilters(sourceItems, effectiveFilters),
+    [effectiveFilters, sourceItems],
+  );
+  const total = items.length;
   const activeFilterConstraints = hasWorklistFilterConstraints(filters);
   const activeFilterCount = countActiveWorklistFilters(filters);
   const queueScopeLabel = describeWorklistQueueScope(filters);

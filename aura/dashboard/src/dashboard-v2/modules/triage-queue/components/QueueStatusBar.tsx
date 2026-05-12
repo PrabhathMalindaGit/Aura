@@ -27,9 +27,12 @@ export function QueueStatusBar({
   return (
     <DashboardV2Surface className="triage-status-bar" tone="muted" data-testid="triage-status-strip">
       <div className="triage-status-bar__summary">
-        <DashboardV2Text className="triage-status-bar__guidance" tone="muted">
-          {guidanceLine}
-        </DashboardV2Text>
+        <div className="triage-status-bar__lead">
+          <span className="triage-status-bar__eyebrow">Queue lead</span>
+          <DashboardV2Text className="triage-status-bar__guidance" tone="strong">
+            {guidanceLine}
+          </DashboardV2Text>
+        </div>
         <div className="triage-status-bar__facts" aria-live="polite">
           <span className="triage-status-bar__pill">{queueViewLabel}</span>
           <span className="triage-status-bar__pill">{total} in view</span>

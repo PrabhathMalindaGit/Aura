@@ -41,7 +41,7 @@ function renderIdleState(
   action?: JSX.Element,
 ): JSX.Element {
   return (
-    <DashboardV2Surface className="triage-workspace__idle" tone="muted">
+    <DashboardV2Surface className="triage-workspace__idle" tone="muted" data-testid="triage-active-workspace">
       <DashboardV2Heading as="h2">{title}</DashboardV2Heading>
       <DashboardV2Text tone="muted">{description}</DashboardV2Text>
       {action}

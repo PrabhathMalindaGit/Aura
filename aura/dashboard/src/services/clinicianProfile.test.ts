@@ -151,6 +151,28 @@ describe('clinicianProfile', () => {
     ).toContain('"displayName":"Dr Stable Saved"');
   });
 
+  it('seeds the local demo clinician with saved communication authoring settings', () => {
+    setActiveToken({
+      sub: 'demo-clinician-subject',
+      name: 'Clinician One',
+      email: 'clinician1@example.com',
+    });
+
+    const profile = getClinicianProfile();
+
+    expect(profile.communicationAuthoring.autoAppendSignature).toBe(false);
+    expect(profile.communicationAuthoring.defaultSignature).toBe(
+      'Clinician One\nRehab clinician · Recovery follow-up',
+    );
+    expect(profile.communicationAuthoring.templates).toEqual([
+      {
+        id: 'demo-review-acknowledged',
+        title: 'Review acknowledged',
+        body: 'Thanks for the update. I have reviewed this note and will follow up through the care plan.',
+      },
+    ]);
+  });
+
   it('falls back safely when scoped storage is malformed', () => {
     setActiveToken({ sub: 'auth-clinician-3', name: 'Dr Chen' });
     window.localStorage.setItem(getClinicianProfileStorageKey('auth-clinician-3'), '{bad-json');

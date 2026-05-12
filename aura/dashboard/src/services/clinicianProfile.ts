@@ -172,7 +172,19 @@ const DEFAULT_QUIET_HOURS_START = '22:00';
 const DEFAULT_QUIET_HOURS_END = '07:00';
 const PROFILE_CHANGE_EVENT = 'aura:clinician-profile-change';
 const CLINICIAN_EMAIL_SCOPE_PREFIX = 'email:';
+const LOCAL_DEMO_CLINICIAN_EMAIL = 'clinician1@example.com';
 const TOKEN_STORAGE_KEYS = ['aura_access_token', 'aura_auth_token', 'clinicianToken'];
+const DEMO_COMMUNICATION_AUTHORING: ClinicianCommunicationAuthoring = {
+  defaultSignature: 'Clinician One\nRehab clinician · Recovery follow-up',
+  autoAppendSignature: false,
+  templates: [
+    {
+      id: 'demo-review-acknowledged',
+      title: 'Review acknowledged',
+      body: 'Thanks for the update. I have reviewed this note and will follow up through the care plan.',
+    },
+  ],
+};
 const VALID_AVAILABILITY_STATUSES = new Set<ClinicianAvailabilityStatus>([
   'available',
   'in-review',
@@ -335,7 +347,41 @@ function createDefaultWorkspacePreferences(): ClinicianWorkspacePreferences {
   };
 }
 
-function createDefaultCommunicationAuthoring(): ClinicianCommunicationAuthoring {
+function cloneCommunicationAuthoring(
+  value: ClinicianCommunicationAuthoring,
+): ClinicianCommunicationAuthoring {
+  return {
+    ...value,
+    templates: value.templates.map((template) => ({ ...template })),
+  };
+}
+
+function hasCommunicationAuthoringContent(value: ClinicianCommunicationAuthoring): boolean {
+  return value.defaultSignature.trim().length > 0 || value.templates.length > 0;
+}
+
+function applyFallbackCommunicationAuthoringIfEmpty(
+  value: ClinicianCommunicationAuthoring,
+  fallback: ClinicianCommunicationAuthoring,
+): ClinicianCommunicationAuthoring {
+  if (hasCommunicationAuthoringContent(value) || !hasCommunicationAuthoringContent(fallback)) {
+    return value;
+  }
+
+  return cloneCommunicationAuthoring(fallback);
+}
+
+function isLocalDemoClinician(identity: AuthClinicianIdentity | null): boolean {
+  return identity?.email === LOCAL_DEMO_CLINICIAN_EMAIL;
+}
+
+function createDefaultCommunicationAuthoring(
+  identity: AuthClinicianIdentity | null,
+): ClinicianCommunicationAuthoring {
+  if (isLocalDemoClinician(identity)) {
+    return cloneCommunicationAuthoring(DEMO_COMMUNICATION_AUTHORING);
+  }
+
   return {
     defaultSignature: '',
     autoAppendSignature: false,
@@ -663,7 +709,7 @@ function createDefaultProfile(
     contactNote: '',
     photo: null,
     workspacePreferences: createDefaultWorkspacePreferences(),
-    communicationAuthoring: createDefaultCommunicationAuthoring(),
+    communicationAuthoring: createDefaultCommunicationAuthoring(identity),
     notificationPreferences: createDefaultNotificationPreferences(),
   };
 }
@@ -729,8 +775,11 @@ function normalizeProfile(
       candidate.workspacePreferences,
       fallback.workspacePreferences,
     ),
-    communicationAuthoring: normalizeCommunicationAuthoring(
-      candidate.communicationAuthoring,
+    communicationAuthoring: applyFallbackCommunicationAuthoringIfEmpty(
+      normalizeCommunicationAuthoring(
+        candidate.communicationAuthoring,
+        fallback.communicationAuthoring,
+      ),
       fallback.communicationAuthoring,
     ),
     notificationPreferences: normalizeNotificationPreferences(

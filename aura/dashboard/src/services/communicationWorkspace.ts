@@ -7,6 +7,7 @@ import {
 import type { DashboardCommunicationOverviewItem } from '../types/models';
 
 const COMMUNICATION_WORKSPACE_STORAGE_PREFIX = 'aura_communication_workspace';
+const AURA_LATENCY_BENCHMARK_MARKER = /\bAURA_LATENCY_BENCH:/i;
 
 export type CommunicationThreadView =
   | 'all'
@@ -117,6 +118,20 @@ function normalizeText(value: unknown): string {
   }
 
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function containsAuraLatencyBenchmarkMarker(value: string | null | undefined): boolean {
+  return typeof value === 'string' && AURA_LATENCY_BENCHMARK_MARKER.test(value);
+}
+
+function isSyntheticBenchmarkCommunicationItem(
+  item: DashboardCommunicationOverviewItem,
+): boolean {
+  return (
+    containsAuraLatencyBenchmarkMarker(item.messagePreview) ||
+    containsAuraLatencyBenchmarkMarker(item.messageId) ||
+    containsAuraLatencyBenchmarkMarker(item.id)
+  );
 }
 
 function normalizeTimestamp(value: unknown): string | null {
@@ -504,6 +519,10 @@ export function deriveCommunicationThreads(
   const groups = new Map<string, DashboardCommunicationOverviewItem[]>();
 
   for (const item of items) {
+    if (isSyntheticBenchmarkCommunicationItem(item)) {
+      continue;
+    }
+
     const patientId = normalizePatientId(item.patientId);
     const groupKey = patientId || `unknown-${item.id}`;
     const current = groups.get(groupKey);

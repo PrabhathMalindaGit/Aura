@@ -25,12 +25,31 @@ import {
 } from '../../config/migrationGates';
 import { resetInboxUiStore } from '../../state/useInboxUiStore';
 import { createJsonResponse, installMatchMediaMock } from '../../../test/mocks';
+import { getClinicianProfile, setClinicianProfile } from '../../../services/clinicianProfile';
 import type {
   ClinicianCoordinationRecord,
   DashboardCommunicationOverview,
+  DashboardCommunicationOverviewItem,
 } from '../../../types/models';
 
 const ROUTE_LOAD_TIMEOUT_MS = 3_000;
+
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
+}
 
 const COMMUNICATION_OVERVIEW: DashboardCommunicationOverview = {
   counts: {
@@ -230,6 +249,31 @@ function installCommunicationFetchMock(
   });
 }
 
+function createTimelineOverview(count: number): DashboardCommunicationOverview {
+  const items: DashboardCommunicationOverviewItem[] = Array.from({ length: count }, (_, index) => {
+    const messageNumber = index + 1;
+
+    return {
+      ...COMMUNICATION_OVERVIEW.items[0],
+      id: `comm-timeline-${messageNumber}`,
+      messageId: `msg-timeline-${messageNumber}`,
+      messageCreatedAt: `2026-03-09T${String(8 + index).padStart(2, '0')}:15:00.000Z`,
+      messagePreview: `Timeline message ${messageNumber}`,
+      flaggedBySafety: messageNumber === count,
+      followUpRequested: messageNumber === count,
+    };
+  });
+
+  return {
+    counts: {
+      needsResponseCount: 1,
+      flaggedBySafetyCount: 1,
+      followUpRequestedCount: 1,
+    },
+    items,
+  };
+}
+
 function setCommunicationGate(enabled: boolean): void {
   const defaults = getDefaultDashboardV2Gates();
 
@@ -313,6 +357,35 @@ describe('InboxRoute', () => {
     expect(screen.queryByText('Patient detail workspace')).not.toBeInTheDocument();
   });
 
+  it('renders separated queue chip labels and keeps filters functional', async () => {
+    const user = userEvent.setup();
+
+    renderCommunicationRoute('/communication?view=all');
+
+    expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    const filterGroup = screen.getByRole('group', { name: 'Communication filters' });
+    const allChip = within(filterGroup).getByRole('button', { name: 'All 2' });
+    const needsResponseChip = within(filterGroup).getByRole('button', { name: 'Needs response 2' });
+    const responseDelayedChip = within(filterGroup).getByRole('button', { name: 'Response delayed 1' });
+    const safetyFlaggedChip = within(filterGroup).getByRole('button', { name: 'Safety flagged 1' });
+    const reviewedChip = within(filterGroup).getByRole('button', { name: 'Reviewed 0' });
+
+    expect(within(allChip).getByText('All')).toHaveClass('v2-inbox-filter-bar__chip-label');
+    expect(within(allChip).getByText('2')).toHaveClass('v2-inbox-filter-bar__chip-count');
+    expect(needsResponseChip).toBeInTheDocument();
+    expect(responseDelayedChip).toBeInTheDocument();
+    expect(safetyFlaggedChip).toBeInTheDocument();
+    expect(reviewedChip).toBeInTheDocument();
+
+    await user.click(responseDelayedChip);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-inbox-queue')).toHaveTextContent('Jordan Lee');
+      expect(screen.queryByTestId('v2-inbox-row-patient-2')).not.toBeInTheDocument();
+    });
+  });
+
   it('preserves CTA destinations and shows Unknown when metadata is absent', async () => {
     const user = userEvent.setup();
 
@@ -354,6 +427,144 @@ describe('InboxRoute', () => {
     expect(screen.getAllByText('Team note stays shared.').length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: 'Close panel' }));
     expect(screen.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue('Local follow-up stays private.');
+  });
+
+  it('keeps Save local reply browser-local and does not create a patient message request', async () => {
+    const user = userEvent.setup();
+
+    renderCommunicationRoute('/communication?patientId=patient-2&view=needs-response');
+
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' }, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+    await user.type(replyField, 'Local browser note only.');
+
+    const eventPostCountBeforeSave = vi.mocked(globalThis.fetch).mock.calls.filter(([, init]) => {
+      const method = typeof init?.method === 'string' ? init.method.toUpperCase() : 'GET';
+      return method === 'POST';
+    }).length;
+
+    await user.click(screen.getByRole('button', { name: 'Save local reply' }));
+
+    await waitFor(() => {
+      expect(replyField).toHaveValue('');
+      expect(screen.getByTestId('v2-inbox-timeline')).toHaveTextContent('Local browser note only.');
+      expect(screen.getByTestId('v2-inbox-timeline')).toHaveTextContent('Local clinician reply');
+    });
+
+    const eventPostCountAfterSave = vi.mocked(globalThis.fetch).mock.calls.filter(([, init]) => {
+      const method = typeof init?.method === 'string' ? init.method.toUpperCase() : 'GET';
+      return method === 'POST';
+    }).length;
+
+    expect(eventPostCountAfterSave).toBe(eventPostCountBeforeSave);
+    expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument();
+  });
+
+  it('caps long timelines by default while keeping the latest important message visible', async () => {
+    const user = userEvent.setup();
+    vi.restoreAllMocks();
+    installMatchMediaMock(() => false);
+    installCommunicationFetchMock(createTimelineOverview(9));
+
+    renderCommunicationRoute('/communication?patientId=patient-1&view=all');
+
+    const timeline = await screen.findByTestId('v2-inbox-timeline', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+
+    await waitFor(() => {
+      expect(within(timeline).getAllByRole('listitem')).toHaveLength(6);
+    });
+    expect(timeline).not.toHaveTextContent('Timeline message 1');
+    expect(timeline).toHaveTextContent('Timeline message 9');
+    expect(timeline).toHaveTextContent('Safety flagged');
+    expect(timeline).toHaveTextContent('Follow-up requested');
+
+    await user.click(screen.getByRole('button', { name: 'Show more timeline events' }));
+    expect(within(timeline).getAllByRole('listitem')).toHaveLength(9);
+    expect(timeline).toHaveTextContent('Timeline message 1');
+
+    await user.click(screen.getByRole('button', { name: 'Show fewer timeline events' }));
+    expect(within(timeline).getAllByRole('listitem')).toHaveLength(6);
+  });
+
+  it('presents empty template and signature controls honestly', async () => {
+    renderCommunicationRoute();
+
+    expect(await screen.findByTestId('v2-inbox-local-draft', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(screen.getByLabelText('Quick reply template')).toBeDisabled();
+    expect(screen.getByText('No saved templates are available in Settings.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Insert template' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Insert signature' })).toBeDisabled();
+    expect(screen.getByText('No saved signature is available in Settings.')).toBeInTheDocument();
+  });
+
+  it('inserts saved templates and signatures into the private local draft', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      'aura_access_token',
+      buildToken({ sub: 'auth-clinician-inbox-authoring', name: 'Clinician One' }),
+    );
+
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      communicationAuthoring: {
+        defaultSignature: 'Clinician One\nRehab clinician',
+        autoAppendSignature: false,
+        templates: [
+          {
+            id: 'reviewed',
+            title: 'Reviewed',
+            body: 'Thanks, I reviewed this update.',
+          },
+        ],
+      },
+    });
+
+    renderCommunicationRoute('/communication?patientId=patient-2&view=needs-response');
+
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' }, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+
+    expect(screen.getByLabelText('Quick reply template')).not.toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Insert template' }));
+    expect(replyField).toHaveValue('Thanks, I reviewed this update.');
+
+    await user.click(screen.getByRole('button', { name: 'Insert signature' }));
+    expect(replyField).toHaveValue('Thanks, I reviewed this update.\n\nClinician One\nRehab clinician');
+  });
+
+  it('filters synthetic benchmark-marked communication from the inbox without hiding real high-risk messages', async () => {
+    vi.restoreAllMocks();
+    installMatchMediaMock(() => false);
+    installCommunicationFetchMock({
+      counts: {
+        needsResponseCount: 2,
+        flaggedBySafetyCount: 2,
+        followUpRequestedCount: 2,
+      },
+      items: [
+        {
+          ...COMMUNICATION_OVERVIEW.items[0],
+          id: 'communication-benchmark',
+          patientId: 'patient-benchmark',
+          patientName: 'Benchmark Patient',
+          messagePreview: '[AURA_LATENCY_BENCH:845047b4-7ff6-4ab5-aec7-608a590ee1c9] I cant breathe and need help. Sample 15.',
+        },
+        {
+          ...COMMUNICATION_OVERVIEW.items[0],
+          id: 'communication-real',
+          patientId: 'patient-real',
+          patientName: 'Real High Risk',
+          messagePreview: 'I cant breathe and need help but this has no benchmark marker.',
+        },
+      ],
+    });
+
+    renderCommunicationRoute('/communication?view=all');
+
+    expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    const realHighRiskRow = await screen.findByTestId('v2-inbox-row-patient-real', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+
+    expect(screen.queryByText(/AURA_LATENCY_BENCH/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('v2-inbox-row-patient-benchmark')).not.toBeInTheDocument();
+    expect(realHighRiskRow).toHaveTextContent('I cant breathe and need help but this has no benchmark marker.');
   });
 
   it('uses queue-first and workspace-focused narrow navigation while preserving the local draft', async () => {

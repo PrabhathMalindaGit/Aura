@@ -48,12 +48,18 @@ export function ThreadFilterBar({
         return (
           <DashboardV2Button
             key={option.id}
+            className="v2-inbox-filter-bar__chip"
             tone={isActive ? 'primary' : 'secondary'}
             size="sm"
             onPress={() => onViewChange(option.id)}
+            aria-pressed={isActive}
           >
-            <span>{option.label}</span>
-            <DashboardV2Text as="span" tone={isActive ? 'strong' : 'muted'}>
+            <span className="v2-inbox-filter-bar__chip-label">{option.label}</span>
+            <DashboardV2Text
+              as="span"
+              className="v2-inbox-filter-bar__chip-count"
+              tone={isActive ? 'strong' : 'muted'}
+            >
               {counts[option.id]}
             </DashboardV2Text>
           </DashboardV2Button>

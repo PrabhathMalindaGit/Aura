@@ -110,15 +110,17 @@ export function QueueList({
                     {row.statusLabel}
                   </DashboardV2Badge>
                 </div>
-                <DashboardV2Badge tone={row.priorityTone === 'critical' ? 'safety' : 'priority'}>
-                  {row.priorityLabel}
-                </DashboardV2Badge>
-                {isSelected ? (
-                  <span className="triage-queue-row__selected-indicator">
-                    <Check size={14} aria-hidden="true" />
-                    Selected
-                  </span>
-                ) : null}
+                <div className="triage-queue-row__state">
+                  <DashboardV2Badge tone={row.priorityTone === 'critical' ? 'safety' : 'priority'}>
+                    {row.priorityLabel}
+                  </DashboardV2Badge>
+                  {isSelected ? (
+                    <span className="triage-queue-row__selected-indicator">
+                      <Check size={14} aria-hidden="true" />
+                      Selected
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <div className="triage-queue-row__meta">

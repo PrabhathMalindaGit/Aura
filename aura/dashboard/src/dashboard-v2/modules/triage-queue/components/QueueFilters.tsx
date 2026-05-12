@@ -39,7 +39,7 @@ const SORT_OPTIONS = [
   { id: 'patientName', label: 'Name A-Z' },
 ];
 
-const PRIMARY_TOGGLES: Array<{
+const QUICK_FILTERS: Array<{
   key: 'highRiskOnly' | 'needsResponse' | 'hasOpenAlerts';
   label: string;
 }> = [
@@ -48,7 +48,7 @@ const PRIMARY_TOGGLES: Array<{
   { key: 'hasOpenAlerts', label: 'Open alerts' },
 ];
 
-const SECONDARY_TOGGLES: Array<{
+const SUPPORT_FILTERS: Array<{
   key: 'missedCheckins' | 'needsPromReview' | 'assignedToMe';
   label: string;
 }> = [
@@ -63,9 +63,9 @@ function renderToggleGroup({
   onToggleFilter,
 }: Pick<QueueFiltersProps, 'filters' | 'disabled' | 'onToggleFilter'>): JSX.Element {
   return (
-    <>
-      <div className="triage-queue-filters__toggle-group" role="group" aria-label="Priority focus filters">
-        {PRIMARY_TOGGLES.map((filter) => (
+    <div className="triage-queue-filters__quick-row">
+      <div className="triage-queue-filters__toggle-group" role="group" aria-label="Queue quick filters">
+        {[...QUICK_FILTERS, ...SUPPORT_FILTERS].map((filter) => (
           <DashboardV2Button
             key={filter.key}
             tone={filters[filter.key] ? 'primary' : 'secondary'}
@@ -78,22 +78,7 @@ function renderToggleGroup({
           </DashboardV2Button>
         ))}
       </div>
-
-      <div className="triage-queue-filters__toggle-group" role="group" aria-label="Additional queue filters">
-        {SECONDARY_TOGGLES.map((filter) => (
-          <DashboardV2Button
-            key={filter.key}
-            tone={filters[filter.key] ? 'primary' : 'ghost'}
-            size="sm"
-            onPress={() => onToggleFilter(filter.key)}
-            aria-pressed={filters[filter.key]}
-            isDisabled={disabled}
-          >
-            {filter.label}
-          </DashboardV2Button>
-        ))}
-      </div>
-    </>
+    </div>
   );
 }
 

@@ -223,17 +223,52 @@
 .triage-queue-filters__expanded,
 .triage-queue-filters__advanced {
   display: grid;
-  gap: var(--v2-space-1);
+  gap: var(--v2-space-2);
+}
+
+.triage-queue-filters__advanced {
+  grid-template-columns: minmax(12rem, 15.5rem) minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.triage-queue-filters__quick-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .triage-queue-filters__toggle-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--v2-space-2);
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: var(--v2-space-1);
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0.08rem 0 0.18rem;
+  scrollbar-width: thin;
+}
+
+.triage-queue-filters__toggle-group .v2-button {
+  flex: 0 0 auto;
+  min-height: 2.3rem;
+  padding-inline: 0.82rem;
+  border-color: hsl(var(--v2-border) / 0.68);
+  background: hsl(var(--v2-surface-muted) / 0.62);
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.triage-queue-filters__toggle-group .v2-button[aria-pressed="true"] {
+  border-color: hsl(var(--v2-primary) / 0.28);
+  background: hsl(var(--v2-primary));
+  color: hsl(var(--v2-on-primary));
+  box-shadow: 0 0.55rem 1rem hsl(var(--v2-primary) / 0.14);
 }
 
 .triage-queue-filters__footer {
   justify-content: flex-end;
+  margin-top: -0.1rem;
+  align-self: end;
 }
 
 .triage-queue-filters__disclosure {
@@ -248,19 +283,21 @@
 .triage-queue-list {
   display: grid;
   gap: var(--v2-space-2);
-  max-width: 58rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .triage-queue-list__item {
+  display: grid;
   min-width: 0;
 }
 
 .triage-queue-row {
   display: grid;
   gap: var(--v2-space-2);
+  height: 100%;
 }
 
 .triage-queue-row.v2-clinician-queue-row {
@@ -282,6 +319,7 @@
 
 .triage-queue-row__topline,
 .triage-queue-row__identity,
+.triage-queue-row__state,
 .triage-queue-row__reason,
 .triage-queue-row__support,
 .triage-queue-row__footer {
@@ -300,6 +338,13 @@
   align-items: flex-start;
 }
 
+.triage-queue-row__state {
+  align-items: flex-end;
+  justify-content: flex-start;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .triage-queue-row__name {
   font-size: var(--v2-font-size-body-strong);
 }
@@ -310,11 +355,13 @@
   gap: 0.2rem;
   min-height: 1.35rem;
   padding: 0.08rem 0.48rem;
+  border: 1px solid hsl(var(--v2-info) / 0.16);
   border-radius: 999px;
-  background: hsl(var(--v2-info) / 0.12);
+  background: hsl(var(--v2-info) / 0.1);
   color: hsl(var(--v2-info));
   font-size: var(--v2-font-size-caption);
   font-weight: 700;
+  line-height: 1;
 }
 
 .triage-queue-row__meta,
@@ -337,6 +384,54 @@
 .triage-queue-row__footer {
   justify-content: space-between;
   align-items: center;
+}
+
+@media (min-width: 900px) {
+  .triage-queue-row.v2-clinician-queue-row {
+    grid-template-columns: minmax(0, 1.15fr) minmax(12rem, 0.85fr);
+    grid-template-areas:
+      "identity state"
+      "meta freshness"
+      "reason support";
+    align-content: start;
+  }
+
+  .triage-queue-row__topline {
+    display: contents;
+  }
+
+  .triage-queue-row__identity {
+    grid-area: identity;
+  }
+
+  .triage-queue-row__state {
+    grid-area: state;
+    justify-self: end;
+    align-self: start;
+  }
+
+  .triage-queue-row__meta {
+    grid-area: meta;
+  }
+
+  .triage-queue-row__reason {
+    grid-area: reason;
+  }
+
+  .triage-queue-row__footer {
+    display: contents;
+  }
+
+  .triage-queue-row__freshness {
+    grid-area: freshness;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .triage-queue-row__support {
+    grid-area: support;
+    justify-self: end;
+  }
 }
 
 .triage-queue-pane__empty {
@@ -465,8 +560,10 @@
 .triage-workspace__section--actions {
   align-content: start;
   min-height: 10.5rem;
-  border-color: hsl(var(--v2-primary) / 0.16);
-  background: hsl(var(--v2-surface) / 0.88);
+  border-color: hsl(var(--v2-primary) / 0.22);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface)) 0%, hsl(var(--v2-bg-subtle) / 0.62) 100%);
+  box-shadow: 0 1rem 2rem hsl(var(--v2-primary) / 0.06);
 }
 
 .triage-workspace__section--actions .v2-button--primary {
@@ -516,16 +613,38 @@
 }
 
 .triage-workspace__actions {
-  align-items: flex-start;
+  display: grid;
+  align-items: stretch;
   align-content: start;
+  gap: var(--v2-space-3);
 }
 
-.triage-workspace__actions > .v2-button {
-  min-width: 11rem;
+.triage-workspace__primary-action.v2-button {
+  min-width: min(100%, 13.5rem);
+  min-height: 2.85rem;
+  border-radius: 999px;
+  font-size: var(--v2-font-size-body-strong);
+  box-shadow: 0 0.85rem 1.7rem hsl(var(--v2-primary) / 0.2);
 }
 
 .triage-workspace__secondary-actions {
-  align-items: center;
+  align-items: stretch;
+  gap: var(--v2-space-2);
+}
+
+.triage-workspace__secondary-action.v2-button {
+  min-height: 2.38rem;
+  padding-inline: 0.86rem;
+  border-radius: 999px;
+  background: hsl(var(--v2-surface));
+  border-color: hsl(var(--v2-border) / 0.62);
+  color: hsl(var(--v2-text-muted));
+  box-shadow: 0 0.35rem 0.9rem hsl(var(--v2-text) / 0.035);
+}
+
+.triage-workspace__secondary-action--governance.v2-button {
+  border-style: dashed;
+  color: hsl(var(--v2-text));
 }
 
 .triage-workspace__idle {
@@ -616,7 +735,8 @@
   }
 
   .triage-queue-filters__primary,
-  .triage-queue-filters__controls {
+  .triage-queue-filters__controls,
+  .triage-queue-filters__advanced {
     grid-template-columns: minmax(0, 1fr);
   }
 

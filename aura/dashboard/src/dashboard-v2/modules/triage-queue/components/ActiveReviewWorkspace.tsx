@@ -1,4 +1,12 @@
-import { ArrowLeft, PanelRightOpen, Rows3 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Bell,
+  CalendarDays,
+  MessageSquareText,
+  PanelRightOpen,
+  Rows3,
+  UserRound,
+} from 'lucide-react';
 import type { TriageActionVm, TriageCaseVm } from '../../../adapters/worklist';
 import { getLeadSignalTone } from '../../../adapters/worklist';
 import { DashboardV2Badge } from '../../../primitives/Badge';
@@ -47,6 +55,26 @@ function renderIdleState(
       {action}
     </DashboardV2Surface>
   );
+}
+
+function getActionIcon(action: TriageActionVm): JSX.Element | undefined {
+  if (action.kind === 'alerts') {
+    return <Bell size={16} />;
+  }
+
+  if (action.kind === 'patient') {
+    return <UserRound size={16} />;
+  }
+
+  if (action.kind === 'communication') {
+    return <MessageSquareText size={16} />;
+  }
+
+  if (action.kind === 'appointments') {
+    return <CalendarDays size={16} />;
+  }
+
+  return undefined;
 }
 
 export function ActiveReviewWorkspace({
@@ -146,16 +174,6 @@ export function ActiveReviewWorkspace({
                 Review queue
               </DashboardV2Button>
             ) : null}
-            {showGovernanceAction ? (
-              <DashboardV2Button
-                tone="secondary"
-                size="sm"
-                onPress={onOpenGovernance}
-                leadingIcon={<PanelRightOpen size={16} />}
-              >
-                Governance
-              </DashboardV2Button>
-            ) : null}
           </div>
         </div>
       </div>
@@ -172,8 +190,10 @@ export function ActiveReviewWorkspace({
             <DashboardV2Text tone="label">Next actions</DashboardV2Text>
             <div className="triage-workspace__actions">
               <DashboardV2Button
+                className="triage-workspace__primary-action"
                 tone="primary"
                 onPress={() => onRunAction(selectedCase, workspace.primaryAction)}
+                leadingIcon={getActionIcon(workspace.primaryAction)}
               >
                 {workspace.primaryAction.label}
               </DashboardV2Button>
@@ -181,13 +201,26 @@ export function ActiveReviewWorkspace({
                 {workspace.secondaryActions.map((action) => (
                   <DashboardV2Button
                     key={action.key}
+                    className="triage-workspace__secondary-action"
                     tone="ghost"
                     size="sm"
                     onPress={() => onRunAction(selectedCase, action)}
+                    leadingIcon={getActionIcon(action)}
                   >
                     {action.label}
                   </DashboardV2Button>
                 ))}
+                {showGovernanceAction ? (
+                  <DashboardV2Button
+                    className="triage-workspace__secondary-action triage-workspace__secondary-action--governance"
+                    tone="ghost"
+                    size="sm"
+                    onPress={onOpenGovernance}
+                    leadingIcon={<PanelRightOpen size={16} />}
+                  >
+                    Governance
+                  </DashboardV2Button>
+                ) : null}
               </div>
             </div>
           </DashboardV2Surface>

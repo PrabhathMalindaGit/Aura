@@ -84,8 +84,13 @@ export function AlertQueueRow({
 
         <div className="v2-alert-row__copy">
           <strong className="v2-alert-row__name">{row.patientName}</strong>
-          <span className="v2-alert-row__reason">{row.reason}</span>
+          <span className="v2-alert-row__patient-id">{row.patientId}</span>
         </div>
+      </div>
+
+      <div className="v2-alert-row__reason-block">
+        <span className="v2-alert-row__reason-label">Reason</span>
+        <span className="v2-alert-row__reason">{row.reason}</span>
       </div>
 
       <div className="v2-alert-row__badges">
@@ -103,9 +108,20 @@ export function AlertQueueRow({
       </div>
 
       <div className="v2-alert-row__footer">
-        <DashboardV2Text tone="caption" className="v2-alert-row__support">
-          {row.supportLine || row.sourceLabel}
-        </DashboardV2Text>
+        <div className="v2-alert-row__meta">
+          <DashboardV2Text tone="caption">
+            <span>Source</span>
+            {row.sourceLabel}
+          </DashboardV2Text>
+          <DashboardV2Text tone="caption">
+            <span>Ref</span>
+            {row.referenceLabel.replace(/^Ref\s+/i, '')}
+          </DashboardV2Text>
+          <DashboardV2Text tone="caption">
+            <span>Owner</span>
+            {row.assignmentLabel}
+          </DashboardV2Text>
+        </div>
         <span className="v2-alert-row__freshness" title={row.freshnessTitle}>
           <Clock3 size={13} aria-hidden="true" />
           <span>{row.freshnessLabel}</span>

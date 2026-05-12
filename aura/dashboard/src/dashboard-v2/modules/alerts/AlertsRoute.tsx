@@ -17,12 +17,10 @@ import './alerts.css';
 
 const MEDIUM_LAYOUT_QUERY = '(max-width: 1279px)';
 const NARROW_LAYOUT_QUERY = '(max-width: 1023px)';
-const VERY_NARROW_LAYOUT_QUERY = '(max-width: 599px)';
 
 export function AlertsRoute(): JSX.Element {
   const isMediumLayout = useMediaQuery(MEDIUM_LAYOUT_QUERY);
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
-  const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const governanceOpen = useAlertsUiStore((state) => state.governanceOpen);
   const focusMode = useAlertsUiStore((state) => state.focusMode);
   const setGovernanceOpen = useAlertsUiStore((state) => state.setGovernanceOpen);
@@ -104,7 +102,6 @@ export function AlertsRoute(): JSX.Element {
       overriddenOnly={viewModel.overriddenOnly}
       disabled={viewModel.isRefreshing && viewModel.queueRows.length === 0}
       loading={viewModel.showInitialLoading}
-      isVeryNarrow={isVeryNarrow}
       chatOriginNote={viewModel.chatOriginNote}
       rows={viewModel.queueRows}
       selectedAlertId={viewModel.selectedAlertId}

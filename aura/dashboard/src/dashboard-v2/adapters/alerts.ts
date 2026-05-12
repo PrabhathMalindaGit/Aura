@@ -21,6 +21,7 @@ export type AlertsSourceFilter = 'all' | 'checkin' | 'chat';
 export type AlertsTimeRangeFilter = '24h' | '7d' | '30d';
 export type AlertsSortOrder = 'newest' | 'oldest' | 'patient-asc';
 export type AlertsBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'critical' | 'unknown';
+type PatientLabelLookup = ReadonlyMap<string, string>;
 
 export interface AlertsWorkspaceState {
   status: AlertStatus;
@@ -56,6 +57,8 @@ export interface AlertQueueRowVm {
   patientName: string;
   reason: string;
   sourceLabel: string;
+  referenceLabel: string;
+  assignmentLabel: string;
   severityLabel: string;
   severityTone: AlertsBadgeTone;
   freshnessLabel: string;
@@ -253,15 +256,11 @@ function buildStateBadges(
     });
   }
 
-  if (alert.assignedTo) {
-    badges.push({ label: buildAssignmentLabel(alert), tone: 'info' });
-  }
-
   if (hasRiskOverride(alert)) {
     badges.push({ label: 'Override', tone: 'warning' });
   }
 
-  return badges.slice(0, 2);
+  return badges;
 }
 
 export function filterAlerts(
@@ -277,6 +276,7 @@ export function filterAlerts(
     clinicianId: string;
     seenAlertMap: SeenAlertMap;
     status: AlertStatus;
+    patientLabelById?: PatientLabelLookup;
   },
 ): AlertItem[] {
   const normalizedSearch = options.searchValue.trim().toLowerCase();
@@ -312,16 +312,36 @@ export function filterAlerts(
       return true;
     }
 
-    const searchable = `${alert._id} ${alert.patientId} ${reasonText(alert.reason)} ${alert.source.type}`.toLowerCase();
+    const searchable = [
+      alert._id,
+      shortReferenceLabel(alert._id),
+      alert.patientId,
+      options.patientLabelById?.get(alert.patientId.trim()),
+      reasonText(alert.reason),
+      alert.source.type,
+      alertSourceLabel(alert.source.type),
+      alert.source.sourceId,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
     return searchable.includes(normalizedSearch);
   });
 }
 
-export function sortAlerts(alerts: AlertItem[], order: AlertsSortOrder): AlertItem[] {
+export function sortAlerts(
+  alerts: AlertItem[],
+  order: AlertsSortOrder,
+  patientLabelById?: PatientLabelLookup,
+): AlertItem[] {
   const next = [...alerts];
 
   if (order === 'patient-asc') {
-    next.sort((left, right) => left.patientId.localeCompare(right.patientId));
+    next.sort((left, right) => {
+      const leftLabel = patientLabelById?.get(left.patientId.trim()) ?? left.patientId;
+      const rightLabel = patientLabelById?.get(right.patientId.trim()) ?? right.patientId;
+      return leftLabel.localeCompare(rightLabel);
+    });
     return next;
   }
 
@@ -406,6 +426,8 @@ export function buildAlertQueueRow(params: {
     patientName: buildPatientName(alert, patient),
     reason,
     sourceLabel: alertSourceLabel(alert.source.type),
+    referenceLabel: referenceLabel ?? alert._id,
+    assignmentLabel: alert.assignedTo ? `Assigned ${buildAssignmentLabel(alert)}` : 'Unassigned',
     severityLabel: formatRiskLabel(getEffectiveRisk(alert)),
     severityTone: mapSeverityTone(alert),
     freshnessLabel: freshness.label,

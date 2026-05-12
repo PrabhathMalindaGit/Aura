@@ -56,11 +56,36 @@ const OPEN_ALERTS: AlertItem[] = [
       sourceId: 'message-2',
     },
     status: 'open',
-    createdAt: recentIso(3),
-    updatedAt: recentIso(3),
+    createdAt: recentIso(30),
+    updatedAt: recentIso(30),
+    seenAt: recentIso(29, 55),
     assignedTo: 'clinician-2',
     assignedToName: 'Dr Other Clinician',
     assignedAt: recentIso(2, 59),
+    assignmentSource: 'manual',
+  },
+  {
+    _id: 'alert-3',
+    patientId: 'patient-3',
+    risk: 'high',
+    riskAuto: 'high',
+    riskFinal: 'medium',
+    overrideReason: 'Reduced after direct clinician review.',
+    overriddenAt: recentIso(1, 30),
+    overriddenBy: 'clinician-1',
+    overriddenByName: 'Clinician One',
+    reason: 'SYMPTOM_SPIKE',
+    source: {
+      type: 'checkin',
+      sourceId: 'checkin-3',
+    },
+    status: 'open',
+    createdAt: recentIso(4),
+    updatedAt: recentIso(4),
+    seenAt: recentIso(3, 55),
+    assignedTo: 'clinician-1',
+    assignedToName: 'Clinician One',
+    assignedAt: recentIso(1, 35),
     assignmentSource: 'manual',
   },
 ];
@@ -98,6 +123,11 @@ const PATIENTS: PatientSummary[] = [
     id: 'patient-2',
     displayName: 'Avery Chen',
   },
+  {
+    id: 'patient-3',
+    displayName: 'Maya Patel',
+    status: 'active',
+  },
 ];
 
 const CONTEXT_BY_ALERT_ID: Record<string, AlertContextResult> = {
@@ -127,6 +157,25 @@ const CONTEXT_BY_ALERT_ID: Record<string, AlertContextResult> = {
         type: 'ALERT_CREATED',
         at: OPEN_ALERTS[1].createdAt,
         label: 'Alert created',
+        status: 'ok',
+      },
+    ],
+  },
+  'alert-3': {
+    alert: OPEN_ALERTS[2],
+    triggeringEvent: {
+      type: 'checkin',
+      id: 'checkin-3',
+      date: recentDay(),
+      pain: 6,
+      mood: 5,
+      createdAt: OPEN_ALERTS[2].createdAt,
+    },
+    timeline: [
+      {
+        type: 'RISK_OVERRIDE_SAVED',
+        at: OPEN_ALERTS[2].overriddenAt ?? OPEN_ALERTS[2].updatedAt,
+        label: 'Risk override saved',
         status: 'ok',
       },
     ],
@@ -305,7 +354,7 @@ describe('useAlertsViewModel', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.queueRows).toHaveLength(2);
+      expect(result.current.queueRows).toHaveLength(3);
       expect(result.current.activeHeader?.patientName).toBe('Jordan Lee');
     });
 
@@ -319,7 +368,7 @@ describe('useAlertsViewModel', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.queueRows).toHaveLength(2);
+      expect(result.current.queueRows).toHaveLength(3);
     });
 
     expect(result.current.activeAlert?._id).toBe('alert-1');
@@ -334,7 +383,7 @@ describe('useAlertsViewModel', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.queueRows).toHaveLength(2);
+      expect(result.current.queueRows).toHaveLength(3);
     });
 
     act(() => {
@@ -349,5 +398,136 @@ describe('useAlertsViewModel', () => {
     expect(result.current.assignedToMeOnly).toBe(false);
     expect(result.current.unassignedOnly).toBe(false);
     expect(result.current.overriddenOnly).toBe(false);
+  });
+
+  it('filters the queue by patient display name and source label text', async () => {
+    const { result } = renderHook(
+      () => useAlertsViewModel({ isNarrowLayout: false }),
+      { wrapper: createWrapper('/alerts') },
+    );
+
+    await waitFor(() => {
+      expect(result.current.queueRows).toHaveLength(3);
+    });
+
+    act(() => {
+      result.current.setSearchValue('Maya');
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.patientName)).toEqual(['Maya Patel']);
+      expect(result.current.activeHeader?.patientName).toBe('Maya Patel');
+    });
+
+    act(() => {
+      result.current.setSearchValue('Check-in');
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.alertId)).toEqual(['alert-1', 'alert-3']);
+    });
+  });
+
+  it('applies supported source, time range, and sort controls', async () => {
+    const { result } = renderHook(
+      () => useAlertsViewModel({ isNarrowLayout: false }),
+      { wrapper: createWrapper('/alerts') },
+    );
+
+    await waitFor(() => {
+      expect(result.current.queueRows).toHaveLength(3);
+    });
+
+    act(() => {
+      result.current.setSourceFilter('chat');
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.alertId)).toEqual(['alert-2']);
+    });
+
+    act(() => {
+      result.current.setSourceFilter('all');
+      result.current.setTimeRange('24h');
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.alertId)).toEqual(['alert-1', 'alert-3']);
+    });
+
+    act(() => {
+      result.current.setTimeRange('7d');
+      result.current.setSortOrder('patient-asc');
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.patientName)).toEqual([
+        'Avery Chen',
+        'Jordan Lee',
+        'Maya Patel',
+      ]);
+    });
+  });
+
+  it('applies supported open queue chip filters and reset restores the default view', async () => {
+    const { result } = renderHook(
+      () => useAlertsViewModel({ isNarrowLayout: false }),
+      { wrapper: createWrapper('/alerts') },
+    );
+
+    await waitFor(() => {
+      expect(result.current.queueRows).toHaveLength(3);
+    });
+
+    act(() => {
+      result.current.setUnseenOnly(true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.alertId)).toEqual(['alert-1']);
+    });
+
+    act(() => {
+      result.current.setUnseenOnly(false);
+      result.current.setAssignedToMeOnly(true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.alertId)).toEqual(['alert-3']);
+    });
+
+    act(() => {
+      result.current.setAssignedToMeOnly(false);
+      result.current.setUnassignedOnly(true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.alertId)).toEqual(['alert-1']);
+    });
+
+    act(() => {
+      result.current.setUnassignedOnly(false);
+      result.current.setOverriddenOnly(true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows.map((row) => row.alertId)).toEqual(['alert-3']);
+    });
+
+    act(() => {
+      result.current.resetFilters();
+    });
+
+    await waitFor(() => {
+      expect(result.current.queueRows).toHaveLength(3);
+      expect(result.current.searchValue).toBe('');
+      expect(result.current.sourceFilter).toBe('all');
+      expect(result.current.timeRange).toBe('7d');
+      expect(result.current.sortOrder).toBe('newest');
+      expect(result.current.unseenOnly).toBe(false);
+      expect(result.current.assignedToMeOnly).toBe(false);
+      expect(result.current.unassignedOnly).toBe(false);
+      expect(result.current.overriddenOnly).toBe(false);
+    });
   });
 });

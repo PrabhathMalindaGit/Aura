@@ -111,82 +111,93 @@ export function AlertReviewHeader({
           <DashboardV2Badge tone="neutral">{header.patientStatusLabel}</DashboardV2Badge>
         </div>
 
-        <div className="v2-alert-review-header__actions">
-          <div className="v2-alert-review-header__route-actions">
-            {showBackToQueue ? (
-              <DashboardV2Button
-                tone="ghost"
-                size="sm"
-                onPress={onBackToQueue}
-                leadingIcon={<ArrowLeft size={16} />}
-              >
-                Back to queue
-              </DashboardV2Button>
-            ) : null}
-            {showQueueSheetAction ? (
-              <DashboardV2Button
-                tone="secondary"
-                size="sm"
-                onPress={onOpenQueueSheet}
-                leadingIcon={<Rows3 size={16} />}
-              >
-                Review queue
-              </DashboardV2Button>
-            ) : null}
-            {showGovernanceAction ? (
-              <DashboardV2Button
-                tone="secondary"
-                size="sm"
-                onPress={onOpenGovernance}
-                leadingIcon={<PanelRightOpen size={16} />}
-              >
-                Context
-              </DashboardV2Button>
-            ) : null}
-            <DashboardV2Button
-              tone="ghost"
-              size="sm"
-              onPress={onOpenPatient}
-              leadingIcon={<UserRound size={16} />}
-            >
-              Open patient
-            </DashboardV2Button>
-          </div>
+        <div className="v2-alert-review-header__actions" aria-label="Selected alert actions">
+          <div className="v2-alert-review-header__action-panel">
+            <div className="v2-alert-review-header__action-group" aria-label="Support and navigation actions">
+              <div className="v2-alert-review-header__route-actions">
+                {showBackToQueue ? (
+                  <DashboardV2Button
+                    tone="ghost"
+                    size="sm"
+                    onPress={onBackToQueue}
+                    leadingIcon={<ArrowLeft size={16} />}
+                  >
+                    Back to queue
+                  </DashboardV2Button>
+                ) : null}
+                {showQueueSheetAction ? (
+                  <DashboardV2Button
+                    tone="secondary"
+                    size="sm"
+                    onPress={onOpenQueueSheet}
+                    leadingIcon={<Rows3 size={16} />}
+                  >
+                    Review queue
+                  </DashboardV2Button>
+                ) : null}
+                {showGovernanceAction ? (
+                  <DashboardV2Button
+                    tone="secondary"
+                    size="sm"
+                    onPress={onOpenGovernance}
+                    leadingIcon={<PanelRightOpen size={16} />}
+                  >
+                    Context
+                  </DashboardV2Button>
+                ) : null}
+                <DashboardV2Button
+                  tone="ghost"
+                  size="sm"
+                  onPress={onOpenPatient}
+                  leadingIcon={<UserRound size={16} />}
+                >
+                  Open patient
+                </DashboardV2Button>
+              </div>
+            </div>
 
-          <div className="v2-alert-review-header__primary-actions">
-            <DashboardV2Button
-              tone="secondary"
-              size="sm"
-              onPress={onAcknowledge}
-              isDisabled={acknowledgeDisabled}
-            >
-              {mutationPending && alert.status === 'open' ? 'Updating...' : 'Acknowledge'}
-            </DashboardV2Button>
-            <DashboardV2Button
-              tone="primary"
-              size="sm"
-              onPress={() => {
-                if (alert.status === 'open') {
-                  setShowResolveConfirm(true);
-                  return;
-                }
+            <div className="v2-alert-review-header__action-group" aria-label="Decision actions">
+              <div className="v2-alert-review-header__decision-actions">
+                <DashboardV2Button
+                  tone="secondary"
+                  size="sm"
+                  onPress={onAcknowledge}
+                  isDisabled={acknowledgeDisabled}
+                >
+                  {mutationPending && alert.status === 'open' ? 'Updating...' : 'Acknowledge'}
+                </DashboardV2Button>
+                <DashboardV2Button
+                  tone="primary"
+                  size="sm"
+                  onPress={() => {
+                    if (alert.status === 'open') {
+                      setShowResolveConfirm(true);
+                      return;
+                    }
 
-                void onResolve();
-              }}
-              isDisabled={resolveDisabled}
-            >
-              {mutationPending ? 'Updating...' : 'Resolve'}
-            </DashboardV2Button>
-            <AssignmentActions
-              alert={alert}
-              clinicianId={clinicianId}
-              busy={assignmentPending}
-              allowUnassign
-              size="sm"
-              onAssignToMe={() => onAssignToMe()}
-              onTakeOver={() => onTakeOver()}
-              onUnassign={() => onUnassign()}
-            />
+                    void onResolve();
+                  }}
+                  isDisabled={resolveDisabled}
+                >
+                  {mutationPending ? 'Updating...' : 'Resolve'}
+                </DashboardV2Button>
+              </div>
+            </div>
+
+            <div className="v2-alert-review-header__action-group" aria-label="Ownership actions">
+              <div className="v2-alert-review-header__ownership-actions">
+                <AssignmentActions
+                  alert={alert}
+                  clinicianId={clinicianId}
+                  busy={assignmentPending}
+                  allowUnassign
+                  size="sm"
+                  onAssignToMe={() => onAssignToMe()}
+                  onTakeOver={() => onTakeOver()}
+                  onUnassign={() => onUnassign()}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </header>

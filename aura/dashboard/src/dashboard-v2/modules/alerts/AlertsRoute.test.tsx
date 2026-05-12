@@ -85,6 +85,30 @@ const OPEN_ALERTS: AlertItem[] = [
     assignedAt: recentIso(2, 59),
     assignmentSource: 'manual',
   },
+  {
+    _id: 'alert-3',
+    patientId: 'patient-3',
+    risk: 'high',
+    riskAuto: 'high',
+    riskFinal: 'medium',
+    overrideReason: 'Reduced after direct clinician review.',
+    overriddenAt: recentIso(1, 30),
+    overriddenBy: 'clinician-1',
+    overriddenByName: 'Clinician One',
+    reason: 'SYMPTOM_SPIKE',
+    source: {
+      type: 'checkin',
+      sourceId: 'checkin-3',
+    },
+    status: 'open',
+    createdAt: recentIso(4),
+    updatedAt: recentIso(4),
+    seenAt: recentIso(3, 55),
+    assignedTo: 'clinician-1',
+    assignedToName: 'Clinician One',
+    assignedAt: recentIso(1, 35),
+    assignmentSource: 'manual',
+  },
 ];
 
 const ACKNOWLEDGED_ALERTS: AlertItem[] = [
@@ -110,6 +134,11 @@ const PATIENTS: PatientSummary[] = [
   {
     id: 'patient-2',
     displayName: 'Avery Chen',
+  },
+  {
+    id: 'patient-3',
+    displayName: 'Maya Patel',
+    status: 'active',
   },
 ];
 
@@ -450,7 +479,7 @@ describe('AlertsRoute', () => {
       expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Avery Chen');
     });
 
-    const searchInput = screen.getByPlaceholderText('Search patient, alert id, or reason');
+    const searchInput = screen.getByPlaceholderText('Search patient, alert id, reason, or source');
     await user.type(searchInput, 'patient-2');
 
     await waitFor(() => {
@@ -478,6 +507,116 @@ describe('AlertsRoute', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Jordan Lee');
+    });
+  });
+
+  it('renders honest supported queue controls and filters by patient name', async () => {
+    const user = userEvent.setup();
+
+    renderAlertsRoute();
+
+    expect(await screen.findByTestId('v2-alerts-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alert-row-alert-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+
+    expect(screen.queryAllByText('Select an option')).toHaveLength(0);
+    expect(screen.getByText('All sources')).toBeInTheDocument();
+    expect(screen.getByText('Past 7d')).toBeInTheDocument();
+    expect(screen.getByText('Newest first')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Source'), 'chat');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-row-alert-2')).toBeInTheDocument();
+      expect(screen.queryByTestId('v2-alert-row-alert-1')).not.toBeInTheDocument();
+    });
+
+    await user.selectOptions(screen.getByLabelText('Source'), 'all');
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-row-alert-1')).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText('Search patient, alert id, reason, or source');
+    await user.type(searchInput, 'Maya');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-row-alert-3')).toBeInTheDocument();
+      expect(screen.queryByTestId('v2-alert-row-alert-1')).not.toBeInTheDocument();
+      expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Maya Patel');
+    });
+
+    await user.click(screen.getAllByRole('button', { name: /reset filters/i }).at(-1)!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-row-alert-1')).toBeInTheDocument();
+      expect(screen.getByTestId('v2-alert-row-alert-2')).toBeInTheDocument();
+      expect(screen.getByTestId('v2-alert-row-alert-3')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps selected alert header actions wired to governance, navigation, and status handlers', async () => {
+    const user = userEvent.setup();
+
+    renderAlertsRoute();
+
+    expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
+    expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resolve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Assign to me' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Support and navigation actions')).toContainElement(
+      screen.getByRole('button', { name: 'Context' }),
+    );
+    expect(screen.getByLabelText('Decision actions')).toContainElement(
+      screen.getByRole('button', { name: 'Resolve' }),
+    );
+    expect(screen.getByLabelText('Ownership actions')).toContainElement(
+      screen.getByRole('button', { name: 'Assign to me' }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Acknowledge' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(globalThis.fetch).mock.calls.some(([input, init]) => {
+        const url = new URL(String(input), 'http://localhost');
+        return (
+          url.pathname === '/clinician/alerts/alert-1' &&
+          init?.method === 'PATCH' &&
+          String(init.body).includes('"status":"acknowledged"')
+        );
+      })).toBe(true);
+    });
+  });
+
+  it('updates and submits the risk decision card without bypassing the override API', async () => {
+    const user = userEvent.setup();
+
+    renderAlertsRoute();
+
+    expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
+    expect(screen.getByText('Risk decision')).toBeInTheDocument();
+    expect(screen.getByText('Auto risk')).toBeInTheDocument();
+    expect(screen.getByLabelText('Final risk')).toHaveValue('high');
+
+    await user.selectOptions(screen.getByLabelText('Final risk'), 'medium');
+
+    const saveButton = screen.getByRole('button', { name: 'Save override' });
+    expect(saveButton).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Override reason'), 'Patient reports improvement after review.');
+    expect(saveButton).toBeEnabled();
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(vi.mocked(globalThis.fetch).mock.calls.some(([input, init]) => {
+        const url = new URL(String(input), 'http://localhost');
+        return (
+          url.pathname === '/clinician/alerts/alert-1/risk-override' &&
+          init?.method === 'PATCH' &&
+          String(init.body).includes('"riskFinal":"medium"') &&
+          String(init.body).includes('"overrideReason":"Patient reports improvement after review."')
+        );
+      })).toBe(true);
     });
   });
 

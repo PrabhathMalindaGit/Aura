@@ -49,6 +49,7 @@ export function DashboardV2Select({
 }: DashboardV2SelectProps): JSX.Element {
   const descriptionId = useId();
   const errorId = useId();
+  const selectedLabel = options.find((option) => option.id === selectedKey)?.label;
 
   return (
     <Select
@@ -69,7 +70,7 @@ export function DashboardV2Select({
       <Label className={cn('v2-field__label', labelHidden && 'v2-visually-hidden')}>{label}</Label>
       <Button className="v2-select__trigger">
         <SelectValue className="v2-select__value">
-          {({ selectedText }) => selectedText || placeholder}
+          {({ selectedText }) => selectedText || selectedLabel || placeholder}
         </SelectValue>
         <DashboardV2Icon icon={ChevronDown} className="v2-select__icon" size={16} />
       </Button>

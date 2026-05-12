@@ -9,7 +9,6 @@ import type {
 } from '../../../adapters/alerts';
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Input } from '../../../primitives/Input';
-import { DashboardV2Select } from '../../../primitives/Select';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 import { AlertQueueRow } from './AlertQueueRow';
@@ -26,7 +25,6 @@ interface AlertsQueuePaneProps {
   overriddenOnly: boolean;
   disabled?: boolean;
   loading: boolean;
-  isVeryNarrow: boolean;
   chatOriginNote: string | null;
   rows: AlertQueueRowVm[];
   selectedAlertId: string | null;
@@ -67,6 +65,40 @@ const SORT_OPTIONS = [
   { id: 'oldest', label: 'Oldest first' },
   { id: 'patient-asc', label: 'Patient A-Z' },
 ] as const;
+
+interface QueueFilterSelectProps<TValue extends string> {
+  label: string;
+  value: TValue;
+  options: ReadonlyArray<{ id: TValue; label: string }>;
+  disabled: boolean;
+  onChange: (value: TValue) => void;
+}
+
+function QueueFilterSelect<TValue extends string>({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: QueueFilterSelectProps<TValue>): JSX.Element {
+  return (
+    <label className="v2-alerts-queue-pane__native-select">
+      <span>{label}</span>
+      <select
+        value={value}
+        disabled={disabled}
+        aria-label={label}
+        onChange={(event) => onChange(event.currentTarget.value as TValue)}
+      >
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 function moveAlertQueueFocus(event: KeyboardEvent<HTMLButtonElement>): void {
   const list = event.currentTarget.closest<HTMLElement>('[data-alert-queue-list="true"]');
@@ -109,7 +141,6 @@ export function AlertsQueuePane({
   overriddenOnly,
   disabled = false,
   loading,
-  isVeryNarrow,
   chatOriginNote,
   rows,
   selectedAlertId,
@@ -158,35 +189,32 @@ export function AlertsQueuePane({
             labelHidden
             value={searchValue}
             onChange={(event) => onSearchChange(event.currentTarget.value)}
-            placeholder="Search patient, alert id, or reason"
+            placeholder="Search patient, alert id, reason, or source"
             isDisabled={disabled}
           />
         </div>
 
         <div className="v2-alerts-queue-pane__selects">
-          <DashboardV2Select
+          <QueueFilterSelect
             label="Source"
-            labelHidden={isVeryNarrow}
-            selectedKey={sourceFilter}
-            options={SOURCE_OPTIONS as unknown as Array<{ id: string; label: string }>}
-            onSelectionChange={(value) => onSourceFilterChange(value as AlertsSourceFilter)}
-            isDisabled={disabled}
+            value={sourceFilter}
+            options={SOURCE_OPTIONS}
+            disabled={disabled}
+            onChange={onSourceFilterChange}
           />
-          <DashboardV2Select
+          <QueueFilterSelect
             label="Time range"
-            labelHidden={isVeryNarrow}
-            selectedKey={timeRange}
-            options={TIME_OPTIONS as unknown as Array<{ id: string; label: string }>}
-            onSelectionChange={(value) => onTimeRangeChange(value as AlertsTimeRangeFilter)}
-            isDisabled={disabled}
+            value={timeRange}
+            options={TIME_OPTIONS}
+            disabled={disabled}
+            onChange={onTimeRangeChange}
           />
-          <DashboardV2Select
+          <QueueFilterSelect
             label="Sort"
-            labelHidden={isVeryNarrow}
-            selectedKey={sortOrder}
-            options={SORT_OPTIONS as unknown as Array<{ id: string; label: string }>}
-            onSelectionChange={(value) => onSortOrderChange(value as AlertsSortOrder)}
-            isDisabled={disabled}
+            value={sortOrder}
+            options={SORT_OPTIONS}
+            disabled={disabled}
+            onChange={onSortOrderChange}
           />
         </div>
 
@@ -197,6 +225,7 @@ export function AlertsQueuePane({
               size="sm"
               onPress={() => onUnseenOnlyChange(!unseenOnly)}
               isDisabled={disabled}
+              aria-pressed={unseenOnly}
             >
               Unseen only
             </DashboardV2Button>
@@ -205,6 +234,7 @@ export function AlertsQueuePane({
               size="sm"
               onPress={() => onAssignedToMeOnlyChange(!assignedToMeOnly)}
               isDisabled={disabled}
+              aria-pressed={assignedToMeOnly}
             >
               Assigned to me
             </DashboardV2Button>
@@ -213,6 +243,7 @@ export function AlertsQueuePane({
               size="sm"
               onPress={() => onUnassignedOnlyChange(!unassignedOnly)}
               isDisabled={disabled}
+              aria-pressed={unassignedOnly}
             >
               Unassigned
             </DashboardV2Button>
@@ -221,6 +252,7 @@ export function AlertsQueuePane({
               size="sm"
               onPress={() => onOverriddenOnlyChange(!overriddenOnly)}
               isDisabled={disabled}
+              aria-pressed={overriddenOnly}
             >
               Override active
             </DashboardV2Button>

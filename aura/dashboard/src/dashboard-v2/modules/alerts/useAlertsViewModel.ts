@@ -263,6 +263,17 @@ export function useAlertsViewModel({
     return map;
   }, [patientsQuery.data]);
 
+  const patientLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const patient of patientsQuery.data ?? []) {
+      const displayName = patient.displayName?.trim();
+      if (displayName) {
+        map.set(patient.id.trim(), displayName);
+      }
+    }
+    return map;
+  }, [patientsQuery.data]);
+
   const visibleAlerts = useMemo(
     () =>
       sortAlerts(
@@ -277,13 +288,16 @@ export function useAlertsViewModel({
           clinicianId: clinicianIdentity.clinicianId,
           seenAlertMap,
           status,
+          patientLabelById,
         }),
         sortOrder,
+        patientLabelById,
       ),
     [
       assignedToMeOnly,
       clinicianIdentity.clinicianId,
       overriddenOnly,
+      patientLabelById,
       searchValue,
       seenAlertMap,
       sortOrder,

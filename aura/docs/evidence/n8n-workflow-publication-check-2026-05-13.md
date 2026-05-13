@@ -104,3 +104,109 @@ Fixes made:
 - n8n Code nodes need local env access for the current workflow design. This is acceptable for the local demo container but should be revisited before any production deployment.
 - Workflow 03 and 07 were structurally verified but not executed to avoid sending Telegram messages.
 - Workflow 04, 06, and 08 should be validated after this published-workflow drift fix, then published only if their runtime checks pass.
+
+---
+
+# Follow-through Workflow Publication Pass - 2026-05-13
+
+Scope: remaining allowlisted Aura local demo follow-through workflows only:
+
+- `04 - Task Reminder Timing (Cron -> Aura Process -> Telegram -> Callback)`
+- `06 - Appointment Reminder and Status Follow-up (Cron -> Aura Process -> Telegram -> Callback)`
+- `08 - Communication No-Response Escalation (Cron -> Aura Process -> Telegram -> Callback)`
+
+This evidence is for local prototype/demo automation only. It is not production notification validation.
+
+## Preflight
+
+- Backend health check returned `{"status":"ok"}` from `http://localhost:3000/health`.
+- n8n container was running at `http://localhost:5678`.
+- Required n8n environment names were present with secret-like values redacted:
+  - `AURA_API_BASE=http://host.docker.internal:3000`
+  - `AURA_WEBHOOK_KEY=<redacted-present>`
+  - `AURA_N8N_WEBHOOK_KEY=<redacted-present>`
+  - `AURA_N8N_API_KEY=<redacted-present>`
+  - `TELEGRAM_CLINICIAN_CHAT_ID=<redacted-present>`
+  - `TELEGRAM_DEV_CHAT_ID=<redacted-present>`
+  - `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`
+- Canonical workflow exports were confirmed under `/Users/University/Final Project/aura/n8n/workflows/`.
+
+## Validation checklist result
+
+Live exports for 04, 06, and 08 were checked after publication:
+
+- Telegram node uses the existing `Telegram account` credential.
+- Telegram chat ID uses `{{$env.TELEGRAM_CLINICIAN_CHAT_ID}}`.
+- Backend process URLs use `$env.AURA_API_BASE`.
+- Callback/internal calls use `x-aura-webhook-key={{$env.AURA_WEBHOOK_KEY}}`.
+- No hard-coded Telegram bot token pattern was found.
+- No hard-coded numeric Telegram chat ID was found in the active send node.
+- No `CHANGE_ME` value was present in the active Telegram send node parameters.
+- Temporary manual execution harness nodes were removed before publication.
+
+The n8n browser check for warning icons/screenshots could not be completed because the local browser tool was unavailable in this session. As a substitute, the live exported workflow definitions were re-checked after restart and had no structural validation findings.
+
+## Workflow 04
+
+- Workflow: `04 - Task Reminder Timing (Cron -> Aura Process -> Telegram -> Callback)`
+- Validation: passed after attaching the existing `Telegram account` credential to the live Telegram send node.
+- Execution: executed once via a temporary manual trigger harness, then restored to the original Cron-only graph before publication.
+- Execution result: succeeded and safely skipped/no items.
+- Telegram result: no Telegram send attempted because the backend returned no items.
+- Callback result: callback path was structurally validated, but not exercised in this no-items run because the workflow exits after `Has Items?` when there are no items.
+- Published: yes.
+
+## Workflow 06
+
+- Workflow: `06 - Appointment Reminder and Status Follow-up (Cron -> Aura Process -> Telegram -> Callback)`
+- Validation: passed.
+- Execution: executed once via a temporary manual trigger harness, then restored to the original Cron-only graph before publication.
+- Execution result: succeeded with items present.
+- Telegram result: Telegram send succeeded. Real chat ID and message content were not recorded in this evidence.
+- Callback result: `Post Automation Status` returned success from the backend.
+- Published: yes.
+
+## Workflow 08
+
+- Workflow: `08 - Communication No-Response Escalation (Cron -> Aura Process -> Telegram -> Callback)`
+- Validation: passed after attaching the existing `Telegram account` credential to the live Telegram send node.
+- Execution: executed once via a temporary manual trigger harness, then restored to the original Cron-only graph before publication.
+- Execution result: succeeded with items present.
+- Telegram result: Telegram send succeeded. Real chat ID and message content were not recorded in this evidence.
+- Callback result: `Post Automation Status` returned success from the backend.
+- Published: yes.
+
+## Final live n8n state
+
+Active after publication and n8n restart:
+
+- `01 - Alert Created Webhook (POST -> Dedupe -> Table -> Telegram -> Respond)`
+- `02 - List Alerts Proxy (GET -> Aura API -> Respond)`
+- `03 - Missed Check-in Follow-through (Cron -> Aura Process -> Telegram -> Callback)`
+- `04 - Task Reminder Timing (Cron -> Aura Process -> Telegram -> Callback)`
+- `06 - Appointment Reminder and Status Follow-up (Cron -> Aura Process -> Telegram -> Callback)`
+- `07 - Daily Digest (Cron 09:00 -> Aura Digest -> Telegram -> Callback)`
+- `08 - Communication No-Response Escalation (Cron -> Aura Process -> Telegram -> Callback)`
+
+Intentionally left inactive/unpublished:
+
+- `05 - Error Trigger -> Telegram (throttled)`: optional/test monitoring workflow.
+- `09 - Alert Notification Processor`: scheduler-owner cadence workflow; not part of this follow-through publication pass.
+- `10 - Alert Notification Reconcile`: scheduler-owner cadence workflow; not part of this follow-through publication pass.
+- `11 - Telegram Commands (/open /ack /resolve)`: state-changing command automation requiring separate safety review.
+- `07 - Daily Digest (Cron 09:00 -> Open alerts -> Telegram)`: old duplicate digest workflow.
+- Legacy `01` imports: old/legacy alert-created workflows remain inactive.
+
+## Evidence artifacts
+
+- Live workflow exports were captured inside the n8n container as `/tmp/aura-final-04.json`, `/tmp/aura-final-06.json`, and `/tmp/aura-final-08.json`.
+- Host copies were captured as `/private/tmp/aura-final-04.json`, `/private/tmp/aura-final-06.json`, and `/private/tmp/aura-final-08.json`.
+- CLI execution logs were kept inside the n8n container as `/tmp/aura-exec-04.log`, `/tmp/aura-exec-06.log`, and `/tmp/aura-exec-08.log`; only redacted summaries were used here.
+- No Telegram bot token, real Telegram chat ID, or message body is included in this file.
+
+## Remaining risks and limitations
+
+- This proves local prototype/demo workflow behavior only, not production notification delivery.
+- Workflow 04's no-items run did not exercise the callback branch; callback configuration was validated structurally.
+- Workflows 06 and 08 each sent one real Telegram message during manual execution because eligible local demo items were present.
+- The UI warning-icon check and screenshots were not available in this session; live export validation and successful runtime executions were used instead.

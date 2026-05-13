@@ -10,11 +10,12 @@ type SpeechOptions = {
   onError?: () => void;
 };
 
-const { appStateListeners, speechModule } = vi.hoisted(() => {
+const { appStateListeners, platform, speechModule } = vi.hoisted(() => {
   const stateListeners: AppStateListener[] = [];
 
   return {
     appStateListeners: stateListeners,
+    platform: { OS: "ios" },
     speechModule: {
       maxSpeechInputLength: 120,
       speak: vi.fn((_text: string, _options?: SpeechOptions) => undefined),
@@ -39,6 +40,7 @@ vi.mock("react-native", () => ({
       };
     }),
   },
+  Platform: platform,
   Pressable: ({
     children,
     ...props
@@ -130,6 +132,7 @@ describe("ReadAloudButton", () => {
     speechModule.speak.mockClear();
     speechModule.stop.mockClear();
     speechModule.maxSpeechInputLength = 120;
+    platform.OS = "ios";
   });
 
   it("renders idle state with correct accessibility label and hint", () => {
@@ -216,7 +219,7 @@ describe("ReadAloudButton", () => {
     expect(findButton(renderer).props.accessibilityLabel).toBe("Read aloud");
   });
 
-  it("shows safe error state when speech fails", async () => {
+  it("keeps speech failures quiet instead of rendering an inline warning", async () => {
     const renderer = renderButton({ text: "Read this reply." });
 
     await act(async () => {
@@ -224,9 +227,19 @@ describe("ReadAloudButton", () => {
       speechModule.speak.mock.calls[0]?.[1]?.onError?.();
     });
 
-    expect(renderer.root.findByProps({ accessibilityRole: "alert" }).props.children).toContain(
+    expect(renderer.root.findAllByProps({ accessibilityRole: "alert" })).toHaveLength(0);
+    expect(JSON.stringify(renderer.toJSON())).not.toContain(
       "Read-aloud is unavailable right now.",
     );
+  });
+
+  it("hides the control on web where read-aloud is unsupported", () => {
+    platform.OS = "web";
+
+    const renderer = renderButton({ text: "Read this reply." });
+
+    expect(renderer.toJSON()).toBeNull();
+    expect(speechModule.speak).not.toHaveBeenCalled();
   });
 
   it("refuses empty text without speaking", async () => {

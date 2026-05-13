@@ -961,6 +961,7 @@ export default function ExerciseSessionScreen() {
                         ? "emphasis"
                         : "default"
                   }
+                  density="calm"
                   leading={{ type: "icon", icon: "exercise", tone: item.completed ? "success" : "accent" }}
                   title={item.nameSnapshot}
                   subtitle={item.instructions}

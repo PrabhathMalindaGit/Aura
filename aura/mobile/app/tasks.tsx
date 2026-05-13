@@ -135,9 +135,22 @@ export default function TasksScreen() {
   const isOffline = useIsOffline();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
-  const tasksRefresh = useLastRefreshed("tasks");
-  const tasksLoadError = useLastError("tasksLoad");
-  const taskActionError = useLastError("taskAction");
+  const {
+    label: tasksRefreshLabel,
+    refreshLocal: refreshTasksStamp,
+  } = useLastRefreshed("tasks");
+  const {
+    label: tasksLoadErrorLabel,
+    lastError: tasksLoadLastError,
+    setLocalError: setTasksLoadError,
+    clear: clearTasksLoadError,
+  } = useLastError("tasksLoad");
+  const {
+    label: taskActionErrorLabel,
+    lastError: taskActionLastError,
+    setLocalError: setTaskActionError,
+    clear: clearTaskActionError,
+  } = useLastError("taskAction");
 
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
@@ -199,12 +212,12 @@ export default function TasksScreen() {
         limit: 100,
       });
       await applyTasks(items, "live");
-      await Promise.all([tasksRefresh.refreshLocal(), tasksLoadError.clear()]);
+      await Promise.all([refreshTasksStamp(), clearTasksLoadError()]);
     } catch (error) {
       const friendly = toFriendlyError(error, "Couldn’t load tasks");
       const cached = await getCachedTasks(patientId);
       await applyTasks(cached?.items ?? [], cached?.items?.length ? "cache" : "cache");
-      await tasksLoadError.setLocalError({
+      await setTasksLoadError({
         title: friendly.title,
         message: friendly.message,
         kind: friendly.kind,
@@ -218,7 +231,15 @@ export default function TasksScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [applyTasks, auth.token, isOffline, patientId, tasksLoadError, tasksRefresh]);
+  }, [
+    applyTasks,
+    auth.token,
+    clearTasksLoadError,
+    isOffline,
+    patientId,
+    refreshTasksStamp,
+    setTasksLoadError,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -314,7 +335,7 @@ export default function TasksScreen() {
         const completed = await completePatientTask(auth.token, task.id);
         const nextTasks = tasks.map((item) => (item.id === completed.id ? completed : item));
         await applyTasks(nextTasks, "live");
-        await Promise.all([tasksRefresh.refreshLocal(), taskActionError.clear()]);
+        await Promise.all([refreshTasksStamp(), clearTaskActionError()]);
         setNotice({
           variant: "info",
           title: "Task updated",
@@ -322,7 +343,7 @@ export default function TasksScreen() {
         });
       } catch (error) {
         const friendly = toFriendlyError(error, "Couldn’t update task");
-        await taskActionError.setLocalError({
+        await setTaskActionError({
           title: friendly.title,
           message: friendly.message,
           kind: friendly.kind,
@@ -337,7 +358,15 @@ export default function TasksScreen() {
         setCompletingTaskId(null);
       }
     },
-    [applyTasks, auth.token, isOffline, taskActionError, tasks, tasksRefresh],
+    [
+      applyTasks,
+      auth.token,
+      clearTaskActionError,
+      isOffline,
+      refreshTasksStamp,
+      setTaskActionError,
+      tasks,
+    ],
   );
 
   if (auth.status === "loading") {
@@ -402,7 +431,7 @@ export default function TasksScreen() {
       }
     >
       <View style={styles.metaArea}>
-        <LastRefreshed value={tasksRefresh.label} compact />
+        <LastRefreshed value={tasksRefreshLabel} compact />
         {showingOfflineCache ? (
           <Banner
             variant="info"
@@ -413,23 +442,23 @@ export default function TasksScreen() {
         {notice ? (
           <Banner variant={notice.variant === "error" ? "danger" : notice.variant} title={notice.title} message={notice.message} />
         ) : null}
-        {tasksLoadError.lastError ? (
+        {tasksLoadLastError ? (
           <LastFailedAttempt
             label="Last task load failure"
-            value={tasksLoadError.label}
-            title={tasksLoadError.lastError.title}
-            message={tasksLoadError.lastError.message}
-            onClear={tasksLoadError.clear}
+            value={tasksLoadErrorLabel}
+            title={tasksLoadLastError.title}
+            message={tasksLoadLastError.message}
+            onClear={clearTasksLoadError}
             compact
           />
         ) : null}
-        {taskActionError.lastError ? (
+        {taskActionLastError ? (
           <LastFailedAttempt
             label="Last task action failure"
-            value={taskActionError.label}
-            title={taskActionError.lastError.title}
-            message={taskActionError.lastError.message}
-            onClear={taskActionError.clear}
+            value={taskActionErrorLabel}
+            title={taskActionLastError.title}
+            message={taskActionLastError.message}
+            onClear={clearTaskActionError}
             compact
           />
         ) : null}
@@ -563,7 +592,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     container: {
       gap: tokens.spacing.md,
-      paddingBottom: tokens.spacing.xl,
+      paddingBottom: tokens.spacing.xxxl,
     },
     headerMeta: {
       flexDirection: "row",
@@ -586,28 +615,28 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     storyTitle: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
+      fontSize: 19,
+      lineHeight: 26,
       fontWeight: tokens.typography.weights.semibold,
     },
     storyText: {
       color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: 15,
+      lineHeight: 22,
     },
     heroEmptyCard: {
       gap: tokens.spacing.xs,
     },
     heroEmptyTitle: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
+      fontSize: 19,
+      lineHeight: 26,
       fontWeight: tokens.typography.weights.semibold,
     },
     heroEmptyText: {
       color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: 15,
+      lineHeight: 22,
     },
     metaArea: {
       gap: tokens.spacing.sm,
@@ -626,8 +655,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     supportText: {
       color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: 15,
+      lineHeight: 22,
     },
   });
 }

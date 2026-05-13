@@ -2,7 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Speech from "expo-speech";
 import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { AppState, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getPressFeedbackStyle } from "@/src/components/Motion";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
@@ -22,8 +22,11 @@ type ReadAloudButtonProps = {
 
 const IDLE_HINT = "Reads this text aloud.";
 const SPEAKING_HINT = "Stops the current read-aloud playback.";
-const ERROR_MESSAGE = "Read-aloud is unavailable right now.";
 const CONSERVATIVE_RATE = 0.88;
+
+export function isReadAloudRuntimeSupported(): boolean {
+  return Platform.OS !== "web" && typeof Speech.speak === "function";
+}
 
 function getMaxSpeechInputLength(): number {
   const max = Speech.maxSpeechInputLength;
@@ -71,6 +74,7 @@ export function ReadAloudButton({
   const [message, setMessage] = useState<string | null>(null);
   const hasRequestedSpeechRef = useRef(false);
   const activeRef = useRef(false);
+  const isRuntimeSupported = useMemo(() => isReadAloudRuntimeSupported(), []);
 
   const speakableText = useMemo(() => normalizeReadAloudText([text]), [text]);
   const setReadAloudStatus = useCallback(
@@ -86,7 +90,7 @@ export function ReadAloudButton({
     try {
       await stopReadAloud();
     } catch {
-      setReadAloudStatus("error", ERROR_MESSAGE);
+      setReadAloudStatus("error", null);
     }
   }, [setReadAloudStatus]);
 
@@ -155,12 +159,12 @@ export function ReadAloudButton({
         },
         onError: () => {
           activeRef.current = false;
-          setReadAloudStatus("error", ERROR_MESSAGE);
+          setReadAloudStatus("error", null);
         },
       });
     } catch {
       activeRef.current = false;
-      setReadAloudStatus("error", ERROR_MESSAGE);
+      setReadAloudStatus("error", null);
     }
   }, [
     disabled,
@@ -171,6 +175,10 @@ export function ReadAloudButton({
     speakableText,
     stopSpeech,
   ]);
+
+  if (!isRuntimeSupported) {
+    return null;
+  }
 
   return (
     <View style={styles.wrapper}>

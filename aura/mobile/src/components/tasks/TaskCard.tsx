@@ -78,6 +78,7 @@ export function TaskCard({
           text: formatTaskStatusLabel(task),
           tone: taskStatusVariant(task),
         }}
+        density="calm"
         chips={chips}
         actions={actions}
         showChevron={false}

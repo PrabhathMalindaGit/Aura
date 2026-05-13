@@ -7,7 +7,7 @@ import {
 } from "expo-speech-recognition";
 import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getPressFeedbackStyle } from "@/src/components/Motion";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
@@ -32,6 +32,10 @@ type VoiceDictationButtonProps = {
 
 const IDLE_HINT = "Adds spoken words to this text field for review before sending.";
 const LISTENING_HINT = "Stops listening and adds the transcript for review.";
+
+export function isVoiceDictationRuntimeSupported(): boolean {
+  return Platform.OS !== "web";
+}
 
 function toFriendlySpeechError(error: ExpoSpeechRecognitionErrorCode): {
   status: "error" | "unavailable";
@@ -92,6 +96,7 @@ export function VoiceDictationButton({
   const [message, setMessage] = useState<string | null>(null);
   const activeRef = useRef(false);
   const statusRef = useRef<VoiceDictationStatus>("idle");
+  const runtimeSupported = isVoiceDictationRuntimeSupported();
 
   const setVoiceStatus = useCallback(
     (nextStatus: VoiceDictationStatus, nextMessage: string | null = null) => {
@@ -104,6 +109,10 @@ export function VoiceDictationButton({
   );
 
   useEffect(() => {
+    if (!runtimeSupported) {
+      return undefined;
+    }
+
     const startListener = ExpoSpeechRecognitionModule.addListener("start", () => {
       activeRef.current = true;
       setVoiceStatus("listening", null);
@@ -172,7 +181,7 @@ export function VoiceDictationButton({
         activeRef.current = false;
       }
     };
-  }, [onTranscript, setVoiceStatus]);
+  }, [onTranscript, runtimeSupported, setVoiceStatus]);
 
   const isBusy = status === "requestingPermission" || status === "listening" || status === "processing";
   const isListening = status === "listening";
@@ -235,6 +244,10 @@ export function VoiceDictationButton({
       setVoiceStatus("error", "Voice dictation could not start. Nothing was sent.");
     }
   }, [disabled, isListening, locale, onDeviceOnly, setVoiceStatus, status]);
+
+  if (!runtimeSupported) {
+    return null;
+  }
 
   return (
     <View style={styles.wrapper}>

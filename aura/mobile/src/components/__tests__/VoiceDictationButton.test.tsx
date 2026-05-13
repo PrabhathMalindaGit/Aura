@@ -6,12 +6,13 @@ type SpeechEventName = "start" | "end" | "result" | "error" | "nomatch";
 type SpeechListener = (event?: any) => void;
 type AppStateListener = (state: string) => void;
 
-const { appStateListeners, speechModule, speechListeners } = vi.hoisted(() => {
+const { appStateListeners, nativePlatform, speechModule, speechListeners } = vi.hoisted(() => {
   const listeners: Partial<Record<SpeechEventName, SpeechListener[]>> = {};
   const stateListeners: AppStateListener[] = [];
 
   return {
     appStateListeners: stateListeners,
+    nativePlatform: { OS: "ios" },
     speechListeners: listeners,
     speechModule: {
       addListener: vi.fn((eventName: SpeechEventName, listener: SpeechListener) => {
@@ -59,6 +60,7 @@ vi.mock("react-native", () => ({
       };
     }),
   },
+  Platform: nativePlatform,
   Pressable: ({
     children,
     ...props
@@ -176,6 +178,7 @@ describe("VoiceDictationButton", () => {
     speechModule.stop.mockClear();
     speechModule.supportsOnDeviceRecognition.mockReset();
     speechModule.supportsOnDeviceRecognition.mockReturnValue(true);
+    nativePlatform.OS = "ios";
   });
 
   it("renders idle state with correct accessibility label and hint", () => {
@@ -191,6 +194,15 @@ describe("VoiceDictationButton", () => {
       disabled: false,
       busy: undefined,
     });
+  });
+
+  it("hides the mic on unsupported web runtime", () => {
+    nativePlatform.OS = "web";
+
+    const renderer = renderButton({ onTranscript: vi.fn() });
+
+    expect(renderer.toJSON()).toBeNull();
+    expect(speechModule.addListener).not.toHaveBeenCalled();
   });
 
   it("handles permission denied without sending transcript", async () => {

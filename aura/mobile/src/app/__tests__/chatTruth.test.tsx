@@ -491,8 +491,18 @@ function emitSpeech(eventName: string, event?: any): void {
 }
 
 async function reviewForVoiceSend(root: ReactTestInstance): Promise<void> {
+  const input = findByA11y(root, "Message input");
+  const currentDraft = typeof input.props.value === "string" ? input.props.value : "";
+  const dictatedText = currentDraft.trim() || voiceTranscript.current;
+  if (currentDraft.length > 0) {
+    await act(async () => {
+      input.props.onChangeText("");
+      await flush();
+    });
+  }
+  voiceTranscript.current = dictatedText;
   await act(async () => {
-    findByA11y(root, "Review for voice send").props.onPress();
+    findByA11y(root, "Start voice dictation").props.onPress();
     await flush();
   });
 }
@@ -852,22 +862,28 @@ describe("chat truth fix", () => {
     );
   });
 
-  it("blocks voice send review for empty or whitespace-only messages", async () => {
+  it("does not show voice send review before a dictated draft exists", async () => {
     const renderer = await renderScreen();
     const root = renderer.root;
 
-    await reviewForVoiceSend(root);
     expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).toContain("Voice send needs a message.");
+    expect(flattenText(root)).not.toContain("Voice send review");
+    expect(flattenText(root)).not.toContain("Voice confirmation");
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Review for voice send"),
+    ).toHaveLength(0);
+    expect(findByA11y(root, "Message input")).toBeTruthy();
+  });
 
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("    ");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
+  it("keeps the full voice send review collapsed by default", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
 
-    expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).toContain("Voice send needs a message.");
+    expect(flattenText(root)).not.toContain("Voice send review");
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Review for voice send"),
+    ).toHaveLength(0);
+    expect(findByA11y(root, "Message input")).toBeTruthy();
   });
 
   it("shows the exact trimmed draft in voice send review before any send can happen", async () => {
@@ -1012,10 +1028,8 @@ describe("chat truth fix", () => {
       await listenAndEmitVoiceSend(root, phrase);
 
       expect(sendChat).not.toHaveBeenCalled();
-      expect(flattenText(root)).toContain("Voice send cancelled.");
-      expect(findByA11y(root, "Confirm voice chat send").props.accessibilityState).toMatchObject({
-        disabled: true,
-      });
+      expect(flattenText(root)).not.toContain("Voice send review");
+      expect(flattenText(root)).not.toContain("Voice send cancelled.");
     },
   );
 
@@ -1035,7 +1049,8 @@ describe("chat truth fix", () => {
     });
 
     expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).toContain("Voice send cancelled.");
+    expect(flattenText(root)).not.toContain("Voice send review");
+    expect(flattenText(root)).not.toContain("Voice send cancelled.");
   });
 
   it("prevents voice send after confirmation expiry", async () => {
@@ -1052,10 +1067,10 @@ describe("chat truth fix", () => {
       vi.advanceTimersByTime(31_000);
       await flush();
     });
-    await listenAndEmitVoiceSend(root, "yes send");
 
     expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).toContain("Voice send review expired.");
+    expect(flattenText(root)).not.toContain("Voice send review");
+    expect(flattenText(root)).not.toContain("Message to send: Pain is better today");
   });
 
   it("invalidates voice send review when the draft changes", async () => {
@@ -1074,10 +1089,11 @@ describe("chat truth fix", () => {
     });
 
     expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).toContain("Message changed. Review again before voice send.");
-    expect(findByA11y(root, "Confirm voice chat send").props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
+    expect(flattenText(root)).not.toContain("Voice send review");
+    expect(flattenText(root)).not.toContain("Message to send: Pain is better today");
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Review for voice send"),
+    ).toHaveLength(0);
   });
 
   it("routes high-risk voice-confirmed sends exactly like manual send", async () => {
@@ -1144,7 +1160,7 @@ describe("chat truth fix", () => {
         retryable: true,
       }),
     );
-    expect(flattenText(root)).toContain("Voice send is paused while you’re offline. Nothing was sent.");
+    expect(flattenText(root)).not.toContain("Voice send is paused while you’re offline.");
   });
 
   it("does not expose unsafe voice actions, persistence, or OpenAI keys from chat voice send", async () => {
@@ -1175,9 +1191,6 @@ describe("chat truth fix", () => {
     });
     await reviewForVoiceSend(root);
 
-    expect(findByA11y(root, "Review for voice send").props.accessibilityHint).toBe(
-      "Builds a current exact message review before any voice send can happen.",
-    );
     expect(findByA11y(root, "Listen for voice send confirmation").props.accessibilityHint).toBe(
       "Listens once for yes send, confirm send, or send message.",
     );
@@ -1308,7 +1321,7 @@ describe("chat truth fix", () => {
     expect(getLocalAttemptCard(root)?.props.actions[0]?.disabled).toBe(false);
   });
 
-  it("groups duplicate communication prompts into one patient-safe workflow card", async () => {
+  it("does not promote delayed-response task prompts above the message thread", async () => {
     listPatientTasks.mockResolvedValue([
       {
         id: "task-1",
@@ -1353,23 +1366,15 @@ describe("chat truth fix", () => {
     const renderer = await renderScreen();
     const root = renderer.root;
     const workflowCards = root.findAll((node) => String(node.type) === "mock-workflow-card");
+    const text = flattenText(root);
 
-    expect(workflowCards).toHaveLength(1);
-    expect(workflowCards[0].props.title).toBe("Response delayed");
-    expect(workflowCards[0].props.text).toBe(
-      "A reply is taking longer than expected. You can still message your care team here.",
-    );
-    expect(workflowCards[0].props.chips).toEqual(["Overdue", "Care team message"]);
-    expect(JSON.stringify(workflowCards[0].props)).not.toContain("2026-03-24T09:00:00.000Z");
-    expect(JSON.stringify(workflowCards[0].props).toLowerCase()).not.toContain(
-      "no-response escalation",
-    );
-    expect(JSON.stringify(workflowCards[0].props).toLowerCase()).not.toContain(
-      "follow-through",
-    );
+    expect(workflowCards).toHaveLength(0);
+    expect(text).not.toContain("Response delayed");
+    expect(text.toLowerCase()).not.toContain("no-response escalation");
+    expect(text.toLowerCase()).not.toContain("follow-through");
   });
 
-  it("prefers server-backed reviewing truth over rollout task prompts", async () => {
+  it("keeps server-backed reviewing truth out of the main message thread", async () => {
     chatHistory.mockResolvedValue({
       items: [],
       patientCommunicationSummary: "care_team_reviewing",
@@ -1398,13 +1403,11 @@ describe("chat truth fix", () => {
     const renderer = await renderScreen();
     const root = renderer.root;
     const workflowCards = root.findAll((node) => String(node.type) === "mock-workflow-card");
+    const text = flattenText(root);
 
-    expect(workflowCards).toHaveLength(1);
-    expect(workflowCards[0].props.title).toBe("Care team reviewing");
-    expect(workflowCards[0].props.text).toBe(
-      "Your care team is reviewing your latest update. You can still message here at any time.",
-    );
-    expect(workflowCards[0].props.chips).toEqual([]);
+    expect(workflowCards).toHaveLength(0);
+    expect(text).not.toContain("Care team reviewing");
+    expect(text).not.toContain("Your care team is reviewing your latest update.");
   });
 
   it("treats a null server summary as authoritative and suppresses rollout task fallback", async () => {
@@ -1438,7 +1441,7 @@ describe("chat truth fix", () => {
     const workflowCards = root.findAll((node) => String(node.type) === "mock-workflow-card");
 
     expect(workflowCards).toHaveLength(0);
-    expect(flattenText(root)).toContain("You can still message here");
+    expect(flattenText(root)).not.toContain("You can still message here");
   });
 
   it("shows a calmer empty state and a not-synced-yet cue when there is no conversation history", async () => {

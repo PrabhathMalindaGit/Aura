@@ -802,6 +802,7 @@ export default function ExercisePlanScreen() {
           return (
             <MediaCard
               variant="compact"
+              density="calm"
               leading={{ type: "icon", icon: "exercise", tone: "accent" }}
               title={item.name}
               subtitle={subtitleParts.join(" · ")}

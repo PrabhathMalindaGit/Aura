@@ -25,15 +25,12 @@ import {
   sendChat,
   type ChatItem,
   type PatientChatHistory,
-  type PatientCommunicationSummaryState,
   type ChatSendResponse,
 } from "@/src/api/patient";
-import { listPatientTasks } from "@/src/api/tasks";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { MessagesShell } from "@/src/components/communication/MessagesShell";
-import { WorkflowMessageCard } from "@/src/components/communication/WorkflowMessageCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { GlassPanel } from "@/src/components/GlassPanel";
 import type { DomainIconKey } from "@/src/components/IconSet";
@@ -51,7 +48,6 @@ import {
   setCachedChat,
   type ChatLocalAttempt,
 } from "@/src/state/chatCache";
-import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
@@ -59,17 +55,9 @@ import { canPatientUseMessages, getCareModeNotice } from "@/src/state/recoverySu
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
-import type { PatientTaskItem } from "@/src/types/task";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import { stopReadAloud } from "@/src/utils/readAloud";
-import {
-  derivePatientTaskAction,
-  formatPatientTaskSourceLabel,
-  formatTaskDueLabel,
-  groupTasksByPatientIntent,
-  isCommunicationTask,
-} from "@/src/utils/tasks";
 import { parseVoiceChatSendConfirmation } from "@/src/utils/voiceChatSendConfirmation";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
@@ -83,16 +71,6 @@ type NoticeState = {
   message: string;
   actionLabel?: string;
   action?: () => void;
-};
-
-type PromptSummary = {
-  title: string;
-  text: string;
-  chips?: string[];
-  tone?: "info" | "warning";
-  statusLabel?: string;
-  actionLabel: string;
-  action: () => void;
 };
 
 type ChatDevParams = {
@@ -490,7 +468,6 @@ export default function ChatScreen() {
     lastRefreshedAt: chatLastRefreshedAt,
     refreshLocal: refreshChatStamp,
   } = useLastRefreshed("chat");
-  const tasksRefresh = useLastRefreshed("tasks");
   const {
     label: chatLoadErrorLabel,
     lastError: chatLoadLastError,
@@ -505,6 +482,7 @@ export default function ChatScreen() {
 
   const listRef = useRef<FlatList<MessageItem>>(null);
   const inputRef = useRef<TextInput>(null);
+  const draftRef = useRef("");
   const isLoadingHistoryRef = useRef(false);
   const messagesRef = useRef<MessageItem[]>([]);
   const localAttemptRef = useRef<ChatLocalAttempt | null>(null);
@@ -524,10 +502,6 @@ export default function ChatScreen() {
 
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [localAttempt, setLocalAttempt] = useState<ChatLocalAttempt | null>(null);
-  const [workflowTasks, setWorkflowTasks] = useState<PatientTaskItem[]>([]);
-  const [patientCommunicationSummary, setPatientCommunicationSummary] = useState<
-    PatientCommunicationSummaryState | null | undefined
-  >(undefined);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -554,6 +528,15 @@ export default function ChatScreen() {
     };
   }, [chatLastRefreshedAt, chatRefreshLabel]);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  const updateDraft = useCallback((nextDraft: string) => {
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+  }, []);
 
   const devPreset = useMemo(() => {
     if (Array.isArray(params.devPreset)) {
@@ -700,84 +683,6 @@ export default function ChatScreen() {
     []
   );
 
-  const focusComposerAction = useCallback(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const communicationPrompts = useMemo(
-    () => {
-      const grouped = groupTasksByPatientIntent(
-        workflowTasks
-        .filter((task) => isCommunicationTask(task) && (task.status === "open" || task.status === "in_progress"))
-        .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)),
-      );
-
-      return grouped.slice(0, 2);
-    },
-    [workflowTasks],
-  );
-  const taskPromptSummary = useMemo<PromptSummary | null>(() => {
-    const task = communicationPrompts[0];
-    if (!task) {
-      return null;
-    }
-
-    const dueLabel = formatTaskDueLabel(task);
-    const action = derivePatientTaskAction(task);
-    const extraCount = Math.max(0, communicationPrompts.length - 1);
-    const isDelayed =
-      dueLabel === "Overdue" || task.priority === "urgent" || task.priority === "high";
-
-    return {
-      title: isDelayed ? "Response delayed" : "Care team reviewing",
-      text: isDelayed
-        ? "A reply is taking longer than expected. You can still message your care team here."
-        : "Your care team is reviewing the latest update. You can still message here at any time.",
-      chips: [
-        dueLabel,
-        extraCount > 0
-          ? `+${extraCount} more update${extraCount === 1 ? "" : "s"}`
-          : formatPatientTaskSourceLabel(task),
-      ].filter((value): value is string => Boolean(value)),
-      tone: isDelayed ? ("warning" as const) : ("info" as const),
-      statusLabel: isDelayed ? "Response delayed" : "Care team reviewing",
-      actionLabel: action.icon === "chat" ? "Reply here" : action.label,
-      action: () => {
-        router.push(action.href as never);
-      },
-    };
-  }, [communicationPrompts, router]);
-  const promptSummary = useMemo<PromptSummary | null>(() => {
-    if (patientCommunicationSummary === "care_team_reviewing") {
-      return {
-        title: "Care team reviewing",
-        text: "Your care team is reviewing your latest update. You can still message here at any time.",
-        chips: [],
-        tone: "info",
-        statusLabel: "Care team reviewing",
-        actionLabel: "Reply here",
-        action: focusComposerAction,
-      };
-    }
-
-    if (patientCommunicationSummary === "response_delayed") {
-      return {
-        title: "Response delayed",
-        text: "A reply is taking longer than expected. You can still message your care team here.",
-        chips: [],
-        tone: "warning",
-        statusLabel: "Response delayed",
-        actionLabel: "Reply here",
-        action: focusComposerAction,
-      };
-    }
-
-    if (patientCommunicationSummary === null) {
-      return null;
-    }
-
-    return taskPromptSummary;
-  }, [focusComposerAction, patientCommunicationSummary, taskPromptSummary]);
   const contextNotice = localAttempt ? null : notice;
   const hasHeaderContext =
     Boolean(careModeNotice) ||
@@ -785,29 +690,8 @@ export default function ChatScreen() {
     Boolean(contextNotice) ||
     Boolean(chatLoadLastError);
   const threadLead = useMemo(() => {
-    if (promptSummary) {
-      return (
-        <WorkflowMessageCard
-          compact
-          title={promptSummary.title}
-          text={promptSummary.text}
-          chips={promptSummary.chips}
-          tone={promptSummary.tone}
-          statusLabel={promptSummary.statusLabel}
-          actionLabel={promptSummary.actionLabel}
-          onAction={promptSummary.action}
-        />
-      );
-    }
-
     if (messagesAvailable) {
-      return (
-        <Banner
-          variant="info"
-          title="You can still message here"
-          message="Your care team conversation stays available even when there is no open prompt."
-        />
-      );
+      return null;
     }
 
     return (
@@ -817,7 +701,7 @@ export default function ChatScreen() {
         message="Earlier messages remain here even when routine messaging is no longer active for this care status."
       />
     );
-  }, [messagesAvailable, promptSummary]);
+  }, [messagesAvailable]);
   const messageShortcuts = useMemo(
     () =>
       quickActions.map((action) => ({
@@ -828,30 +712,6 @@ export default function ChatScreen() {
       })),
     [quickActions, router],
   );
-
-  const loadWorkflowTasks = useCallback(async () => {
-    if (!auth.token || !patientId) {
-      return;
-    }
-
-    if (isOffline) {
-      const cached = await getCachedTasks(patientId);
-      setWorkflowTasks(cached?.items ?? []);
-      return;
-    }
-
-    try {
-      const items = await listPatientTasks(auth.token, {
-        status: ["open", "in_progress"],
-        limit: 20,
-      });
-      setWorkflowTasks(items);
-      await Promise.all([setCachedTasks(patientId, items), tasksRefresh.refreshLocal()]);
-    } catch {
-      const cached = await getCachedTasks(patientId);
-      setWorkflowTasks(cached?.items ?? []);
-    }
-  }, [auth.token, isOffline, patientId, tasksRefresh]);
 
   const persistChatSnapshot = useCallback(
     (
@@ -914,7 +774,6 @@ export default function ChatScreen() {
         const cached = await getCachedChat(patientId);
         replaceConfirmedHistory(cached?.confirmedMessages ?? [], false);
         setLocalAttemptState(cached?.localAttempt ?? null, false);
-        setPatientCommunicationSummary(undefined);
         setShowingOfflineCache(Boolean(cached && cached.confirmedMessages.length > 0));
         return;
       }
@@ -924,9 +783,6 @@ export default function ChatScreen() {
         | ChatItem[];
       const historyItems = Array.isArray(history) ? history : history.items;
       replaceConfirmedHistory(historyItems, false);
-      setPatientCommunicationSummary(
-        Array.isArray(history) ? undefined : history.patientCommunicationSummary,
-      );
       setShowingOfflineCache(false);
       await refreshChatStamp();
       await clearChatLoadError();
@@ -950,8 +806,6 @@ export default function ChatScreen() {
         setLocalAttemptState(cached.localAttempt, false);
         setShowingOfflineCache(cached.confirmedMessages.length > 0);
       }
-      setPatientCommunicationSummary(undefined);
-
       setNotice({
         variant: "warning",
         title: friendly.title,
@@ -1060,7 +914,7 @@ export default function ChatScreen() {
       }
 
       if (!overrideMessage) {
-        setDraft("");
+        updateDraft("");
       }
 
       setNotice(null);
@@ -1076,7 +930,6 @@ export default function ChatScreen() {
         const response: ChatSendResponse = await sendChat(auth.token, messageToSend);
         await clearChatSendError();
         setLocalAttemptState(null);
-        setPatientCommunicationSummary(null);
         setShowingOfflineCache(false);
 
         const confirmedMessages = extractConfirmedSendMessages(response);
@@ -1163,6 +1016,7 @@ export default function ChatScreen() {
       router,
       setChatSendError,
       setLocalAttemptState,
+      updateDraft,
     ]
   );
 
@@ -1174,9 +1028,21 @@ export default function ChatScreen() {
   }, [handleSend]);
 
   const handleDictationTranscript = useCallback((transcript: string) => {
-    setDraft((current) => appendReviewedTranscript(current, transcript, 1000));
+    const nextDraft = appendReviewedTranscript(draftRef.current, transcript, 1000);
+    const messageToReview = nextDraft.trim();
+    draftRef.current = nextDraft;
+    updateDraft(nextDraft);
+    if (messageToReview) {
+      setVoiceSendSnapshot({
+        rawDraft: nextDraft,
+        messageToReview,
+      });
+      setVoiceSendMessage("Review this dictated message, then press Confirm send.");
+      updateVoiceSendState("reviewMessage");
+      startVoiceSendExpiryTimer();
+    }
     inputRef.current?.focus();
-  }, []);
+  }, [startVoiceSendExpiryTimer, updateDraft, updateVoiceSendState]);
 
   useEffect(() => {
     if (
@@ -1208,31 +1074,6 @@ export default function ChatScreen() {
     (voiceSendState === "reviewMessage" ||
       voiceSendState === "awaitingVoiceConfirmation" ||
       voiceSendState === "confirmedSend");
-
-  const handlePrepareVoiceSendReview = useCallback(() => {
-    const messageToReview = draft.trim();
-    if (!messageToReview) {
-      clearVoiceSendExpiryTimer();
-      setVoiceSendSnapshot(null);
-      setIsVoiceSendListening(false);
-      setVoiceSendMessage("Voice send needs a message.");
-      updateVoiceSendState("needsMessage");
-      return;
-    }
-
-    setVoiceSendSnapshot({
-      rawDraft: draft,
-      messageToReview,
-    });
-    setVoiceSendMessage("Review this message, then say yes send or press Confirm send.");
-    updateVoiceSendState("reviewMessage");
-    startVoiceSendExpiryTimer();
-  }, [
-    clearVoiceSendExpiryTimer,
-    draft,
-    startVoiceSendExpiryTimer,
-    updateVoiceSendState,
-  ]);
 
   const handleCancelVoiceSend = useCallback((message = "Voice send cancelled.") => {
     clearVoiceSendExpiryTimer();
@@ -1670,19 +1511,12 @@ export default function ChatScreen() {
   }, [auth.status, loadHistory]);
 
   useEffect(() => {
-    if (auth.status !== "signedIn") {
-      return;
-    }
-    void loadWorkflowTasks();
-  }, [auth.status, loadWorkflowTasks]);
-
-  useEffect(() => {
     if (!__DEV__ || auth.status !== "signedIn") {
       return;
     }
 
     if (devPreset === "low") {
-      setDraft("I completed my exercises and feel okay.");
+      updateDraft("I completed my exercises and feel okay.");
       setNotice({
         variant: "info",
         title: "Preset loaded",
@@ -1693,7 +1527,7 @@ export default function ChatScreen() {
     }
 
     if (devPreset === "high") {
-      setDraft("I have chest pain right now.");
+      updateDraft("I have chest pain right now.");
       setNotice({
         variant: "warning",
         title: "Preset loaded",
@@ -1701,7 +1535,7 @@ export default function ChatScreen() {
       });
       router.setParams({ devPreset: "", devToken: "" });
     }
-  }, [auth.status, devPreset, devToken, router]);
+  }, [auth.status, devPreset, devToken, router, updateDraft]);
 
   useEffect(() => {
     if (!focusComposer) {
@@ -1768,6 +1602,13 @@ export default function ChatScreen() {
   const voiceSendSummaryText = voiceSendSnapshot
     ? `Message to send: ${voiceSendSnapshot.messageToReview}. ${VOICE_SEND_REVIEW_COPY}`
     : VOICE_SEND_REVIEW_COPY;
+  const shouldShowVoiceSendReview =
+    Boolean(voiceSendSnapshot) ||
+    isVoiceSendListening ||
+    voiceSendState === "reviewMessage" ||
+    voiceSendState === "awaitingVoiceConfirmation" ||
+    voiceSendState === "confirmedSend" ||
+    voiceSendState === "sending";
 
   return (
     <Screen
@@ -1914,6 +1755,7 @@ export default function ChatScreen() {
 
               {messagesAvailable ? (
                 <>
+                  {shouldShowVoiceSendReview ? (
                   <View style={styles.voiceSendCard}>
                     <View style={styles.voiceSendHeaderRow}>
                       <View style={styles.voiceSendTitleGroup}>
@@ -1962,19 +1804,6 @@ export default function ChatScreen() {
                     </View>
 
                     <View style={styles.voiceSendActions}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Review for voice send"
-                        accessibilityHint="Builds a current exact message review before any voice send can happen."
-                        onPress={handlePrepareVoiceSendReview}
-                        style={({ pressed }) => [
-                          styles.voiceSendSecondaryButton,
-                          pressed ? styles.voiceSendButtonPressed : null,
-                        ]}
-                      >
-                        <Text style={styles.voiceSendSecondaryButtonText}>Review for voice send</Text>
-                      </Pressable>
-
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Listen for voice send confirmation"
@@ -2036,12 +1865,13 @@ export default function ChatScreen() {
                       </Pressable>
                     </View>
                   </View>
+                  ) : null}
 
                   <View style={styles.inputRow}>
                     <TextInput
                       ref={inputRef}
                       value={draft}
-                      onChangeText={setDraft}
+                      onChangeText={updateDraft}
                       placeholder="Message your care team..."
                       placeholderTextColor={tokens.colors.textMuted}
                       accessibilityLabel="Message input"
@@ -2150,7 +1980,7 @@ export default function ChatScreen() {
                           text="You can ask about exercises, pain, or scheduling."
                           chips={["Exercises", "Pain", "Schedule"]}
                           onPress={() => {
-                            setDraft("Can I do my exercises today?");
+                            updateDraft("Can I do my exercises today?");
                             inputRef.current?.focus();
                           }}
                           compact

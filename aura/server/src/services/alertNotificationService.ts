@@ -587,16 +587,42 @@ export async function dispatchJob(
   const dispatchKind = claimed.dispatchKind === "retry" ? "retry" : "initial";
 
   if (delivered) {
-    await AlertNotificationJob.updateOne(
-      { _id: claimed._id, currentAttemptKey: attemptKey },
+    const dispatchCompletion = await AlertNotificationJob.findOneAndUpdate(
+      {
+        _id: claimed._id,
+        currentAttemptKey: attemptKey,
+        state: "sending",
+        $and: [
+          {
+            $or: [
+              { lastCallbackStatus: { $exists: false } },
+              { lastCallbackStatus: { $ne: "sent" } },
+              { lastCallbackAt: { $lt: claimed.lastAttemptedAt ?? now } },
+            ],
+          },
+          {
+            $or: [
+              { messageId: { $exists: false } },
+              { messageId: null },
+              { messageId: "" },
+              { lastCallbackAt: { $lt: claimed.lastAttemptedAt ?? now } },
+            ],
+          },
+        ],
+      },
       {
         $set: {
           state: "awaiting_callback",
           nextAttemptAt: undefined,
           lastError: undefined,
         },
+      },
+      {
+        new: true,
       }
     );
+    const latestJob =
+      dispatchCompletion ?? (await AlertNotificationJob.findById(claimed._id));
     await syncAlertNotificationSnapshot(String(claimed.alertId));
 
     if (dispatchKind === "retry") {
@@ -614,8 +640,8 @@ export async function dispatchJob(
 
     logger.info(
       "notification.job.dispatched",
-      buildNotificationLogContext(claimed, context, {
-        state: "awaiting_callback",
+      buildNotificationLogContext(latestJob ?? claimed, context, {
+        state: toStringValue(latestJob?.state) ?? "awaiting_callback",
       })
     );
 

@@ -236,6 +236,56 @@ describe("alertNotificationService", () => {
     );
   });
 
+  it("dispatchJob preserves delivered state when the callback lands before dispatch bookkeeping completes", async () => {
+    const alert = await createAlert();
+    const job = await enqueueInitialAlertNotification({
+      alert: {
+        _id: alert._id,
+        patientId: alert.patientId,
+        reason: ["PAIN_GE_THRESHOLD"],
+      },
+      reasonCodes: ["PAIN_GE_THRESHOLD"],
+    });
+
+    vi.mocked(emitAlertCreated).mockImplementation(async (payload) => {
+      await applyNotificationCallback({
+        alertId: payload.alertId,
+        body: {
+          alertId: payload.alertId,
+          channel: "telegram",
+          status: "sent",
+          timestamp: "2026-07-01T09:00:01.000Z",
+          meta: {
+            workflow: "01",
+            executionId: "exec-callback-first",
+          },
+        },
+        callbackTimestamp: new Date("2026-07-01T09:00:01.000Z"),
+        callbackMessageId: "telegram-message-callback-first",
+        requestId: "req-callback-first",
+      });
+      return true;
+    });
+
+    const delivered = await dispatchJob(String(job._id), undefined, {
+      requestId: "req-dispatch-callback-first",
+    });
+
+    expect(delivered).toBe(true);
+    const updatedJob = await AlertNotificationJob.findById(job._id).lean();
+    expect(updatedJob?.state).toBe("delivered");
+    expect(updatedJob?.lastCallbackStatus).toBe("sent");
+    expect(updatedJob?.messageId).toBe("telegram-message-callback-first");
+    expect(updatedJob?.attemptCount).toBe(1);
+    expect(updatedJob?.currentAttemptKey).toBeTruthy();
+
+    const updatedAlert = await Alert.findById(alert._id).lean();
+    expect(updatedAlert?.notification?.status).toBe("sent");
+    expect(updatedAlert?.notification?.messageId).toBe(
+      "telegram-message-callback-first"
+    );
+  });
+
   it("dispatchJob leaves the job retryable when initial delivery fails", async () => {
     const alert = await createAlert();
     const job = await enqueueInitialAlertNotification({

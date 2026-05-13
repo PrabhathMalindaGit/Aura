@@ -4,14 +4,20 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  PROVIDER_SEND_ALL_FINAL_REPORT_WORDING,
+  PROVIDER_SEND_ALL_MANUAL_WORKFLOWS,
   SAFE_FINAL_REPORT_WORDING,
   WorkflowExpectation,
   buildEvidenceMarkdown,
   buildSyntheticAlertFixture,
+  buildSyntheticRunMarker,
   checkProviderSendEnabled,
+  checkProviderSendAllEnabled,
   loadSuiteConfig,
+  providerSendAllEvidenceFileName,
   redactSecrets,
   validateWorkflowExport,
+  workflowTriggerStrategy,
   writeEvidenceFile,
 } from "../scripts/verify/n8nWorkflowRuntimeSuite";
 
@@ -167,6 +173,51 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(checkProviderSendEnabled({ AURA_VERIFY_ALLOW_PROVIDER_SEND: "true" }).enabled).toBe(true);
   });
 
+  it("gates provider-send-all mode behind both explicit flags", () => {
+    expect(checkProviderSendAllEnabled({}).enabled).toBe(false);
+    expect(
+      checkProviderSendAllEnabled({
+        AURA_VERIFY_ALLOW_PROVIDER_SEND: "true",
+      }).enabled
+    ).toBe(false);
+    expect(
+      checkProviderSendAllEnabled({
+        AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS: "true",
+      }).enabled
+    ).toBe(false);
+    expect(
+      checkProviderSendAllEnabled({
+        AURA_VERIFY_ALLOW_PROVIDER_SEND: "true",
+        AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS: "true",
+      }).enabled
+    ).toBe(true);
+
+    expect(() =>
+      loadSuiteConfig({
+        AURA_VERIFY_API_BASE_URL: "http://127.0.0.1:3000",
+        AURA_VERIFY_N8N_BASE_URL: "http://127.0.0.1:5678",
+        MONGO_URL: "mongodb://127.0.0.1:27017/aura",
+        AURA_WEBHOOK_KEY: "local-webhook-key",
+        AURA_N8N_API_KEY: "local-n8n-api-key",
+        AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS: "true",
+      })
+    ).toThrow(/AURA_VERIFY_ALLOW_PROVIDER_SEND=true/);
+
+    const config = loadSuiteConfig({
+      AURA_VERIFY_API_BASE_URL: "http://127.0.0.1:3000",
+      AURA_VERIFY_N8N_BASE_URL: "http://127.0.0.1:5678",
+      MONGO_URL: "mongodb://127.0.0.1:27017/aura",
+      AURA_WEBHOOK_KEY: "local-webhook-key",
+      AURA_N8N_API_KEY: "local-n8n-api-key",
+      AURA_VERIFY_ALLOW_PROVIDER_SEND: "true",
+      AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS: "true",
+    });
+
+    expect(config.mode).toBe("provider-send-all");
+    expect(config.providerSendAllWorkflows).toBe(true);
+    expect(config.providerAllManualWaitSeconds).toBe(300);
+  });
+
   it("refuses non-local URLs unless override is set", () => {
     expect(() =>
       loadSuiteConfig({
@@ -192,7 +243,7 @@ describe("n8n workflow runtime suite helpers", () => {
 
   it("redacts webhook keys, Telegram tokens, Authorization headers, JWTs, and passwords", () => {
     const raw =
-      "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc.def password=devpass x-aura-webhook-key: secret-value https://api.telegram.org/bot123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef/sendMessage apiKey=abc123";
+      "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc.def password=devpass x-aura-webhook-key: secret-value https://api.telegram.org/bot123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef/sendMessage apiKey=abc123 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
     const redacted = redactSecrets(raw);
 
@@ -204,6 +255,7 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(redacted).not.toContain("devpass");
     expect(redacted).not.toContain("secret-value");
     expect(redacted).not.toContain("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef");
+    expect(redacted).not.toContain("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
   });
 
   it("builds evidence markdown with local/demo caveats and no production overclaim", () => {
@@ -235,6 +287,49 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(markdown).not.toMatch(/\bclinically validated\b/i);
   });
 
+  it("builds provider-send-all evidence with manual wait details and safe wording", () => {
+    const markdown = buildEvidenceMarkdown({
+      status: "PASS",
+      mode: "provider-send-all",
+      timestamp: "2026-05-13T08:00:00.000Z",
+      runId: "run-1",
+      command: "npm run verify:n8n:workflows",
+      providerSendEnabled: true,
+      providerSendAllWorkflows: true,
+      providerAllManualWaitSeconds: 120,
+      staticResults: [],
+      runtimeChecks: [],
+      workflowSummaries: [
+        {
+          label: "Workflow 02 n8n proxy no Telegram expected",
+          passed: true,
+          detail: "Workflow 02 is a list-alerts proxy; no Telegram send expected.",
+        },
+        {
+          label: "Workflow 03 manual n8n provider-send observation",
+          passed: true,
+          detail: "Observed sent telegram callback; provider message id: manual screenshot only if visible.",
+        },
+      ],
+      capturedIds: {
+        syntheticMarker: "aura-n8n-provider-send-all:run-1",
+        workflow03ExpectedDedupeKeys: ["missed-checkin:verify-run:9:2026-05-13"],
+      },
+      failureDiagnostics: [],
+    });
+
+    expect(markdown).toContain("# n8n Provider-Send All Workflows");
+    expect(markdown).toContain("Provider-send-all gate status: enabled");
+    expect(markdown).toContain("Manual wait seconds: 120");
+    expect(markdown).toContain(PROVIDER_SEND_ALL_FINAL_REPORT_WORDING);
+    expect(markdown).toContain("manual screenshot only if visible");
+    expect(markdown).toContain("Workflow 02 is a list-alerts proxy; no Telegram send expected.");
+    expect(markdown).not.toMatch(/\bproduction-ready\b/i);
+    expect(markdown).not.toMatch(/\bclinically validated\b/i);
+    expect(markdown).not.toMatch(/\bverified real patient validation\b/i);
+    expect(markdown).not.toMatch(/\bproof that a clinician read\b(?! or acted)/i);
+  });
+
   it("formats and writes failure evidence with redacted diagnostics", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aura-n8n-suite-"));
     const evidencePath = writeEvidenceFile(
@@ -263,6 +358,38 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(markdown).not.toContain("devpass");
   });
 
+  it("uses a separate provider-send-all evidence filename", () => {
+    const date = new Date("2026-05-13T08:00:00.000Z");
+    expect(providerSendAllEvidenceFileName(date)).toBe(
+      "n8n-provider-send-all-workflows-2026-05-13-080000.md"
+    );
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aura-n8n-provider-all-"));
+    const evidencePath = writeEvidenceFile(
+      {
+        status: "FAIL",
+        mode: "provider-send-all",
+        timestamp: "2026-05-13T08:00:00.000Z",
+        runId: "run-2",
+        command: "npm run verify:n8n:workflows",
+        providerSendEnabled: true,
+        providerSendAllWorkflows: true,
+        providerAllManualWaitSeconds: 300,
+        staticResults: [],
+        runtimeChecks: [],
+        workflowSummaries: [],
+        capturedIds: {},
+        failureDiagnostics: [],
+      },
+      date,
+      dir
+    );
+
+    expect(path.basename(evidencePath)).toBe(
+      "n8n-provider-send-all-workflows-2026-05-13-080000.md"
+    );
+  });
+
   it("allows static-only config without runtime environment variables", () => {
     const config = loadSuiteConfig({ AURA_VERIFY_N8N_STATIC_ONLY: "true" });
 
@@ -282,5 +409,48 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(Array.isArray(fixture.reason)).toBe(false);
     expect(fixture.reasonsAuto).toEqual(["AURA_N8N_WORKFLOW_SUITE_SYNTHETIC"]);
     expect(fixture.demoTag).toBe("aura-n8n-workflow-suite:run-1");
+  });
+
+  it("classifies workflow trigger strategy for automatic and manual evidence", () => {
+    const workflow01 = {
+      ...baseExpectation,
+      id: "01",
+      trigger: { type: "n8n-nodes-base.webhook", method: "POST", path: "alert-created" },
+    };
+    const workflow02 = {
+      ...baseExpectation,
+      id: "02",
+      requiresTelegram: false,
+      trigger: { type: "n8n-nodes-base.webhook", method: "GET", path: "alerts" },
+    };
+    const workflow03 = {
+      ...baseExpectation,
+      id: "03",
+      trigger: { type: "n8n-nodes-base.cron", times: [{ hour: 8, minute: 0 }] },
+    };
+
+    expect(workflowTriggerStrategy(workflow01)).toBe("automatic-webhook");
+    expect(workflowTriggerStrategy(workflow02)).toBe("automatic-webhook");
+    expect(workflowTriggerStrategy(workflow03)).toBe("manual-execution-required");
+    expect(PROVIDER_SEND_ALL_MANUAL_WORKFLOWS.map((workflow) => workflow.id)).toEqual([
+      "03",
+      "04",
+      "06",
+      "07",
+      "08",
+    ]);
+  });
+
+  it("builds provider-send-all synthetic markers for safe evidence fields", () => {
+    const marker = buildSyntheticRunMarker("run-1", true);
+    const fixture = buildSyntheticAlertFixture({
+      patientId: "verify-run",
+      checkInId: "checkin-1",
+      marker,
+    });
+
+    expect(marker).toBe("aura-n8n-provider-send-all:run-1");
+    expect(fixture.demoTag).toBe(marker);
+    expect(JSON.stringify(fixture)).toContain(marker);
   });
 });

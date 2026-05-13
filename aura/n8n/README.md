@@ -277,6 +277,46 @@ Provider-send mode must be explicitly enabled and requires imported/active workf
 AURA_VERIFY_ALLOW_PROVIDER_SEND=true npm run verify:n8n:workflows
 ```
 
+Provider-send-all mode is a stronger local/demo evidence run. It can send real Telegram messages through the configured local/demo bot, and it requires both explicit gates:
+
+```bash
+cd "/Users/University/Final Project/aura/server"
+
+set -a
+source ../.env
+set +a
+
+AURA_VERIFY_ALLOW_PROVIDER_SEND=true \
+AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS=true \
+AURA_VERIFY_API_BASE_URL=http://127.0.0.1:3000 \
+AURA_VERIFY_N8N_BASE_URL=http://127.0.0.1:5678 \
+MONGO_URL=mongodb://127.0.0.1:27017/aura \
+AURA_WEBHOOK_KEY="$AURA_WEBHOOK_KEY" \
+AURA_N8N_API_KEY="$AURA_N8N_API_KEY" \
+AURA_VERIFY_PATIENT_ACCESS_CODE=P1-DEMO \
+AURA_VERIFY_N8N_PROVIDER_ALL_MANUAL_WAIT_SECONDS=300 \
+npm run verify:n8n:workflows
+```
+
+During provider-send-all mode, keep the verifier terminal running and manually use **Execute Workflow** in the n8n UI for:
+
+1. `03 - Missed Check-in Follow-through`
+2. `04 - Task Reminder Timing`
+3. `06 - Appointment Reminder and Status Follow-up`
+4. `07 - Daily Digest`
+5. `08 - Communication No-Response Escalation`
+
+The verifier prepares synthetic run-tagged data, automatically verifies Workflow 01 provider-send and Workflow 02 proxy behavior, then polls Aura backend `AUTOMATION_STATUS` events for `sent` Telegram callbacks from the five cron workflows.
+
+Provider-send-all screenshot checklist:
+- Telegram chat/group showing synthetic messages for workflows 01, 03, 04, 06, 07, and 08.
+- n8n executions list showing successful executions for workflows 01, 02, 03, 04, 06, 07, and 08.
+- n8n execution detail screenshots for workflows 03, 04, 06, 07, and 08 showing process node, Telegram node, and callback node.
+- Dashboard alert/worklist/digest surfaces where relevant.
+- Crop or redact personal names, unrelated chats, and secrets.
+
+Provider-send-all evidence is local/demo integration evidence only. It is not production notification reliability evidence, clinical validation, real patient validation, or proof that a clinician read or acted on a Telegram message.
+
 The workflow-suite verifier writes redacted markdown evidence under `docs/evidence/`. Manual n8n, dashboard, and Telegram screenshots are still recommended for appendix evidence.
 
 ## Next steps (do not implement now)

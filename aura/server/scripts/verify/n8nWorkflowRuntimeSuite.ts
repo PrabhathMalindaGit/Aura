@@ -22,6 +22,9 @@ export const SAFE_FINAL_REPORT_WORDING =
 export const PROVIDER_SEND_FINAL_REPORT_WORDING =
   "Provider-send mode was explicitly enabled for the Workflow 01 alert path. A synthetic high-risk event triggered a Telegram notification through the configured local/demo n8n workflow and recorded backend delivery/callback evidence.";
 
+export const PROVIDER_SEND_ALL_FINAL_REPORT_WORDING =
+  "Under local/demo conditions, Aura verified each Telegram-capable n8n workflow with synthetic data. Workflow 01 was automatically exercised through the high-risk alert path and recorded Telegram delivery/callback evidence. Workflows 03, 04, 06, 07, and 08 were prepared with run-tagged eligible demo data and verified through manual n8n execution plus backend automation-status callback evidence. Workflow 02 was verified separately as an authenticated list-alerts proxy with no Telegram send expected. This evidence demonstrates local/demo provider-send integration only and does not represent production notification reliability, clinical validation, real patient validation, or proof that a clinician read or acted on a message.";
+
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 const TELEGRAM_BOT_TOKEN_PATTERN = /\b\d{6,}:[A-Za-z0-9_-]{20,}\b/g;
 const TELEGRAM_BOT_URL_PATTERN =
@@ -87,13 +90,20 @@ export type WorkflowValidationResult = {
   checks: VerificationCheck[];
 };
 
-type RuntimeMode = "static-only" | "safe-runtime" | "provider-send";
+type RuntimeMode = "static-only" | "safe-runtime" | "provider-send" | "provider-send-all";
+
+export type WorkflowTriggerStrategy =
+  | "automatic-webhook"
+  | "manual-execution-required";
 
 type SuiteConfig = {
   mode: RuntimeMode;
   allowNonLocal: boolean;
   cleanupSynthetic: boolean;
   providerSendEnabled: boolean;
+  providerSendAllWorkflows: boolean;
+  providerAllManualWaitSeconds: number;
+  providerAllPollSeconds: number;
   apiBaseUrl?: string;
   n8nBaseUrl?: string;
   mongoUrl?: string;
@@ -111,6 +121,8 @@ type EvidenceState = {
   runId: string;
   command: string;
   providerSendEnabled: boolean;
+  providerSendAllWorkflows?: boolean;
+  providerAllManualWaitSeconds?: number;
   staticResults: WorkflowValidationResult[];
   runtimeChecks: VerificationCheck[];
   workflowSummaries: VerificationCheck[];
@@ -135,6 +147,24 @@ type ProcessResponse = {
   items?: Array<Record<string, unknown>>;
   messageText?: string;
   summary?: Record<string, unknown>;
+};
+
+type PreflightResult = {
+  workflowId: string;
+  workflowName: string;
+  workflow: string;
+  path: string;
+  itemCount: number;
+  expectedDedupeKeys: string[];
+};
+
+type ManualWorkflowObservation = {
+  workflowId: string;
+  workflowName: string;
+  workflow: string;
+  expectedDedupeKeys: string[];
+  observedEventKeys: string[];
+  providerMessageId: string;
 };
 
 type AutomationCallbackResponse = {
@@ -165,6 +195,7 @@ type PatientChatResponse = {
 };
 
 type AlertJobSummary = {
+  jobId?: string;
   state?: string;
   channel?: string;
   dispatchKind?: string;
@@ -174,6 +205,49 @@ type AlertJobSummary = {
 };
 
 const SYNTHETIC_ALERT_REASON = "AURA_N8N_WORKFLOW_SUITE_SYNTHETIC";
+
+const DEFAULT_PROVIDER_ALL_MANUAL_WAIT_SECONDS = 300;
+const DEFAULT_PROVIDER_ALL_POLL_SECONDS = 5;
+
+const PROVIDER_ALL_MANUAL_WORKFLOW_IDS = new Set(["03", "04", "06", "07", "08"]);
+
+const AUTOMATION_CHECKS: Array<{
+  id: string;
+  label: string;
+  path: string;
+  workflow: string;
+}> = [
+  {
+    id: "03",
+    label: "Workflow 03 missed check-in",
+    path: "/internal/n8n/follow-through/missed-checkins/process",
+    workflow: "missed_checkin_reminder",
+  },
+  {
+    id: "04",
+    label: "Workflow 04 task reminder",
+    path: "/internal/n8n/follow-through/tasks/process",
+    workflow: "task_reminder_timing",
+  },
+  {
+    id: "06",
+    label: "Workflow 06 appointment",
+    path: "/internal/n8n/follow-through/appointments/process",
+    workflow: "appointment_follow_through",
+  },
+  {
+    id: "07",
+    label: "Workflow 07 daily digest",
+    path: "/internal/n8n/follow-through/digest/process",
+    workflow: "daily_clinician_digest",
+  },
+  {
+    id: "08",
+    label: "Workflow 08 communication",
+    path: "/internal/n8n/follow-through/communications/process",
+    workflow: "communication_no_response_escalation",
+  },
+];
 
 export function buildSyntheticAlertFixture(params: {
   patientId: string;
@@ -382,6 +456,13 @@ export const WORKFLOW_EXPECTATIONS: WorkflowExpectation[] = [
   },
 ];
 
+export const PROVIDER_SEND_ALL_MANUAL_WORKFLOWS = WORKFLOW_EXPECTATIONS.filter(
+  (workflow) => PROVIDER_ALL_MANUAL_WORKFLOW_IDS.has(workflow.id)
+).map((workflow) => ({
+  id: workflow.id,
+  name: workflow.name,
+}));
+
 function parseBoolean(value: string | undefined): boolean {
   const normalized = (value ?? "").trim().toLowerCase();
   return normalized === "true" || normalized === "1" || normalized === "yes";
@@ -397,6 +478,56 @@ export function checkProviderSendEnabled(
       ? "AURA_VERIFY_ALLOW_PROVIDER_SEND=true; provider-send checks may trigger Telegram in local/demo n8n."
       : "AURA_VERIFY_ALLOW_PROVIDER_SEND is not true; provider-send checks are disabled.",
   };
+}
+
+export function checkProviderSendAllEnabled(
+  rawEnv: Record<string, string | undefined>
+): { requested: boolean; enabled: boolean; detail: string } {
+  const requested = parseBoolean(rawEnv.AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS);
+  const providerSend = checkProviderSendEnabled(rawEnv).enabled;
+  const enabled = providerSend && requested;
+  return {
+    requested,
+    enabled,
+    detail: enabled
+      ? "AURA_VERIFY_ALLOW_PROVIDER_SEND=true and AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS=true; all-workflow provider-send checks may send Telegram in local/demo n8n."
+      : requested
+        ? "AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS=true but AURA_VERIFY_ALLOW_PROVIDER_SEND is not true; provider-send-all is disabled."
+        : "AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS is not true; provider-send-all checks are disabled.",
+  };
+}
+
+function parsePositiveIntEnv(
+  rawEnv: Record<string, string | undefined>,
+  name: string,
+  fallback: number
+): number {
+  const raw = rawEnv[name]?.trim();
+  if (!raw) {
+    return fallback;
+  }
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer number of seconds`);
+  }
+  return parsed;
+}
+
+export function buildSyntheticRunMarker(
+  runId: string,
+  providerSendAll = false
+): string {
+  return providerSendAll
+    ? `aura-n8n-provider-send-all:${runId}`
+    : `aura-n8n-workflow-suite:${runId}`;
+}
+
+export function workflowTriggerStrategy(
+  expectation: WorkflowExpectation
+): WorkflowTriggerStrategy {
+  return expectation.trigger.type === "n8n-nodes-base.webhook"
+    ? "automatic-webhook"
+    : "manual-execution-required";
 }
 
 export function redactSecrets(input: unknown): string {
@@ -456,8 +587,25 @@ function requireEnv(rawEnv: NodeJS.ProcessEnv, name: string): string {
 
 export function loadSuiteConfig(rawEnv: NodeJS.ProcessEnv): SuiteConfig {
   const providerSend = checkProviderSendEnabled(rawEnv);
+  const providerSendAll = checkProviderSendAllEnabled(rawEnv);
   const staticOnly = parseBoolean(rawEnv.AURA_VERIFY_N8N_STATIC_ONLY);
   const allowNonLocal = parseBoolean(rawEnv.AURA_VERIFY_ALLOW_NON_LOCAL);
+  const providerAllManualWaitSeconds = parsePositiveIntEnv(
+    rawEnv,
+    "AURA_VERIFY_N8N_PROVIDER_ALL_MANUAL_WAIT_SECONDS",
+    DEFAULT_PROVIDER_ALL_MANUAL_WAIT_SECONDS
+  );
+  const providerAllPollSeconds = parsePositiveIntEnv(
+    rawEnv,
+    "AURA_VERIFY_N8N_PROVIDER_ALL_POLL_SECONDS",
+    DEFAULT_PROVIDER_ALL_POLL_SECONDS
+  );
+
+  if (providerSendAll.requested && !providerSend.enabled) {
+    throw new Error(
+      "AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS=true requires AURA_VERIFY_ALLOW_PROVIDER_SEND=true. Provider-send-all is explicitly gated because it can send Telegram messages in local/demo n8n."
+    );
+  }
 
   if (staticOnly) {
     return {
@@ -465,6 +613,9 @@ export function loadSuiteConfig(rawEnv: NodeJS.ProcessEnv): SuiteConfig {
       allowNonLocal,
       cleanupSynthetic: parseBoolean(rawEnv.AURA_VERIFY_CLEANUP_SYNTHETIC),
       providerSendEnabled: false,
+      providerSendAllWorkflows: false,
+      providerAllManualWaitSeconds,
+      providerAllPollSeconds,
     };
   }
 
@@ -480,10 +631,17 @@ export function loadSuiteConfig(rawEnv: NodeJS.ProcessEnv): SuiteConfig {
   );
 
   const config: SuiteConfig = {
-    mode: providerSend.enabled ? "provider-send" : "safe-runtime",
+    mode: providerSendAll.enabled
+      ? "provider-send-all"
+      : providerSend.enabled
+        ? "provider-send"
+        : "safe-runtime",
     allowNonLocal,
     cleanupSynthetic: parseBoolean(rawEnv.AURA_VERIFY_CLEANUP_SYNTHETIC),
     providerSendEnabled: providerSend.enabled,
+    providerSendAllWorkflows: providerSendAll.enabled,
+    providerAllManualWaitSeconds,
+    providerAllPollSeconds,
     apiBaseUrl,
     n8nBaseUrl,
     mongoUrl: requireEnv(rawEnv, "MONGO_URL"),
@@ -857,6 +1015,10 @@ function formatDateForFile(date: Date): string {
   return `${iso.slice(0, 10)}-${iso.slice(11, 19).replace(/:/g, "")}`;
 }
 
+export function providerSendAllEvidenceFileName(date: Date): string {
+  return `n8n-provider-send-all-workflows-${formatDateForFile(date)}.md`;
+}
+
 function markdownChecks(checks: VerificationCheck[]): string {
   if (checks.length === 0) {
     return "- [ ] No checks were recorded.";
@@ -901,34 +1063,67 @@ export function buildEvidenceMarkdown(state: EvidenceState): string {
   const modeLabel =
     state.mode === "static-only"
       ? "static-only"
-      : state.mode === "provider-send"
+      : state.mode === "provider-send-all"
+        ? "provider-send-all"
+        : state.mode === "provider-send"
         ? "provider-send"
         : "safe-runtime";
   const requiredServices =
     state.mode === "static-only"
       ? "None. Static-only mode reads local workflow exports only."
+      : state.mode === "provider-send-all"
+        ? "MongoDB, Aura backend, local n8n, imported/active workflows, AI/Safety Router path for Workflow 01, configured local/demo Telegram credentials/chat ID in n8n, and manual n8n Execute Workflow runs for workflows 03, 04, 06, 07, and 08."
       : state.mode === "provider-send"
         ? "MongoDB, Aura backend, local n8n, imported/active workflows, AI/Safety Router path for Workflow 01, and configured local/demo Telegram credentials/chat ID in n8n."
         : "MongoDB, Aura backend, and local n8n. Telegram/provider sending remains disabled.";
+  const title = state.mode === "provider-send-all"
+    ? `n8n Provider-Send All Workflows - ${state.timestamp.slice(0, 10)}`
+    : `n8n Workflow Runtime Suite - ${state.timestamp.slice(0, 10)}`;
+  const marker = buildSyntheticRunMarker(
+    state.runId,
+    state.providerSendAllWorkflows === true
+  );
+  const providerAllSection = state.providerSendAllWorkflows
+    ? `
+- Provider-send-all gate status: enabled
+- Manual wait seconds: ${state.providerAllManualWaitSeconds ?? DEFAULT_PROVIDER_ALL_MANUAL_WAIT_SECONDS}
+`
+    : "- Provider-send-all gate status: disabled";
+  const screenshotChecklist = state.providerSendAllWorkflows
+    ? `- Telegram chat/group showing synthetic messages for workflows 01, 03, 04, 06, 07, and 08.
+- n8n executions list showing successful executions for workflows 01, 02, 03, 04, 06, 07, and 08.
+- n8n execution detail screenshots for workflows 03, 04, 06, 07, and 08 showing process node, Telegram node, and callback node.
+- Dashboard alert/worklist/digest surfaces where relevant.
+- Crop or redact personal names, unrelated chats, and secrets.`
+    : `- n8n workflows list showing the seven Aura workflows imported/published for the local demo.
+- Workflow 02 n8n execution or response screenshot if the proxy check was run through n8n.
+- Backend terminal or this evidence file with secrets hidden.
+- For workflows 03, 04, 06, 07, and 08, manual Execute Workflow screenshots when full n8n execution is needed: process node, Telegram or skipped branch, callback node, and success output.
+- In provider-send mode only: Telegram chat/group showing the synthetic Aura alert, n8n Workflow 01 execution success view, and clinician dashboard alert visibility.
+- Crop or redact personal names, unrelated chats, and any secrets.`;
+  const finalReportWording = state.providerSendAllWorkflows
+    ? PROVIDER_SEND_ALL_FINAL_REPORT_WORDING
+    : `${SAFE_FINAL_REPORT_WORDING}${state.providerSendEnabled ? `\n\n${PROVIDER_SEND_FINAL_REPORT_WORDING}` : ""}`;
 
-  return redactSecrets(`# n8n Workflow Runtime Suite - ${state.timestamp.slice(0, 10)}
+  return redactSecrets(`# ${title}
 
 ## Purpose
 
 This evidence records local/demo runtime verification for the Aura n8n workflow suite. It uses synthetic/demo data only and is intended for final report evidence.
 
-This is local/demo runtime verification only. It is not production readiness evidence, production notification reliability evidence, clinical validation, real patient validation, or proof that a clinician read or acted on a message.
+This is local/demo ${state.providerSendAllWorkflows ? "provider-send" : "runtime"} verification only. It is not production readiness evidence, production notification reliability evidence, clinical validation, real patient validation, or proof that a clinician read or acted on a message.
 
 ## Run Metadata
 
 - Status: ${state.status}
 - Timestamp: ${state.timestamp}
 - Run ID: ${state.runId}
-- Synthetic marker: \`aura-n8n-workflow-suite:${state.runId}\`
+- Synthetic marker: \`${marker}\`
 - Command used: \`${state.command}\`
 - Mode: ${modeLabel}
 - Required services: ${requiredServices}
 - Provider-send gate status: ${state.providerSendEnabled ? "enabled" : "disabled"}
+${providerAllSection}
 
 ## Static Workflow Validation Summary
 
@@ -941,6 +1136,11 @@ ${markdownChecks(state.runtimeChecks)}
 ## Workflow-by-Workflow Runtime Checklist
 
 ${markdownChecks(state.workflowSummaries)}
+
+${state.providerSendAllWorkflows ? `## Provider-Send-All Manual Observation Results
+
+Workflow 01 is automatic through the synthetic high-risk alert path. Workflow 02 is automatic and is expected not to send Telegram. Workflows 03, 04, 06, 07, and 08 require manual n8n Execute Workflow runs; provider message ids for those workflows are recorded as "manual screenshot only if visible" when n8n callback payloads do not include Telegram message ids.
+` : ""}
 
 ## IDs Captured
 
@@ -956,12 +1156,7 @@ This file was generated with secret redaction. JWTs, passwords, webhook keys, AP
 
 ## Manual Screenshot Checklist
 
-- n8n workflows list showing the seven Aura workflows imported/published for the local demo.
-- Workflow 02 n8n execution or response screenshot if the proxy check was run through n8n.
-- Backend terminal or this evidence file with secrets hidden.
-- For workflows 03, 04, 06, 07, and 08, manual Execute Workflow screenshots when full n8n execution is needed: process node, Telegram or skipped branch, callback node, and success output.
-- In provider-send mode only: Telegram chat/group showing the synthetic Aura alert, n8n Workflow 01 execution success view, and clinician dashboard alert visibility.
-- Crop or redact personal names, unrelated chats, and any secrets.
+${screenshotChecklist}
 
 ## Limitations
 
@@ -972,12 +1167,11 @@ This file was generated with secret redaction. JWTs, passwords, webhook keys, AP
 - It does not prove that a clinician read, understood, or acted on a message.
 - Safe runtime mode verifies cron workflows through Aura backend internal process endpoints instead of forcing n8n cron execution.
 - Manual n8n and Telegram screenshots are still recommended for appendix evidence.
+- Provider-send-all mode still requires manual n8n execution screenshots for cron-triggered workflows 03, 04, 06, 07, and 08.
 
 ## Safe Final Report Wording
 
-${SAFE_FINAL_REPORT_WORDING}
-
-${state.providerSendEnabled ? `\n${PROVIDER_SEND_FINAL_REPORT_WORDING}\n` : ""}
+${finalReportWording}
 `);
 }
 
@@ -989,7 +1183,9 @@ export function writeEvidenceFile(
   fs.mkdirSync(outputRoot, { recursive: true });
   const outputPath = path.join(
     outputRoot,
-    `n8n-workflow-runtime-suite-${formatDateForFile(date)}.md`
+    state.providerSendAllWorkflows
+      ? providerSendAllEvidenceFileName(date)
+      : `n8n-workflow-runtime-suite-${formatDateForFile(date)}.md`
   );
   fs.writeFileSync(outputPath, buildEvidenceMarkdown(state), "utf8");
   return outputPath;
@@ -1033,8 +1229,11 @@ async function probeN8n(baseUrl: string): Promise<number> {
   return response.status;
 }
 
-async function createSyntheticFixtures(runId: string): Promise<Record<string, string | string[]>> {
-  const marker = `aura-n8n-workflow-suite:${runId}`;
+async function createSyntheticFixtures(
+  runId: string,
+  providerSendAll = false
+): Promise<Record<string, string | string[]>> {
+  const marker = buildSyntheticRunMarker(runId, providerSendAll);
   const shortId = runId.slice(0, 8);
   const patientId = `verify-${shortId}`;
   const now = new Date();
@@ -1045,7 +1244,9 @@ async function createSyntheticFixtures(runId: string): Promise<Record<string, st
     { patientId },
     {
       patientId,
-      displayName: "Aura n8n Synthetic Patient",
+      displayName: providerSendAll
+        ? `Aura n8n Provider-Send Synthetic ${shortId} ${marker}`
+        : "Aura n8n Synthetic Patient",
       accessCode: `VERIFY-${shortId}`,
       clinicianId: "clinician-verify",
       status: "active",
@@ -1073,8 +1274,10 @@ async function createSyntheticFixtures(runId: string): Promise<Record<string, st
 
   const task = await Task.create({
     patientId,
-    title: "Synthetic n8n workflow suite task",
-    description: marker,
+    title: providerSendAll
+      ? `Synthetic provider-send task ${shortId}`
+      : "Synthetic n8n workflow suite task",
+    description: providerSendAll ? `${marker} due task reminder evidence` : marker,
     type: "follow_up",
     priority: "high",
     status: "open",
@@ -1105,18 +1308,21 @@ async function createSyntheticFixtures(runId: string): Promise<Record<string, st
     slotId: slot._id,
     patientId,
     status: "pending",
-    note: marker,
+    note: providerSendAll ? `${marker} appointment reminder/status evidence` : marker,
     demoTag: marker,
   });
 
+  const communicationMessageId = new mongoose.Types.ObjectId().toString();
   const communication = await CommunicationReview.create({
     patientId,
-    messageId: new mongoose.Types.ObjectId().toString(),
+    messageId: communicationMessageId,
     needsResponse: true,
     flaggedBySafety: true,
     followUpRequested: true,
     messageCreatedAt: oldDate,
-    messagePreview: "Synthetic n8n workflow suite message needing response",
+    messagePreview: providerSendAll
+      ? `${marker} communication no-response evidence`
+      : "Synthetic n8n workflow suite message needing response",
     demoTag: marker,
   });
 
@@ -1127,6 +1333,7 @@ async function createSyntheticFixtures(runId: string): Promise<Record<string, st
     syntheticTaskId: String(task._id),
     syntheticAppointmentRequestId: String(appointment._id),
     syntheticCommunicationReviewId: String(communication._id),
+    syntheticCommunicationMessageId: communicationMessageId,
   };
 }
 
@@ -1227,8 +1434,211 @@ async function runAutomationEndpoint(params: {
   };
 }
 
+function syntheticDedupeKeysForWorkflow(params: {
+  workflowId: string;
+  items: Array<Record<string, unknown>>;
+  fixtureIds: Record<string, string | string[]>;
+}): string[] {
+  const marker = String(params.fixtureIds.syntheticMarker ?? "");
+  const patientId = String(params.fixtureIds.syntheticPatientId ?? "");
+  const taskId = String(params.fixtureIds.syntheticTaskId ?? "");
+  const appointmentRequestId = String(params.fixtureIds.syntheticAppointmentRequestId ?? "");
+  const communicationReviewId = String(params.fixtureIds.syntheticCommunicationReviewId ?? "");
+  const communicationMessageId = String(params.fixtureIds.syntheticCommunicationMessageId ?? "");
+
+  const matches = params.items.filter((item) => {
+    const text = JSON.stringify(item);
+    if (marker && text.includes(marker)) {
+      return true;
+    }
+    if (params.workflowId === "03") {
+      return patientId && text.includes(patientId);
+    }
+    if (params.workflowId === "04") {
+      return taskId && text.includes(taskId);
+    }
+    if (params.workflowId === "06") {
+      return appointmentRequestId && text.includes(appointmentRequestId);
+    }
+    if (params.workflowId === "08") {
+      return (
+        (communicationReviewId && text.includes(communicationReviewId)) ||
+        (communicationMessageId && text.includes(communicationMessageId))
+      );
+    }
+    if (params.workflowId === "07") {
+      return true;
+    }
+    return false;
+  });
+
+  return [
+    ...new Set(
+      matches
+        .map((item) => String(item.dedupeKey ?? ""))
+        .filter((dedupeKey) => dedupeKey.length > 0)
+    ),
+  ];
+}
+
+async function preflightProviderAllAutomationEndpoint(params: {
+  config: SuiteConfig;
+  path: string;
+  workflowId: string;
+  workflowName: string;
+  workflow: string;
+  fixtureIds: Record<string, string | string[]>;
+  now: Date;
+}): Promise<PreflightResult> {
+  const processResponse = await postJson<ProcessResponse>(
+    params.config.apiBaseUrl ?? "",
+    params.path,
+    { limit: 25, force: false, now: params.now.toISOString() },
+    { "x-aura-webhook-key": params.config.auraWebhookKey ?? "" }
+  );
+  if (processResponse.status !== 200 || processResponse.data.ok !== true) {
+    throw new Error(
+      `${params.path} provider-send-all preflight failed with HTTP ${processResponse.status}: ${redactSecrets(processResponse.data)}`
+    );
+  }
+
+  const items = Array.isArray(processResponse.data.items)
+    ? processResponse.data.items
+    : [];
+  const expectedDedupeKeys = syntheticDedupeKeysForWorkflow({
+    workflowId: params.workflowId,
+    items,
+    fixtureIds: params.fixtureIds,
+  });
+
+  if (items.length === 0 || expectedDedupeKeys.length === 0) {
+    throw new Error(
+      `${params.workflowName} provider-send-all preflight returned no eligible synthetic/demo dedupe keys. This can happen if today's dedupe key was already sent/skipped or the synthetic fixture no longer matches the process criteria.`
+    );
+  }
+
+  return {
+    workflowId: params.workflowId,
+    workflowName: params.workflowName,
+    workflow: params.workflow,
+    path: params.path,
+    itemCount: items.length,
+    expectedDedupeKeys,
+  };
+}
+
+function printProviderSendAllManualInstructions(waitSeconds: number): void {
+  console.log("");
+  console.log("Provider-send-all mode is enabled. This can send real Telegram messages through the configured local/demo bot.");
+  console.log("The verifier has prepared synthetic run-tagged data.");
+  console.log("Now manually execute the following n8n workflows from the n8n UI:");
+  for (const [index, workflow] of PROVIDER_SEND_ALL_MANUAL_WORKFLOWS.entries()) {
+    console.log(`${index + 1}. ${workflow.name}`);
+  }
+  console.log("After executing them, keep this terminal running. The verifier will poll backend callback evidence.");
+  console.log(`Manual wait timeout: ${waitSeconds} seconds.`);
+  console.log("");
+}
+
+function summarizeAutomationEvent(rawEvent: Record<string, unknown>): {
+  eventKey?: string;
+  dedupeKey?: string;
+  workflow?: string;
+  status?: string;
+  channel?: string;
+} {
+  const payload =
+    rawEvent.payload && typeof rawEvent.payload === "object" && !Array.isArray(rawEvent.payload)
+      ? (rawEvent.payload as Record<string, unknown>)
+      : {};
+  return {
+    eventKey: typeof payload.eventKey === "string" ? payload.eventKey : undefined,
+    dedupeKey: typeof payload.dedupeKey === "string" ? payload.dedupeKey : undefined,
+    workflow: typeof payload.workflow === "string" ? payload.workflow : undefined,
+    status: typeof payload.status === "string" ? payload.status : undefined,
+    channel: typeof payload.channel === "string" ? payload.channel : undefined,
+  };
+}
+
+async function findProviderAllObservation(
+  preflight: PreflightResult,
+  startedAt: Date
+): Promise<ManualWorkflowObservation | null> {
+  const events = await CareEvent.find({
+    type: "AUTOMATION_STATUS",
+    createdAt: { $gte: startedAt },
+    "payload.workflow": preflight.workflow,
+    "payload.status": "sent",
+    "payload.channel": "telegram",
+    "payload.dedupeKey": { $in: preflight.expectedDedupeKeys },
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (events.length === 0) {
+    return null;
+  }
+
+  const summaries = events.map((event) =>
+    summarizeAutomationEvent(event as Record<string, unknown>)
+  );
+  const observedEventKeys = summaries
+    .map((summary) => summary.eventKey)
+    .filter((eventKey): eventKey is string => Boolean(eventKey));
+
+  await CareEvent.updateMany(
+    {
+      type: "AUTOMATION_STATUS",
+      "payload.eventKey": { $in: observedEventKeys },
+    },
+    { $set: { "payload.verifierMarker": `provider-send-all:${preflight.workflowId}` } }
+  );
+
+  return {
+    workflowId: preflight.workflowId,
+    workflowName: preflight.workflowName,
+    workflow: preflight.workflow,
+    expectedDedupeKeys: preflight.expectedDedupeKeys,
+    observedEventKeys,
+    providerMessageId: "manual screenshot only if visible",
+  };
+}
+
+async function pollProviderAllManualObservations(params: {
+  preflights: PreflightResult[];
+  startedAt: Date;
+  waitSeconds: number;
+  pollSeconds: number;
+}): Promise<ManualWorkflowObservation[]> {
+  const deadline = Date.now() + params.waitSeconds * 1000;
+  const observed = new Map<string, ManualWorkflowObservation>();
+
+  while (Date.now() <= deadline) {
+    for (const preflight of params.preflights) {
+      if (observed.has(preflight.workflowId)) {
+        continue;
+      }
+      const observation = await findProviderAllObservation(preflight, params.startedAt);
+      if (observation) {
+        observed.set(preflight.workflowId, observation);
+      }
+    }
+
+    if (observed.size === params.preflights.length) {
+      break;
+    }
+
+    await sleep(params.pollSeconds * 1000);
+  }
+
+  return params.preflights
+    .map((preflight) => observed.get(preflight.workflowId))
+    .filter((value): value is ManualWorkflowObservation => Boolean(value));
+}
+
 function summarizeJob(rawJob: Record<string, unknown>): AlertJobSummary {
   return {
+    jobId: rawJob._id ? String(rawJob._id) : undefined,
     state: typeof rawJob.state === "string" ? rawJob.state : undefined,
     channel: typeof rawJob.channel === "string" ? rawJob.channel : undefined,
     dispatchKind:
@@ -1293,7 +1703,7 @@ async function runProviderSendWorkflow01(
     throw new Error(`Patient login failed for provider-send proof with HTTP ${patientLogin.status}`);
   }
 
-  const syntheticMessage = `[aura-n8n-workflow-suite:${state.runId}] I cant breathe and need urgent help. Synthetic demo verification only.`;
+  const syntheticMessage = `[${buildSyntheticRunMarker(state.runId, state.providerSendAllWorkflows === true)}] I cant breathe and need urgent help. Synthetic demo verification only.`;
   const chatResponse = await postJson<PatientChatResponse>(
     config.apiBaseUrl ?? "",
     "/patient/chat/send",
@@ -1313,6 +1723,8 @@ async function runProviderSendWorkflow01(
   state.capturedIds.providerSendAlertId = alertId;
   const job = await pollDeliveredJob(alertId);
   state.capturedIds.providerSendNotificationJob = JSON.stringify(job);
+  state.capturedIds.providerSendNotificationJobId = job.jobId;
+  state.capturedIds.providerSendProviderMessageId = job.messageId;
 
   const event = await CareEvent.findOne({
     alertId,
@@ -1331,7 +1743,103 @@ async function runProviderSendWorkflow01(
   );
 }
 
-async function runRuntimeChecks(state: EvidenceState, config: SuiteConfig): Promise<void> {
+async function runProviderSendAllWorkflowChecks(
+  state: EvidenceState,
+  config: SuiteConfig,
+  startedAt: Date
+): Promise<void> {
+  if (!config.providerSendAllWorkflows) {
+    return;
+  }
+
+  await runProviderSendWorkflow01(state, config);
+
+  pushCheck(
+    state.workflowSummaries,
+    "Workflow 02 n8n proxy no Telegram expected",
+    true,
+    "Workflow 02 is a list-alerts proxy; no Telegram send expected."
+  );
+
+  const fixtureIds = await createSyntheticFixtures(state.runId, true);
+  Object.assign(state.capturedIds, fixtureIds);
+  const now = new Date();
+
+  const preflights: PreflightResult[] = [];
+  for (const check of AUTOMATION_CHECKS) {
+    const expectation = WORKFLOW_EXPECTATIONS.find((workflow) => workflow.id === check.id);
+    const preflight = await preflightProviderAllAutomationEndpoint({
+      config,
+      path: check.path,
+      workflowId: check.id,
+      workflowName: expectation?.name ?? check.label,
+      workflow: check.workflow,
+      fixtureIds,
+      now,
+    });
+    preflights.push(preflight);
+    state.capturedIds[`workflow${check.id}ExpectedDedupeKeys`] = preflight.expectedDedupeKeys;
+    pushCheck(
+      state.workflowSummaries,
+      `${check.label} provider-send-all backend preflight`,
+      true,
+      `items=${preflight.itemCount}; expectedSyntheticDedupeKeys=${preflight.expectedDedupeKeys.join(", ")}`
+    );
+  }
+
+  printProviderSendAllManualInstructions(config.providerAllManualWaitSeconds);
+
+  const observations = await pollProviderAllManualObservations({
+    preflights,
+    startedAt,
+    waitSeconds: config.providerAllManualWaitSeconds,
+    pollSeconds: config.providerAllPollSeconds,
+  });
+  const observedByWorkflow = new Map(
+    observations.map((observation) => [observation.workflowId, observation])
+  );
+
+  for (const preflight of preflights) {
+    const observation = observedByWorkflow.get(preflight.workflowId);
+    if (observation) {
+      state.capturedIds[`workflow${preflight.workflowId}ProviderMessageId`] =
+        observation.providerMessageId;
+      state.capturedIds[`workflow${preflight.workflowId}ObservedAutomationEvents`] =
+        observation.observedEventKeys;
+      pushCheck(
+        state.workflowSummaries,
+        `Workflow ${preflight.workflowId} manual n8n provider-send observation`,
+        true,
+        `Observed sent telegram callback for ${observation.workflow}; provider message id: ${observation.providerMessageId}.`
+      );
+      continue;
+    }
+
+    pushCheck(
+      state.workflowSummaries,
+      `Workflow ${preflight.workflowId} manual n8n provider-send observation`,
+      false,
+      `Not observed before timeout. Expected workflow=${preflight.workflow}; expectedDedupeKeys=${preflight.expectedDedupeKeys.join(", ")}`
+    );
+  }
+
+  const missing = preflights.filter(
+    (preflight) => !observedByWorkflow.has(preflight.workflowId)
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `Provider-send-all manual n8n evidence incomplete for workflow(s): ${missing
+        .map((workflow) => workflow.workflowId)
+        .join(", ")}`
+    );
+  }
+}
+
+async function runRuntimeChecks(
+  state: EvidenceState,
+  config: SuiteConfig,
+  startedAt: Date
+): Promise<void> {
   const backendHealth = await getJson<HealthResponse>(config.apiBaseUrl ?? "", "/health");
   const backendOk = backendHealth.status >= 200 && backendHealth.status < 300;
   pushCheck(state.runtimeChecks, "Backend health reachable", backendOk, `HTTP ${backendHealth.status}`);
@@ -1410,45 +1918,17 @@ async function runRuntimeChecks(state: EvidenceState, config: SuiteConfig): Prom
     throw new Error("Workflow 02 n8n proxy runtime checks failed");
   }
 
+  if (config.providerSendAllWorkflows) {
+    await runProviderSendAllWorkflowChecks(state, config, startedAt);
+    return;
+  }
+
   const fixtureIds = await createSyntheticFixtures(state.runId);
   Object.assign(state.capturedIds, fixtureIds);
   const marker = String(fixtureIds.syntheticMarker);
   const now = new Date();
 
-  const automationChecks: Array<{ id: string; label: string; path: string; workflow: string }> = [
-    {
-      id: "03",
-      label: "Workflow 03 missed check-in backend process and internal-demo callback",
-      path: "/internal/n8n/follow-through/missed-checkins/process",
-      workflow: "missed_checkin_reminder",
-    },
-    {
-      id: "04",
-      label: "Workflow 04 task reminder backend process and internal-demo callback",
-      path: "/internal/n8n/follow-through/tasks/process",
-      workflow: "task_reminder_timing",
-    },
-    {
-      id: "06",
-      label: "Workflow 06 appointment backend process and internal-demo callback",
-      path: "/internal/n8n/follow-through/appointments/process",
-      workflow: "appointment_follow_through",
-    },
-    {
-      id: "08",
-      label: "Workflow 08 communication backend process and internal-demo callback",
-      path: "/internal/n8n/follow-through/communications/process",
-      workflow: "communication_no_response_escalation",
-    },
-    {
-      id: "07",
-      label: "Workflow 07 digest backend process and internal-demo callback",
-      path: "/internal/n8n/follow-through/digest/process",
-      workflow: "daily_clinician_digest",
-    },
-  ];
-
-  for (const check of automationChecks) {
+  for (const check of AUTOMATION_CHECKS) {
     const result = await runAutomationEndpoint({
       config,
       path: check.path,
@@ -1461,7 +1941,7 @@ async function runRuntimeChecks(state: EvidenceState, config: SuiteConfig): Prom
     state.capturedIds[`workflow${check.id}AutomationEvents`] = result.writtenEvents;
     pushCheck(
       state.workflowSummaries,
-      check.label,
+      `${check.label} backend process and internal-demo callback`,
       result.itemCount > 0 && result.writtenEvents.length > 0,
       `items=${result.itemCount}; writtenEvents=${result.writtenEvents.length}`
     );
@@ -1480,14 +1960,23 @@ async function runRuntimeChecks(state: EvidenceState, config: SuiteConfig): Prom
   }
 }
 
-function createInitialState(runId: string, timestamp: string, mode: RuntimeMode, providerSendEnabled: boolean): EvidenceState {
+function createInitialState(params: {
+  runId: string;
+  timestamp: string;
+  mode: RuntimeMode;
+  providerSendEnabled: boolean;
+  providerSendAllWorkflows?: boolean;
+  providerAllManualWaitSeconds?: number;
+}): EvidenceState {
   return {
     status: "FAIL",
-    mode,
-    timestamp,
-    runId,
+    mode: params.mode,
+    timestamp: params.timestamp,
+    runId: params.runId,
     command: "npm run verify:n8n:workflows",
-    providerSendEnabled,
+    providerSendEnabled: params.providerSendEnabled,
+    providerSendAllWorkflows: params.providerSendAllWorkflows,
+    providerAllManualWaitSeconds: params.providerAllManualWaitSeconds,
     staticResults: [],
     runtimeChecks: [],
     workflowSummaries: [],
@@ -1499,12 +1988,28 @@ function createInitialState(runId: string, timestamp: string, mode: RuntimeMode,
 async function runSuite(): Promise<{ evidencePath: string; state: EvidenceState }> {
   const startedAt = new Date();
   const runId = randomUUID();
-  let state = createInitialState(runId, startedAt.toISOString(), "static-only", false);
+  const providerAllRequested = parseBoolean(process.env.AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS);
+  const providerSendRequested = parseBoolean(process.env.AURA_VERIFY_ALLOW_PROVIDER_SEND);
+  let state = createInitialState({
+    runId,
+    timestamp: startedAt.toISOString(),
+    mode: providerAllRequested ? "provider-send-all" : "static-only",
+    providerSendEnabled: providerSendRequested,
+    providerSendAllWorkflows: providerAllRequested,
+    providerAllManualWaitSeconds: DEFAULT_PROVIDER_ALL_MANUAL_WAIT_SECONDS,
+  });
   let config: SuiteConfig | undefined;
 
   try {
     config = loadSuiteConfig(process.env);
-    state = createInitialState(runId, startedAt.toISOString(), config.mode, config.providerSendEnabled);
+    state = createInitialState({
+      runId,
+      timestamp: startedAt.toISOString(),
+      mode: config.mode,
+      providerSendEnabled: config.providerSendEnabled,
+      providerSendAllWorkflows: config.providerSendAllWorkflows,
+      providerAllManualWaitSeconds: config.providerAllManualWaitSeconds,
+    });
     state.staticResults = validateAllWorkflowExports();
     const staticOk = state.staticResults.every((result) => result.passed);
     if (!staticOk) {
@@ -1512,7 +2017,7 @@ async function runSuite(): Promise<{ evidencePath: string; state: EvidenceState 
     }
 
     if (config.mode !== "static-only") {
-      await runRuntimeChecks(state, config);
+      await runRuntimeChecks(state, config, startedAt);
     } else {
       pushCheck(
         state.runtimeChecks,

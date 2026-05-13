@@ -67,6 +67,7 @@ export type MediaCardProps = {
   showChevron?: boolean;
   actions?: MediaCardAction[];
   variant?: "default" | "emphasis" | "compact";
+  density?: "default" | "calm";
   testID?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -133,6 +134,7 @@ export function MediaCard({
   showChevron = true,
   actions = [],
   variant = "default",
+  density = "default",
   testID,
   style,
 }: MediaCardProps) {
@@ -142,10 +144,11 @@ export function MediaCard({
 
   const isCompact = variant === "compact";
   const isEmphasis = variant === "emphasis";
-  const leadingSize = isCompact ? 48 : 56;
-  const avatarSize = isCompact ? 40 : 44;
-  const iconSize = isCompact ? 22 : 24;
-  const resolvedPadding = isCompact ? tokens.spacing.md : tokens.spacing.lg;
+  const isCalm = density === "calm";
+  const leadingSize = isCompact ? (isCalm ? 44 : 48) : isCalm ? 48 : 56;
+  const avatarSize = isCompact ? (isCalm ? 38 : 40) : isCalm ? 40 : 44;
+  const iconSize = isCompact ? (isCalm ? 20 : 22) : isCalm ? 22 : 24;
+  const resolvedPadding = isCompact || isCalm ? tokens.spacing.md : tokens.spacing.lg;
 
   const cardStyle = [
     isEmphasis ? styles.cardEmphasis : null,
@@ -226,7 +229,11 @@ export function MediaCard({
 
         <View style={styles.mainContent}>
           <View style={styles.titleRow}>
-            <Text allowFontScaling numberOfLines={2} style={styles.title}>
+            <Text
+              allowFontScaling
+              numberOfLines={2}
+              style={[styles.title, isCalm ? styles.titleCalm : null]}
+            >
               {title}
             </Text>
             {statusPill ? (
@@ -240,7 +247,11 @@ export function MediaCard({
             ) : null}
           </View>
           {subtitle ? (
-            <Text allowFontScaling numberOfLines={2} style={styles.subtitle}>
+            <Text
+              allowFontScaling
+              numberOfLines={2}
+              style={[styles.subtitle, isCalm ? styles.subtitleCalm : null]}
+            >
               {subtitle}
             </Text>
           ) : null}
@@ -415,10 +426,18 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
     },
+    titleCalm: {
+      fontSize: 18,
+      lineHeight: 24,
+    },
     subtitle: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
+    },
+    subtitleCalm: {
+      fontSize: 15,
+      lineHeight: 22,
     },
     statusPill: {
       alignSelf: "flex-start",

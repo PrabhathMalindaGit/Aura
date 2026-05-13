@@ -159,7 +159,7 @@ export function TipCard({
               {title}
             </Text>
           ) : null}
-          <Text allowFontScaling style={styles.bodyText}>
+          <Text allowFontScaling style={[styles.bodyText, compact ? styles.bodyTextCompact : null]}>
             {text}
           </Text>
         </View>
@@ -282,13 +282,17 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     titleCompact: {
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: 18,
+      lineHeight: 24,
     },
     bodyText: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
+    },
+    bodyTextCompact: {
+      fontSize: 15,
+      lineHeight: 22,
     },
     chipsRow: {
       flexDirection: "row",

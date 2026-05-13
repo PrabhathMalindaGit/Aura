@@ -25,6 +25,7 @@ export type TrackerTileProps = {
   tone?: DomainIconTone;
   micro?: TrackerMicro;
   variant?: TrackerTileVariant;
+  density?: "default" | "calm";
   onPress?: () => void;
   disabled?: boolean;
   testID?: string;
@@ -97,6 +98,7 @@ export function TrackerTile({
   tone = "muted",
   micro,
   variant = "default",
+  density = "default",
   onPress,
   disabled = false,
   testID,
@@ -106,10 +108,15 @@ export function TrackerTile({
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   const isCompact = variant === "compact";
+  const isCalm = density === "calm";
   const iconSize = isCompact ? 18 : 20;
   const iconToneColor = resolveToneColor(tone, tokens);
   const containerPadding = isCompact ? tokens.spacing.md : tokens.spacing.lg;
-  const valueStyle = isCompact ? styles.valueCompact : styles.value;
+  const valueStyle = isCalm
+    ? styles.valueCalm
+    : isCompact
+      ? styles.valueCompact
+      : styles.value;
   const deltaText = delta ?? "No change";
 
   const normalizedBars = useMemo(() => {
@@ -358,6 +365,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    valueCalm: {
+      color: tokens.colors.text,
+      fontSize: 20,
+      lineHeight: 26,
       fontWeight: tokens.typography.weights.semibold,
     },
     footerRow: {

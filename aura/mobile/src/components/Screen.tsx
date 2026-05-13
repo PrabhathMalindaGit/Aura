@@ -17,6 +17,7 @@ type ScreenProps = {
   scroll?: boolean;
   header?: ReactNode;
   banner?: ReactNode;
+  background?: ReactNode;
   accessibilityLabel?: string;
   testID?: string;
   maxWidth?: number;
@@ -31,6 +32,7 @@ export function Screen({
   scroll = true,
   header,
   banner,
+  background,
   accessibilityLabel,
   testID,
   maxWidth,
@@ -63,6 +65,11 @@ export function Screen({
         testID={testID}
         edges={["top", "bottom"]}
       >
+        {background ? (
+          <View pointerEvents="none" style={styles.backgroundLayer}>
+            {background}
+          </View>
+        ) : null}
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -86,6 +93,11 @@ export function Screen({
       testID={testID}
       edges={["top", "bottom"]}
     >
+      {background ? (
+        <View pointerEvents="none" style={styles.backgroundLayer}>
+          {background}
+        </View>
+      ) : null}
       <View style={[styles.nonScrollContainer, maxWidth ? styles.centered : null]}>
         <View style={[styles.fill, widthStyle, containerStyle]}>
           {title ? <Text style={styles.title}>{title}</Text> : null}
@@ -103,6 +115,13 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     safeArea: {
       flex: 1,
       backgroundColor: tokens.colors.background,
+    },
+    backgroundLayer: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
     },
     scrollContainer: {
       paddingHorizontal: tokens.layout.screenPaddingHorizontal,

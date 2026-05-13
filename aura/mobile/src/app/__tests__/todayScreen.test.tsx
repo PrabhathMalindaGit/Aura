@@ -418,6 +418,13 @@ function getTreeIndex(root: ReactTestInstance, target: ReactTestInstance) {
   return root.findAll(() => true).indexOf(target);
 }
 
+function textContent(node: ReactTestInstance): string {
+  return findHostNodes(node, "mock-text")
+    .flatMap((textNode) => textNode.children)
+    .filter((child): child is string => typeof child === "string")
+    .join(" ");
+}
+
 describe("Today screen", () => {
   let renderer: ReactTestRenderer | undefined;
 
@@ -469,7 +476,9 @@ describe("Today screen", () => {
     });
 
     const root = renderer!.root;
+    const screen = findHostNodes(root, "mock-screen")[0];
     const heroHeader = findHostNodes(root, "mock-hero-header")[0];
+    expect(screen.props.background).toBeTruthy();
     expect(heroHeader.props.title).toBe("Today");
 
     const primaryButtons = findHostNodes(root, "mock-primary-button");
@@ -522,6 +531,16 @@ describe("Today screen", () => {
     const weeklyReportCard = findHostNodes(root, "mock-media-card").find(
       (node) => node.props.title === "Weekly report",
     );
+    const reviewedInsightCard = findHostNodes(root, "mock-media-card").find(
+      (node) => node.props.title === "Recovery is steady",
+    );
+    expect(reviewedInsightCard).toBeTruthy();
+    expect(reviewedInsightCard?.props.subtitle).toBe("Pain has stayed within your recent range.");
+    expect(reviewedInsightCard?.props.density).toBe("calm");
+    await act(async () => {
+      reviewedInsightCard?.props.actions[0].onPress();
+    });
+    expect(routerPush).toHaveBeenCalledWith("/insights");
     expect(weeklyReportCard).toBeTruthy();
     expect(weeklyReportCard?.props.subtitle).toBe("A steady week");
     expect(weeklyReportCard?.props.chips).toEqual([
@@ -582,9 +601,7 @@ describe("Today screen", () => {
       await Promise.resolve();
     });
 
-    const emptyStates = findHostNodes(renderer!.root, "mock-empty-state");
-    const titles = emptyStates.map((node) => node.props.title);
-    const descriptions = emptyStates.map((node) => node.props.description);
+    const renderedText = textContent(renderer!.root);
     const planCard = findHostNodes(renderer!.root, "mock-media-card").find(
       (node) => node.props.title === "Plan assigned for today",
     );
@@ -597,11 +614,9 @@ describe("Today screen", () => {
         expect.objectContaining({ text: "Nothing scheduled today" }),
       ]),
     );
-    expect(titles).toEqual(expect.arrayContaining(["No reviewed insights yet"]));
-    expect(descriptions).toEqual(
-      expect.arrayContaining([
-        "Keep completing check-ins and reviewed insights will appear here when they are ready.",
-      ]),
+    expect(renderedText).toContain("No care-team insights yet");
+    expect(renderedText).toContain(
+      "Reviewed guidance will appear here after your clinician approves it.",
     );
   });
 

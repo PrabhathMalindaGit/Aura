@@ -118,6 +118,74 @@ type AppointmentSummary = {
   hasUpcoming: boolean;
 };
 
+const BACKGROUND_DOTS: Array<{ top: number; left?: number; right?: number; size: number }> = [
+  { top: 92, left: 26, size: 3 },
+  { top: 168, right: 44, size: 4 },
+  { top: 286, left: 64, size: 3 },
+  { top: 438, right: 28, size: 3 },
+  { top: 584, left: 34, size: 4 },
+  { top: 742, right: 68, size: 3 },
+];
+
+function TodayBackgroundTexture() {
+  const tokens = useTokens();
+  const styles = useMemo(() => createBackgroundStyles(tokens), [tokens]);
+
+  return (
+    <View style={styles.wrap}>
+      <View style={styles.creamBase} />
+      <View style={styles.blueWash} />
+      <View style={styles.lowerCreamWash} />
+      <View style={styles.softCircleTop} />
+      <View style={styles.softCircleMid} />
+      <View style={styles.softBand} />
+      {BACKGROUND_DOTS.map((dot, index) => (
+        <View
+          key={`today-dot-${index}`}
+          style={[
+            styles.dot,
+            {
+              top: dot.top,
+              left: dot.left,
+              right: dot.right,
+              width: dot.size,
+              height: dot.size,
+              borderRadius: dot.size / 2,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function ReviewedInsightsEmptyState({ styles }: { styles: ReturnType<typeof createStyles> }) {
+  const title = "No care-team insights yet";
+  const description = "Reviewed guidance will appear here after your clinician approves it.";
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${title}. ${description}`}
+      style={styles.reviewedInsightsEmpty}
+    >
+      <View
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        style={styles.reviewedInsightsIcon}
+      >
+        <DomainIcon icon="insights" size={22} tone="success" accessibilityLabel="Insights icon" />
+      </View>
+      <View style={styles.reviewedInsightsCopy}>
+        <Text accessibilityRole="header" style={styles.reviewedInsightsTitle}>
+          {title}
+        </Text>
+        <Text style={styles.reviewedInsightsDescription}>{description}</Text>
+      </View>
+    </View>
+  );
+}
+
 const EMPTY_READ_STATE: ReminderReadState = {
   readById: {},
   updatedAt: 0,
@@ -1020,6 +1088,7 @@ export default function HomeScreen() {
       auditLabel="TodayScreen"
       contentContainerStyle={styles.container}
       containerStyle={styles.screenContent}
+      background={<TodayBackgroundTexture />}
       banner={
         trustStatus.kind === "ok" ? undefined : (
           <View style={styles.bannerBlock}>
@@ -1217,6 +1286,7 @@ export default function HomeScreen() {
         ) : (
           <MediaCard
             variant="emphasis"
+            density="calm"
             leading={{ type: "icon", icon: "exercise", tone: "primary" }}
             title={planSummary.title}
             subtitle={planSummary.description}
@@ -1306,6 +1376,7 @@ export default function HomeScreen() {
             <MediaCard
               style={styles.supportCard}
               variant="compact"
+              density="calm"
               leading={{ type: "icon", icon: "chat", tone: "accent" }}
               title="Chat"
               subtitle="Message your care team."
@@ -1319,6 +1390,7 @@ export default function HomeScreen() {
             <MediaCard
               style={styles.supportCard}
               variant="compact"
+              density="calm"
               leading={{ type: "icon", icon: "safety", tone: "success" }}
               title="Safety"
               subtitle="Open your safety plan."
@@ -1332,6 +1404,7 @@ export default function HomeScreen() {
             <MediaCard
               style={styles.supportCard}
               variant="compact"
+              density="calm"
               leading={{ type: "icon", icon: "appointments", tone: "primary" }}
               title="Appointments"
               subtitle={
@@ -1372,6 +1445,7 @@ export default function HomeScreen() {
             <View style={styles.trackerCell}>
               <TrackerTile
                 variant="compact"
+                density="calm"
                 icon="checkin"
                 label="Pain"
                 value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
@@ -1390,6 +1464,7 @@ export default function HomeScreen() {
             <View style={styles.trackerCell}>
               <TrackerTile
                 variant="compact"
+                density="calm"
                 icon="checkin"
                 label="Mood"
                 value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
@@ -1410,6 +1485,7 @@ export default function HomeScreen() {
             <View style={styles.trackerCell}>
               <TrackerTile
                 variant="compact"
+                density="calm"
                 icon="exercise"
                 label="Adherence"
                 value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
@@ -1428,6 +1504,7 @@ export default function HomeScreen() {
             <View style={styles.trackerCell}>
               <TrackerTile
                 variant="compact"
+                density="calm"
                 icon="meds"
                 label="Medication"
                 value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
@@ -1463,6 +1540,7 @@ export default function HomeScreen() {
       >
         <TipCard
           tone="info"
+          compact
           leading={{ type: "icon", icon: "chat", tone: "primary" }}
           title="Aura Voice Agent"
           text="Try the browser voice demo. It does not submit check-ins, send messages, or take clinical actions."
@@ -1500,6 +1578,7 @@ export default function HomeScreen() {
           {recoveryNudge ? (
             <TipCard
               tone={recoveryNudgeTone}
+              compact
               leading={{
                 type: "icon",
                 icon: recoveryNudge.kind === "weekly_summary_ready" ? "weekly" : "insights",
@@ -1548,6 +1627,7 @@ export default function HomeScreen() {
           {primaryReminder ? (
             <TipCard
               tone={reminderToneToTipTone(primaryReminder.tone)}
+              compact
               leading={{
                 type: "icon",
                 icon: primaryReminder.primaryActionIcon,
@@ -1589,16 +1669,12 @@ export default function HomeScreen() {
               <SkeletonBlock height={72} width="100%" radius={14} />
             </View>
           ) : insightSummary.status === "none" ? (
-            <EmptyState
-              variant="compact"
-              illustrationKey="today"
-              title="No reviewed insights yet"
-              description="Keep completing check-ins and reviewed insights will appear here when they are ready."
-            />
+            <ReviewedInsightsEmptyState styles={styles} />
           ) : (
             insightSummary.top.map((item) => (
               <MediaCard
                 key={item.id}
+                density="calm"
                 leading={{ type: "icon", icon: "insights", tone: "success" }}
                 title={item.title}
                 subtitle={item.message}
@@ -1625,6 +1701,7 @@ export default function HomeScreen() {
 
           <MediaCard
             variant="compact"
+            density="calm"
             leading={{ type: "icon", icon: "weekly", tone: "primary" }}
             title="Weekly report"
             subtitle={
@@ -1673,6 +1750,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     screenContent: {
       gap: 0,
+      backgroundColor: "transparent",
     },
     topStack: {
       gap: tokens.spacing.md,
@@ -1745,8 +1823,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     checkinTitle: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.title.fontSize,
-      lineHeight: tokens.typography.title.lineHeight,
+      fontSize: 24,
+      lineHeight: 30,
       fontWeight: tokens.typography.weights.semibold,
     },
     checkinMetaRow: {
@@ -1773,8 +1851,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     bodyText: {
       color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: 15,
+      lineHeight: 23,
     },
     supportText: {
       color: tokens.colors.textMuted,
@@ -1796,11 +1874,119 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     skeletonStack: {
       gap: tokens.spacing.sm,
     },
+    reviewedInsightsEmpty: {
+      minHeight: 108,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.md,
+      paddingVertical: tokens.spacing.lg,
+      paddingHorizontal: tokens.spacing.lg,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: "rgba(255, 255, 255, 0.78)",
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+    },
+    reviewedInsightsIcon: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.successSoft,
+      borderWidth: 1,
+      borderColor: "rgba(47, 143, 131, 0.22)",
+      flexShrink: 0,
+    },
+    reviewedInsightsCopy: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+      minWidth: 0,
+    },
+    reviewedInsightsTitle: {
+      color: tokens.colors.text,
+      fontSize: 18,
+      lineHeight: 24,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    reviewedInsightsDescription: {
+      color: tokens.colors.textMuted,
+      fontSize: 15,
+      lineHeight: 22,
+    },
     loadingFootnote: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       textAlign: "center",
+    },
+  });
+}
+
+function createBackgroundStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    wrap: {
+      flex: 1,
+      overflow: "hidden",
+      backgroundColor: tokens.colors.background,
+    },
+    creamBase: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: "#FBF8F1",
+    },
+    blueWash: {
+      position: "absolute",
+      top: 0,
+      right: -72,
+      width: 260,
+      height: 520,
+      borderRadius: 130,
+      backgroundColor: "rgba(238, 244, 255, 0.72)",
+      transform: [{ rotate: "-12deg" }],
+    },
+    lowerCreamWash: {
+      position: "absolute",
+      left: -80,
+      bottom: -140,
+      width: 280,
+      height: 360,
+      borderRadius: 140,
+      backgroundColor: "rgba(247, 244, 237, 0.8)",
+    },
+    softCircleTop: {
+      position: "absolute",
+      top: -86,
+      right: -94,
+      width: 230,
+      height: 230,
+      borderRadius: 115,
+      backgroundColor: "rgba(47, 111, 237, 0.055)",
+    },
+    softCircleMid: {
+      position: "absolute",
+      top: 356,
+      left: -118,
+      width: 250,
+      height: 250,
+      borderRadius: 125,
+      backgroundColor: "rgba(47, 143, 131, 0.045)",
+    },
+    softBand: {
+      position: "absolute",
+      top: 214,
+      right: -80,
+      width: 180,
+      height: 520,
+      borderRadius: 90,
+      backgroundColor: "rgba(255, 255, 255, 0.18)",
+      transform: [{ rotate: "18deg" }],
+    },
+    dot: {
+      position: "absolute",
+      backgroundColor: "rgba(94, 113, 130, 0.16)",
     },
   });
 }

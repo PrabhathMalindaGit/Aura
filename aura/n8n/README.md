@@ -226,6 +226,28 @@ Notes:
 - Backend accepts `timestamp` (preferred) and `attemptedAt` as timestamp fallback.
 - Do not send chat text/check-in notes in callback payloads.
 
+## Final local Telegram runtime evidence
+
+The server package includes a final-evidence verifier for the local/demo high-risk alert chain. It is not a CI command because it can send a real Telegram message through the configured n8n bot credential.
+
+Required local services and setup:
+- MongoDB, Aura backend, AI/Safety Router path, local n8n, imported/active workflow `01`, seeded demo data, and Telegram credentials/chat ID configured in n8n.
+- Required verifier environment variables: `AURA_VERIFY_API_BASE_URL`, `AURA_VERIFY_N8N_BASE_URL`, `MONGO_URL`, `AURA_VERIFY_PATIENT_ACCESS_CODE`, `AURA_VERIFY_CLINICIAN_EMAIL`, and `AURA_VERIFY_CLINICIAN_PASSWORD`.
+
+Run from `/Users/University/Final Project/aura/server`:
+
+```bash
+AURA_VERIFY_API_BASE_URL=http://127.0.0.1:3000 \
+AURA_VERIFY_N8N_BASE_URL=http://127.0.0.1:5678 \
+MONGO_URL=mongodb://127.0.0.1:27017/aura \
+AURA_VERIFY_PATIENT_ACCESS_CODE=P1-DEMO \
+AURA_VERIFY_CLINICIAN_EMAIL=clinician1@example.com \
+AURA_VERIFY_CLINICIAN_PASSWORD=devpass123 \
+npm run verify:n8n:telegram-runtime
+```
+
+The command writes redacted markdown evidence under `docs/evidence/`. A manual Telegram chat screenshot is still recommended for appendix evidence.
+
 ## Next steps (do not implement now)
 - Finish Telegram runtime/provider proof after credentials and chat IDs are configured across required workflows.
 - Configure the existing `AURA Rehab alerts` bot in n8n Credentials and set the required Telegram chat ID environment variables.

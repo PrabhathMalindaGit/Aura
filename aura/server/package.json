@@ -10,6 +10,7 @@
     "seed": "ts-node scripts/seed.ts",
     "seed:reset": "ts-node scripts/seed.ts --reset",
     "bench:latency:local": "ts-node scripts/benchmarks/latency.local.ts",
+    "verify:n8n:telegram-runtime": "ts-node scripts/verify/n8nTelegramRuntimeEvidence.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

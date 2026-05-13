@@ -213,6 +213,8 @@ const DEFAULT_PROVIDER_ALL_POLL_SECONDS = 5;
 const PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV =
   "AURA_VERIFY_N8N_PROVIDER_ALL_RESET_DIGEST_DEDUPE";
 const DAILY_DIGEST_WORKFLOW = "daily_clinician_digest";
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const COMMUNICATION_PROVIDER_ALL_SORT_ANCHOR_MS = Date.UTC(2000, 0, 1);
 
 const PROVIDER_ALL_MANUAL_WORKFLOW_IDS = new Set(["03", "04", "06", "07", "08"]);
 
@@ -271,6 +273,35 @@ export function buildSyntheticAlertFixture(params: {
       sourceId: params.checkInId,
     },
     status: "open",
+    demoTag: params.marker,
+  };
+}
+
+export function buildSyntheticCommunicationReviewFixture(params: {
+  patientId: string;
+  messageId: string;
+  marker: string;
+  runId: string;
+  now: Date;
+  providerSendAll?: boolean;
+}): Record<string, unknown> {
+  const messageCreatedAt = params.providerSendAll
+    ? new Date(COMMUNICATION_PROVIDER_ALL_SORT_ANCHOR_MS - params.now.getTime())
+    : new Date(params.now.getTime() - 10 * MS_PER_DAY);
+  return {
+    patientId: params.patientId,
+    messageId: params.messageId,
+    source: "chat",
+    needsResponse: true,
+    flaggedBySafety: true,
+    followUpRequested: true,
+    lastClinicianReplyAt: null,
+    lastReviewedAt: null,
+    resolvedAt: null,
+    messageCreatedAt,
+    messagePreview: params.providerSendAll
+      ? `${params.marker} communication no-response evidence`
+      : "Synthetic n8n workflow suite message needing response",
     demoTag: params.marker,
   };
 }
@@ -540,6 +571,20 @@ export function buildWorkflow07DigestDedupeBlockedMessage(params: {
     ? "The Workflow 07 dedupe reset flag was enabled, but no eligible digest item was returned after reset. Check that the backend is using the same evidence date window and that demo dashboard data is available."
     : `Workflow 07 Daily Digest uses a global date-level dedupe key (${params.dedupeKey}). A prior local/demo sent or skipped automation-status event for this key can block a second same-day evidence run. To explicitly clear only this local/demo digest dedupe blocker before preflight, rerun provider-send-all with ${PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV}=true.`;
   return `${params.workflowName} provider-send-all preflight returned no eligible synthetic/demo dedupe keys. ${resetGuidance}`;
+}
+
+export function buildWorkflow08NoEligibleMessage(params: {
+  workflowName: string;
+  messageId?: string;
+  communicationReviewId?: string;
+}): string {
+  const ids = [
+    params.messageId ? `messageId=${params.messageId}` : undefined,
+    params.communicationReviewId ? `communicationReviewId=${params.communicationReviewId}` : undefined,
+  ]
+    .filter(Boolean)
+    .join("; ");
+  return `${params.workflowName} provider-send-all preflight returned no eligible synthetic/demo dedupe keys. Workflow 08 Communication No-Response Escalation requires a synthetic CommunicationReview with needsResponse=true, source=chat, no clinician response/resolution, a valid messageCreatedAt, and a message old enough to be delayed beyond the configured response threshold. The backend scans the oldest needs-response reviews first, so the verifier fixture must be old enough to appear in that process window. ${ids ? `Synthetic identifiers: ${ids}.` : ""}`;
 }
 
 export function workflowTriggerStrategy(
@@ -1351,18 +1396,15 @@ async function createSyntheticFixtures(
   });
 
   const communicationMessageId = new mongoose.Types.ObjectId().toString();
-  const communication = await CommunicationReview.create({
+  const communicationFixture = buildSyntheticCommunicationReviewFixture({
     patientId,
     messageId: communicationMessageId,
-    needsResponse: true,
-    flaggedBySafety: true,
-    followUpRequested: true,
-    messageCreatedAt: oldDate,
-    messagePreview: providerSendAll
-      ? `${marker} communication no-response evidence`
-      : "Synthetic n8n workflow suite message needing response",
-    demoTag: marker,
+    marker,
+    runId,
+    now,
+    providerSendAll,
   });
+  const communication = await CommunicationReview.create(communicationFixture);
 
   return {
     syntheticMarker: marker,
@@ -1372,6 +1414,7 @@ async function createSyntheticFixtures(
     syntheticAppointmentRequestId: String(appointment._id),
     syntheticCommunicationReviewId: String(communication._id),
     syntheticCommunicationMessageId: communicationMessageId,
+    syntheticCommunicationMessageCreatedAt: (communicationFixture.messageCreatedAt as Date).toISOString(),
   };
 }
 
@@ -1598,6 +1641,15 @@ async function preflightProviderAllAutomationEndpoint(params: {
           workflowName: params.workflowName,
           dedupeKey: dailyDigestDedupeKeyForDate(params.now),
           resetEnabled: params.config.providerAllResetDigestDedupe,
+        })
+      );
+    }
+    if (params.workflowId === "08") {
+      throw new Error(
+        buildWorkflow08NoEligibleMessage({
+          workflowName: params.workflowName,
+          messageId: String(params.fixtureIds.syntheticCommunicationMessageId ?? ""),
+          communicationReviewId: String(params.fixtureIds.syntheticCommunicationReviewId ?? ""),
         })
       );
     }

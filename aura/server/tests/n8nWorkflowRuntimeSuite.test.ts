@@ -10,7 +10,9 @@ import {
   WorkflowExpectation,
   buildEvidenceMarkdown,
   buildSyntheticAlertFixture,
+  buildSyntheticCommunicationReviewFixture,
   buildSyntheticRunMarker,
+  buildWorkflow08NoEligibleMessage,
   buildWorkflow07DigestDedupeBlockedMessage,
   checkProviderSendEnabled,
   checkProviderSendAllEnabled,
@@ -322,6 +324,49 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(message).toContain("no eligible digest item was returned after reset");
     expect(message).not.toMatch(/\bproduction\b/i);
     expect(message).not.toMatch(/\bclinical validation\b/i);
+  });
+
+  it("builds Workflow 08 synthetic communication reviews to match no-response process criteria", () => {
+    const marker = buildSyntheticRunMarker("6865f9f2-4fd4-46fa-b58c-f6e83c5f1fd8", true);
+    const now = new Date("2026-05-13T19:14:55.256Z");
+    const fixture = buildSyntheticCommunicationReviewFixture({
+      patientId: "verify-6865f9f2",
+      messageId: "6a04cdb0a9c354956aae4e3f",
+      marker,
+      runId: "6865f9f2-4fd4-46fa-b58c-f6e83c5f1fd8",
+      now,
+      providerSendAll: true,
+    });
+
+    expect(fixture.source).toBe("chat");
+    expect(fixture.needsResponse).toBe(true);
+    expect(fixture.flaggedBySafety).toBe(true);
+    expect(fixture.followUpRequested).toBe(true);
+    expect(fixture.lastClinicianReplyAt).toBeNull();
+    expect(fixture.lastReviewedAt).toBeNull();
+    expect(fixture.resolvedAt).toBeNull();
+    expect(fixture.demoTag).toBe(marker);
+    expect(String(fixture.messagePreview)).toContain(marker);
+    expect(fixture.messageCreatedAt).toBeInstanceOf(Date);
+    expect((fixture.messageCreatedAt as Date).getTime()).toBeLessThan(
+      now.getTime() - 30 * 24 * 60 * 60 * 1000
+    );
+  });
+
+  it("explains Workflow 08 no-eligible preflight failures without marking evidence passed", () => {
+    const message = buildWorkflow08NoEligibleMessage({
+      workflowName: "08 - Communication No-Response Escalation (Cron → Aura Process → Telegram → Callback)",
+      messageId: "6a04cdb0a9c354956aae4e3f",
+      communicationReviewId: "6a04cdb0a9c354956aae4e40",
+    });
+
+    expect(message).toContain("provider-send-all preflight returned no eligible synthetic/demo dedupe keys");
+    expect(message).toContain("needsResponse=true");
+    expect(message).toContain("messageCreatedAt");
+    expect(message).toContain("delayed beyond the configured response threshold");
+    expect(message).toContain("6a04cdb0a9c354956aae4e3f");
+    expect(message).not.toMatch(/\bpassed\b/i);
+    expect(message).not.toMatch(/\bproduction\b/i);
   });
 
   it("builds evidence markdown with local/demo caveats and no production overclaim", () => {

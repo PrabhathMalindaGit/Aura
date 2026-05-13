@@ -24,6 +24,10 @@ const mockTokens = {
   },
 };
 
+vi.mock("expo-image", () => ({
+  Image: (props: Record<string, unknown>) => React.createElement("mock-image", props),
+}));
+
 vi.mock("react-native", () => ({
   Pressable: ({
     children,
@@ -101,38 +105,115 @@ describe("BodyMapSelector accessibility", () => {
     renderer = null;
   });
 
-  it("keeps small visual hotspots but expands their touch area to at least 44 points", () => {
+  function renderSelector(
+    props: Partial<React.ComponentProps<typeof BodyMapSelector>> = {},
+  ) {
+    const onToggleRegion = props.onToggleRegion ?? vi.fn();
+    const onSetPrimaryRegion = props.onSetPrimaryRegion ?? vi.fn();
+
     act(() => {
       renderer = create(
         <BodyMapSelector
+          value={props.value ?? baseValue}
+          onToggleRegion={onToggleRegion}
+          onSetPrimaryRegion={onSetPrimaryRegion}
+        />,
+      );
+    });
+
+    return {
+      onSetPrimaryRegion,
+      onToggleRegion,
+      renderer: renderer!,
+    };
+  }
+
+  it("renders the front body map by default", () => {
+    const { renderer } = renderSelector();
+
+    expect(renderer.root.findByProps({ testID: "body-map-image-front" })).toBeTruthy();
+  });
+
+  it("switches to the back body map and back to the front body map", () => {
+    const { renderer } = renderSelector();
+    const segmentedControl = renderer.root.findByProps({ accessibilityLabel: "Body map view" });
+
+    act(() => {
+      segmentedControl.props.onChange("back");
+    });
+
+    expect(renderer.root.findByProps({ testID: "body-map-image-back" })).toBeTruthy();
+
+    act(() => {
+      segmentedControl.props.onChange("front");
+    });
+
+    expect(renderer.root.findByProps({ testID: "body-map-image-front" })).toBeTruthy();
+  });
+
+  it("selecting a body region can update selected state", () => {
+    const onToggleRegion = vi.fn();
+    const { renderer } = renderSelector({
+      value: {
+        selectedRegions: [],
+        primaryRegion: null,
+        selections: {},
+      },
+      onToggleRegion,
+    });
+
+    act(() => {
+      renderer.root.findByProps({ accessibilityLabel: "Select Neck area" }).props.onPress();
+    });
+
+    expect(onToggleRegion).toHaveBeenCalledWith("neck");
+
+    act(() => {
+      renderer.update(
+        <BodyMapSelector
           value={baseValue}
-          onToggleRegion={() => undefined}
+          onToggleRegion={onToggleRegion}
           onSetPrimaryRegion={() => undefined}
         />,
       );
     });
 
+    expect(
+      renderer.root.findByProps({
+        accessibilityLabel: "Deselect Neck area, primary pain area",
+      }).props.accessibilityState,
+    ).toEqual({ selected: true });
+  });
+
+  it("exposes accessible labels for tappable body-region hotspots", () => {
+    const { renderer } = renderSelector({
+      value: {
+        selectedRegions: [],
+        primaryRegion: null,
+        selections: {},
+      },
+    });
+
+    expect(renderer.root.findByProps({ accessibilityLabel: "Select Left shoulder area" })).toBeTruthy();
+    expect(renderer.root.findByProps({ accessibilityLabel: "Select Right knee area" })).toBeTruthy();
+  });
+
+  it("keeps small visual hotspots but expands their touch area to at least 44 points", () => {
+    const { renderer } = renderSelector();
+
     const neck = renderer!.root.findByProps({
-      accessibilityLabel: "Remove Neck, primary pain area",
+      accessibilityLabel: "Deselect Neck area, primary pain area",
     });
 
     expect(neck.props.accessibilityState).toEqual({ selected: true });
     expect(neck.props.accessibilityHint).toBe(
       "Toggles this body area. Selected areas can be marked as the most bothersome area below.",
     );
-    expect(neck.props.hitSlop).toEqual({ top: 11, bottom: 11, left: 8, right: 8 });
+    expect(neck.props.hitSlop).toEqual({ top: 9, bottom: 9, left: 5, right: 5 });
   });
 
   it("announces selected-region chips with selected state and primary context", () => {
-    act(() => {
-      renderer = create(
-        <BodyMapSelector
-          value={baseValue}
-          onToggleRegion={() => undefined}
-          onSetPrimaryRegion={() => undefined}
-        />,
-      );
-    });
+    const { renderer } = renderSelector();
 
     const selectedChip = renderer!.root.findByProps({
       accessibilityLabel: "Neck is the most bothersome selected area",

@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
+import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import bodyMapBack from '../../../assets/body-map/body-map-back.png';
+import bodyMapFront from '../../../assets/body-map/body-map-front.png';
 import { SegmentedControl } from '@/src/components/SegmentedControl';
 import { StatusPill } from '@/src/components/StatusPill';
 import { useTokens } from '@/src/theme/tokens';
@@ -25,6 +28,10 @@ type Hotspot = {
 };
 
 const MIN_HOTSPOT_TOUCH_SIZE = 44;
+const BODY_MAP_IMAGES = {
+  front: bodyMapFront,
+  back: bodyMapBack,
+} as const;
 
 function getHotspotHitSlop(spot: Hotspot) {
   const vertical = Math.max(0, Math.ceil((MIN_HOTSPOT_TOUCH_SIZE - spot.height) / 2));
@@ -39,43 +46,43 @@ function getHotspotHitSlop(spot: Hotspot) {
 }
 
 const FRONT_HOTSPOTS: Hotspot[] = [
-  { region: 'head', x: 88, y: 10, width: 44, height: 44, radius: 22 },
-  { region: 'neck', x: 96, y: 58, width: 28, height: 22, radius: 10 },
-  { region: 'shoulder_left', x: 38, y: 82, width: 46, height: 28, radius: 14 },
-  { region: 'shoulder_right', x: 136, y: 82, width: 46, height: 28, radius: 14 },
-  { region: 'arm_left', x: 28, y: 112, width: 36, height: 74, radius: 18 },
-  { region: 'arm_right', x: 156, y: 112, width: 36, height: 74, radius: 18 },
-  { region: 'elbow_left', x: 28, y: 188, width: 36, height: 28, radius: 14 },
-  { region: 'elbow_right', x: 156, y: 188, width: 36, height: 28, radius: 14 },
-  { region: 'wrist_hand_left', x: 24, y: 220, width: 42, height: 34, radius: 16 },
-  { region: 'wrist_hand_right', x: 154, y: 220, width: 42, height: 34, radius: 16 },
-  { region: 'hip_left', x: 72, y: 204, width: 34, height: 34, radius: 17 },
-  { region: 'hip_right', x: 114, y: 204, width: 34, height: 34, radius: 17 },
-  { region: 'knee_left', x: 72, y: 276, width: 34, height: 34, radius: 17 },
-  { region: 'knee_right', x: 114, y: 276, width: 34, height: 34, radius: 17 },
-  { region: 'ankle_foot_left', x: 66, y: 336, width: 40, height: 30, radius: 14 },
-  { region: 'ankle_foot_right', x: 114, y: 336, width: 40, height: 30, radius: 14 },
+  { region: 'head', x: 112, y: 16, width: 40, height: 48, radius: 20 },
+  { region: 'neck', x: 113, y: 66, width: 34, height: 26, radius: 12 },
+  { region: 'shoulder_left', x: 74, y: 84, width: 42, height: 34, radius: 18 },
+  { region: 'shoulder_right', x: 144, y: 84, width: 42, height: 34, radius: 18 },
+  { region: 'arm_left', x: 50, y: 114, width: 38, height: 82, radius: 19 },
+  { region: 'arm_right', x: 172, y: 114, width: 38, height: 82, radius: 19 },
+  { region: 'elbow_left', x: 42, y: 195, width: 40, height: 34, radius: 17 },
+  { region: 'elbow_right', x: 178, y: 195, width: 40, height: 34, radius: 17 },
+  { region: 'wrist_hand_left', x: 30, y: 230, width: 52, height: 46, radius: 20 },
+  { region: 'wrist_hand_right', x: 178, y: 230, width: 52, height: 46, radius: 20 },
+  { region: 'hip_left', x: 92, y: 204, width: 38, height: 44, radius: 20 },
+  { region: 'hip_right', x: 130, y: 204, width: 38, height: 44, radius: 20 },
+  { region: 'knee_left', x: 94, y: 280, width: 34, height: 38, radius: 17 },
+  { region: 'knee_right', x: 132, y: 280, width: 34, height: 38, radius: 17 },
+  { region: 'ankle_foot_left', x: 86, y: 348, width: 42, height: 34, radius: 16 },
+  { region: 'ankle_foot_right', x: 132, y: 348, width: 42, height: 34, radius: 16 },
 ];
 
 const BACK_HOTSPOTS: Hotspot[] = [
-  { region: 'head', x: 88, y: 10, width: 44, height: 44, radius: 22 },
-  { region: 'neck', x: 96, y: 58, width: 28, height: 22, radius: 10 },
-  { region: 'upper_back', x: 70, y: 84, width: 80, height: 78, radius: 26 },
-  { region: 'lower_back', x: 78, y: 164, width: 64, height: 56, radius: 22 },
-  { region: 'shoulder_left', x: 36, y: 84, width: 40, height: 26, radius: 13 },
-  { region: 'shoulder_right', x: 144, y: 84, width: 40, height: 26, radius: 13 },
-  { region: 'arm_left', x: 24, y: 112, width: 36, height: 74, radius: 18 },
-  { region: 'arm_right', x: 160, y: 112, width: 36, height: 74, radius: 18 },
-  { region: 'elbow_left', x: 24, y: 188, width: 36, height: 28, radius: 14 },
-  { region: 'elbow_right', x: 160, y: 188, width: 36, height: 28, radius: 14 },
-  { region: 'wrist_hand_left', x: 22, y: 220, width: 42, height: 34, radius: 16 },
-  { region: 'wrist_hand_right', x: 156, y: 220, width: 42, height: 34, radius: 16 },
-  { region: 'hip_left', x: 72, y: 224, width: 34, height: 34, radius: 17 },
-  { region: 'hip_right', x: 114, y: 224, width: 34, height: 34, radius: 17 },
-  { region: 'knee_left', x: 72, y: 292, width: 34, height: 34, radius: 17 },
-  { region: 'knee_right', x: 114, y: 292, width: 34, height: 34, radius: 17 },
-  { region: 'ankle_foot_left', x: 66, y: 338, width: 40, height: 30, radius: 14 },
-  { region: 'ankle_foot_right', x: 114, y: 338, width: 40, height: 30, radius: 14 },
+  { region: 'head', x: 112, y: 12, width: 40, height: 50, radius: 20 },
+  { region: 'neck', x: 113, y: 62, width: 34, height: 28, radius: 12 },
+  { region: 'upper_back', x: 82, y: 84, width: 96, height: 70, radius: 28 },
+  { region: 'lower_back', x: 90, y: 158, width: 80, height: 56, radius: 22 },
+  { region: 'shoulder_left', x: 70, y: 86, width: 44, height: 34, radius: 18 },
+  { region: 'shoulder_right', x: 146, y: 86, width: 44, height: 34, radius: 18 },
+  { region: 'arm_left', x: 48, y: 118, width: 40, height: 82, radius: 20 },
+  { region: 'arm_right', x: 172, y: 118, width: 40, height: 82, radius: 20 },
+  { region: 'elbow_left', x: 42, y: 198, width: 40, height: 34, radius: 17 },
+  { region: 'elbow_right', x: 178, y: 198, width: 40, height: 34, radius: 17 },
+  { region: 'wrist_hand_left', x: 30, y: 232, width: 52, height: 46, radius: 20 },
+  { region: 'wrist_hand_right', x: 178, y: 232, width: 52, height: 46, radius: 20 },
+  { region: 'hip_left', x: 90, y: 216, width: 42, height: 44, radius: 21 },
+  { region: 'hip_right', x: 128, y: 216, width: 42, height: 44, radius: 21 },
+  { region: 'knee_left', x: 94, y: 286, width: 34, height: 38, radius: 17 },
+  { region: 'knee_right', x: 132, y: 286, width: 34, height: 38, radius: 17 },
+  { region: 'ankle_foot_left', x: 86, y: 350, width: 42, height: 34, radius: 16 },
+  { region: 'ankle_foot_right', x: 132, y: 350, width: 42, height: 34, radius: 16 },
 ];
 
 export function BodyMapSelector({ value, onToggleRegion, onSetPrimaryRegion }: BodyMapSelectorProps) {
@@ -99,20 +106,14 @@ export function BodyMapSelector({ value, onToggleRegion, onSetPrimaryRegion }: B
       />
 
       <View style={styles.canvas}>
-        <View style={styles.silhouette}>
-          <View style={styles.head} />
-          <View style={[styles.neck, view === 'back' ? styles.neckBack : null]} />
-          <View style={[styles.torso, view === 'back' ? styles.torsoBack : null]} />
-          <View style={[styles.hips, view === 'back' ? styles.hipsBack : null]} />
-          <View style={styles.armLeft} />
-          <View style={styles.armRight} />
-          <View style={styles.forearmLeft} />
-          <View style={styles.forearmRight} />
-          <View style={styles.legLeft} />
-          <View style={styles.legRight} />
-          <View style={styles.calfLeft} />
-          <View style={styles.calfRight} />
-        </View>
+        <Image
+          accessibilityLabel={`${view === 'front' ? 'Front' : 'Back'} body map`}
+          accessibilityRole="image"
+          contentFit="cover"
+          source={BODY_MAP_IMAGES[view]}
+          style={styles.bodyMapImage}
+          testID={`body-map-image-${view}`}
+        />
 
         {hotspots.map((spot) => {
           const selected = value.selectedRegions.includes(spot.region);
@@ -121,7 +122,7 @@ export function BodyMapSelector({ value, onToggleRegion, onSetPrimaryRegion }: B
             <Pressable
               key={`${view}-${spot.region}`}
               accessibilityRole="button"
-              accessibilityLabel={`${selected ? 'Remove' : 'Add'} ${regionLabel(spot.region)}${primary ? ', primary pain area' : ''}`}
+              accessibilityLabel={`${selected ? 'Deselect' : 'Select'} ${regionLabel(spot.region)} area${primary ? ', primary pain area' : ''}`}
               accessibilityHint="Toggles this body area. Selected areas can be marked as the most bothersome area below."
               accessibilityState={{ selected }}
               hitSlop={getHotspotHitSlop(spot)}
@@ -187,9 +188,6 @@ export function BodyMapSelector({ value, onToggleRegion, onSetPrimaryRegion }: B
 }
 
 function createStyles(tokens: ReturnType<typeof useTokens>) {
-  const limbColor = tokens.scheme === 'dark' ? '#22354b' : '#d9e8f7';
-  const torsoColor = tokens.scheme === 'dark' ? '#2b4360' : '#d1e2f2';
-
   return StyleSheet.create({
     stack: {
       gap: tokens.spacing.md,
@@ -197,134 +195,17 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     canvas: {
       position: 'relative',
       alignSelf: 'center',
-      width: 220,
-      height: 372,
+      width: 260,
+      height: 390,
       borderRadius: tokens.radius.xl,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       backgroundColor: tokens.colors.surfaceSubtle,
       overflow: 'hidden',
     },
-    silhouette: {
-      position: 'absolute',
-      inset: 0,
-      alignItems: 'center',
-    },
-    head: {
-      position: 'absolute',
-      top: 10,
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: torsoColor,
-    },
-    neck: {
-      position: 'absolute',
-      top: 54,
-      width: 22,
-      height: 18,
-      borderRadius: 10,
-      backgroundColor: torsoColor,
-    },
-    neckBack: {
-      top: 56,
-    },
-    torso: {
-      position: 'absolute',
-      top: 74,
-      width: 78,
-      height: 132,
-      borderRadius: 30,
-      backgroundColor: torsoColor,
-    },
-    torsoBack: {
-      width: 84,
-      height: 148,
-    },
-    hips: {
-      position: 'absolute',
-      top: 198,
-      width: 66,
-      height: 42,
-      borderRadius: 20,
-      backgroundColor: torsoColor,
-    },
-    hipsBack: {
-      top: 218,
-      width: 72,
-      height: 44,
-    },
-    armLeft: {
-      position: 'absolute',
-      top: 92,
-      left: 42,
-      width: 22,
-      height: 84,
-      borderRadius: 12,
-      backgroundColor: limbColor,
-    },
-    armRight: {
-      position: 'absolute',
-      top: 92,
-      right: 42,
-      width: 22,
-      height: 84,
-      borderRadius: 12,
-      backgroundColor: limbColor,
-    },
-    forearmLeft: {
-      position: 'absolute',
-      top: 176,
-      left: 38,
-      width: 20,
-      height: 78,
-      borderRadius: 12,
-      backgroundColor: limbColor,
-    },
-    forearmRight: {
-      position: 'absolute',
-      top: 176,
-      right: 38,
-      width: 20,
-      height: 78,
-      borderRadius: 12,
-      backgroundColor: limbColor,
-    },
-    legLeft: {
-      position: 'absolute',
-      top: 238,
-      left: 78,
-      width: 22,
-      height: 86,
-      borderRadius: 14,
-      backgroundColor: limbColor,
-    },
-    legRight: {
-      position: 'absolute',
-      top: 238,
-      right: 78,
-      width: 22,
-      height: 86,
-      borderRadius: 14,
-      backgroundColor: limbColor,
-    },
-    calfLeft: {
-      position: 'absolute',
-      top: 320,
-      left: 74,
-      width: 24,
-      height: 40,
-      borderRadius: 14,
-      backgroundColor: limbColor,
-    },
-    calfRight: {
-      position: 'absolute',
-      top: 320,
-      right: 74,
-      width: 24,
-      height: 40,
-      borderRadius: 14,
-      backgroundColor: limbColor,
+    bodyMapImage: {
+      width: '100%',
+      height: '100%',
     },
     hotspot: {
       position: 'absolute',
@@ -336,11 +217,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     hotspotSelected: {
       borderColor: tokens.colors.primary,
-      backgroundColor: tokens.colors.primarySoft,
+      backgroundColor: tokens.scheme === 'dark' ? 'rgba(70, 130, 255, 0.24)' : 'rgba(47, 111, 237, 0.14)',
     },
     hotspotPrimary: {
       borderColor: tokens.colors.success,
-      backgroundColor: tokens.colors.successSoft,
+      backgroundColor: tokens.scheme === 'dark' ? 'rgba(47, 143, 131, 0.30)' : 'rgba(47, 143, 131, 0.20)',
     },
     hotspotPressed: {
       opacity: 0.82,
@@ -362,6 +243,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     selectionRow: {
       gap: tokens.spacing.sm,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
     },
     selectionChip: {
       minHeight: 44,
@@ -373,8 +257,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingVertical: tokens.spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       gap: tokens.spacing.sm,
+      maxWidth: '100%',
     },
     selectionChipPrimary: {
       borderColor: tokens.colors.primary,
@@ -384,7 +269,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       opacity: 0.84,
     },
     selectionChipText: {
-      flex: 1,
       color: tokens.colors.text,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,

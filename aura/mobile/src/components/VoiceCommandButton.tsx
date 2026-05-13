@@ -41,6 +41,12 @@ const UNSUPPORTED_MESSAGE =
   "Command not supported. Voice commands can only open screens or stop reading.";
 const CLINICAL_GUIDANCE_MESSAGE =
   " Use Chat, Check-in, or Safety guidance manually if you need to share symptoms.";
+const TRANSIENT_MESSAGE_MS = 4000;
+const TRANSIENT_MESSAGE_STATUSES: VoiceCommandStatus[] = [
+  "unsupported",
+  "unavailable",
+  "error",
+];
 
 function toFriendlySpeechError(error: ExpoSpeechRecognitionErrorCode): {
   status: "error" | "unavailable";
@@ -236,6 +242,21 @@ export function VoiceCommandButton({
       }
     };
   }, [handleFinalTranscript, setVoiceCommandStatus]);
+
+  useEffect(() => {
+    if (!message || !TRANSIENT_MESSAGE_STATUSES.includes(status)) {
+      return undefined;
+    }
+
+    const transientStatus = status;
+    const timer = setTimeout(() => {
+      if (statusRef.current === transientStatus) {
+        setVoiceCommandStatus("idle", null);
+      }
+    }, TRANSIENT_MESSAGE_MS);
+
+    return () => clearTimeout(timer);
+  }, [message, setVoiceCommandStatus, status]);
 
   const isListening = status === "listening";
   const isBusy = status === "requestingPermission" || status === "listening" || status === "opening";

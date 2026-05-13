@@ -1287,6 +1287,57 @@ describe("Check-in screen validation", () => {
     });
   });
 
+  it("allows up to twelve body map areas before showing the selection limit", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    selectStep(renderer!.root, 0);
+    const regions = [
+      "head",
+      "neck",
+      "shoulder_left",
+      "shoulder_right",
+      "upper_back",
+      "lower_back",
+      "arm_left",
+      "arm_right",
+      "elbow_left",
+      "elbow_right",
+      "wrist_hand_left",
+      "wrist_hand_right",
+    ];
+    const bodyMapSelector = renderer!.root.find(
+      (node) => String(node.type) === "mock-body-map-selector",
+    );
+
+    act(() => {
+      for (const region of regions) {
+        bodyMapSelector.props.onToggleRegion(region);
+      }
+    });
+
+    const updatedSelector = renderer!.root.find(
+      (node) => String(node.type) === "mock-body-map-selector",
+    );
+    expect(updatedSelector.props.value.selectedRegions).toEqual(regions);
+
+    act(() => {
+      updatedSelector.props.onToggleRegion("hip_left");
+    });
+
+    const limitedSelector = renderer!.root.find(
+      (node) => String(node.type) === "mock-body-map-selector",
+    );
+    expect(limitedSelector.props.value.selectedRegions).toEqual(regions);
+
+    const limitBanner = renderer!.root
+      .findAll((node) => String(node.type) === "mock-banner")
+      .find((node) => node.props.title === "Body map limit");
+    expect(limitBanner?.props.message).toBe("Select up to 12 body areas.");
+  });
+
   it("submits by voice only after explicit confirmation while awaiting confirmation", async () => {
     createCheckin.mockResolvedValue({
       ok: true,

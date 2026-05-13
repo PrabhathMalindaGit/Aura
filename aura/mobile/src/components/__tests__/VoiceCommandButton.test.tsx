@@ -284,6 +284,28 @@ describe("VoiceCommandButton", () => {
     );
   });
 
+  it("auto-dismisses unsupported availability feedback", async () => {
+    vi.useFakeTimers();
+    speechModule.supportsOnDeviceRecognition.mockReturnValue(false);
+    const { renderer } = renderButton();
+
+    await act(async () => {
+      await findMainButton(renderer).props.onPress();
+    });
+
+    expect(renderer.root.findByProps({ accessibilityRole: "alert" }).props.children).toContain(
+      "On-device voice commands are not available on this device.",
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+
+    expect(renderer.root.findAllByProps({ accessibilityRole: "alert" })).toHaveLength(0);
+    expect(findMainButton(renderer).props.accessibilityState.disabled).toBe(false);
+    vi.useRealTimers();
+  });
+
   it("does not navigate before a final valid command", async () => {
     const onNavigate = vi.fn();
     const { renderer } = renderButton({ onNavigate });

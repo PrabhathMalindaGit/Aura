@@ -16,7 +16,8 @@ import { SyncCoordinator } from '@/src/sync/SyncCoordinator';
 import { useTokens } from '@/src/theme/tokens';
 import { SecondaryButton } from '@/src/components/SecondaryButton';
 import { VoiceCommandButton } from '@/src/components/VoiceCommandButton';
-import { shouldShowVoiceCommandForSegments } from '@/src/utils/voiceCommandVisibility';
+import { shouldShowGlobalVoiceCommand } from '@/src/utils/globalVoiceCommandVisibility';
+import { isVoiceCommandRuntimeSupported } from '@/src/utils/voiceCommandAvailability';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -144,7 +145,12 @@ function VoiceCommandMount() {
   const segments = useSegments();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
-  const shouldShow = shouldShowVoiceCommandForSegments(status, segments);
+  const voiceCommandRuntimeSupported = useMemo(() => isVoiceCommandRuntimeSupported(), []);
+  const shouldShow = shouldShowGlobalVoiceCommand(
+    status,
+    segments,
+    voiceCommandRuntimeSupported,
+  );
 
   if (!shouldShow) {
     return null;

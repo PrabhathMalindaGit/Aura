@@ -6,6 +6,14 @@ export type ViewStyle = Record<string, unknown>;
 
 const listeners = new Set<(state: AppStateStatus) => void>();
 
+export const Platform = {
+  OS: "ios",
+};
+
+export function __setPlatformOS(nextOS: typeof Platform.OS): void {
+  Platform.OS = nextOS;
+}
+
 export const AppState = {
   currentState: "active" as AppStateStatus,
   addEventListener: (

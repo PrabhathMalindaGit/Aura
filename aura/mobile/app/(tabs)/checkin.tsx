@@ -148,7 +148,7 @@ const CHECKIN_STEPS: Array<{
   },
 ] as const;
 
-const BODY_MAP_LIMIT = 6;
+const BODY_MAP_LIMIT = 12;
 const CHECKIN_AUTO_SAVE_DELAY_MS = 450;
 const FIVE_POINT_CHOICES = [1, 2, 3, 4, 5] as const;
 type MedicationStatusOption = CheckinMedicationStatus | "skip";

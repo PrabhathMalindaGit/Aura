@@ -248,6 +248,37 @@ npm run verify:n8n:telegram-runtime
 
 The command writes redacted markdown evidence under `docs/evidence/`. A manual Telegram chat screenshot is still recommended for appendix evidence.
 
+## Final local workflow-suite evidence
+
+The server package also includes local/demo final-evidence tooling for the seven canonical Aura n8n workflows. It is not a CI command because safe runtime mode touches local workflow/backend state, and provider-send mode can send Telegram messages when explicitly enabled.
+
+Static-only mode requires no Docker/services:
+
+```bash
+cd "/Users/University/Final Project/aura/server"
+AURA_VERIFY_N8N_STATIC_ONLY=true npm run verify:n8n:workflows
+```
+
+Safe runtime mode requires MongoDB, Aura backend, and n8n:
+
+```bash
+cd "/Users/University/Final Project/aura/server"
+AURA_VERIFY_API_BASE_URL=http://127.0.0.1:3000 \
+AURA_VERIFY_N8N_BASE_URL=http://127.0.0.1:5678 \
+MONGO_URL=mongodb://127.0.0.1:27017/aura \
+AURA_WEBHOOK_KEY=<local backend callback key> \
+AURA_N8N_API_KEY=<local n8n list proxy key> \
+npm run verify:n8n:workflows
+```
+
+Provider-send mode must be explicitly enabled and requires imported/active workflows plus local/demo Telegram credentials in n8n:
+
+```bash
+AURA_VERIFY_ALLOW_PROVIDER_SEND=true npm run verify:n8n:workflows
+```
+
+The workflow-suite verifier writes redacted markdown evidence under `docs/evidence/`. Manual n8n, dashboard, and Telegram screenshots are still recommended for appendix evidence.
+
 ## Next steps (do not implement now)
 - Finish Telegram runtime/provider proof after credentials and chat IDs are configured across required workflows.
 - Configure the existing `AURA Rehab alerts` bot in n8n Credentials and set the required Telegram chat ID environment variables.

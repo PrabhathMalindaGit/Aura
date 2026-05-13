@@ -11,8 +11,10 @@ import {
   buildEvidenceMarkdown,
   buildSyntheticAlertFixture,
   buildSyntheticRunMarker,
+  buildWorkflow07DigestDedupeBlockedMessage,
   checkProviderSendEnabled,
   checkProviderSendAllEnabled,
+  dailyDigestDedupeKeyForDate,
   loadSuiteConfig,
   providerSendAllEvidenceFileName,
   redactSecrets,
@@ -215,7 +217,42 @@ describe("n8n workflow runtime suite helpers", () => {
 
     expect(config.mode).toBe("provider-send-all");
     expect(config.providerSendAllWorkflows).toBe(true);
+    expect(config.providerAllResetDigestDedupe).toBe(false);
     expect(config.providerAllManualWaitSeconds).toBe(300);
+  });
+
+  it("keeps Workflow 07 digest dedupe reset disabled by default and explicitly gated", () => {
+    const providerAllEnv = {
+      AURA_VERIFY_API_BASE_URL: "http://127.0.0.1:3000",
+      AURA_VERIFY_N8N_BASE_URL: "http://127.0.0.1:5678",
+      MONGO_URL: "mongodb://127.0.0.1:27017/aura",
+      AURA_WEBHOOK_KEY: "local-webhook-key",
+      AURA_N8N_API_KEY: "local-n8n-api-key",
+      AURA_VERIFY_ALLOW_PROVIDER_SEND: "true",
+      AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS: "true",
+    };
+
+    expect(loadSuiteConfig(providerAllEnv).providerAllResetDigestDedupe).toBe(false);
+    expect(
+      loadSuiteConfig({
+        ...providerAllEnv,
+        AURA_VERIFY_N8N_PROVIDER_ALL_RESET_DIGEST_DEDUPE: "true",
+      }).providerAllResetDigestDedupe
+    ).toBe(true);
+    expect(() =>
+      loadSuiteConfig({
+        ...providerAllEnv,
+        AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS: undefined,
+        AURA_VERIFY_N8N_PROVIDER_ALL_RESET_DIGEST_DEDUPE: "true",
+      })
+    ).toThrow(/RESET_DIGEST_DEDUPE=true requires provider-send-all mode/);
+    expect(() =>
+      loadSuiteConfig({
+        ...providerAllEnv,
+        AURA_VERIFY_ALLOW_NON_LOCAL: "true",
+        AURA_VERIFY_N8N_PROVIDER_ALL_RESET_DIGEST_DEDUPE: "true",
+      })
+    ).toThrow(/cannot be used with AURA_VERIFY_ALLOW_NON_LOCAL=true/);
   });
 
   it("refuses non-local URLs unless override is set", () => {
@@ -258,6 +295,35 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(redacted).not.toContain("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
   });
 
+  it("explains Workflow 07 date-level digest dedupe blocks without hiding failures", () => {
+    const dedupeKey = dailyDigestDedupeKeyForDate(new Date("2026-05-13T18:50:03.000Z"));
+    const message = buildWorkflow07DigestDedupeBlockedMessage({
+      workflowName: "07 - Daily Digest (Cron 09:00 → Aura Digest → Telegram → Callback)",
+      dedupeKey,
+      resetEnabled: false,
+    });
+
+    expect(dedupeKey).toBe("daily-digest:2026-05-13");
+    expect(message).toContain("provider-send-all preflight returned no eligible synthetic/demo dedupe keys");
+    expect(message).toContain("global date-level dedupe key");
+    expect(message).toContain("daily-digest:2026-05-13");
+    expect(message).toContain("AURA_VERIFY_N8N_PROVIDER_ALL_RESET_DIGEST_DEDUPE=true");
+    expect(message).not.toMatch(/\bpassed\b/i);
+  });
+
+  it("explains when Workflow 07 reset was enabled but eligibility is still missing", () => {
+    const message = buildWorkflow07DigestDedupeBlockedMessage({
+      workflowName: "07 - Daily Digest",
+      dedupeKey: "daily-digest:2026-05-13",
+      resetEnabled: true,
+    });
+
+    expect(message).toContain("dedupe reset flag was enabled");
+    expect(message).toContain("no eligible digest item was returned after reset");
+    expect(message).not.toMatch(/\bproduction\b/i);
+    expect(message).not.toMatch(/\bclinical validation\b/i);
+  });
+
   it("builds evidence markdown with local/demo caveats and no production overclaim", () => {
     const markdown = buildEvidenceMarkdown({
       status: "PASS",
@@ -296,6 +362,7 @@ describe("n8n workflow runtime suite helpers", () => {
       command: "npm run verify:n8n:workflows",
       providerSendEnabled: true,
       providerSendAllWorkflows: true,
+      providerAllResetDigestDedupe: true,
       providerAllManualWaitSeconds: 120,
       staticResults: [],
       runtimeChecks: [],
@@ -314,6 +381,9 @@ describe("n8n workflow runtime suite helpers", () => {
       capturedIds: {
         syntheticMarker: "aura-n8n-provider-send-all:run-1",
         workflow03ExpectedDedupeKeys: ["missed-checkin:verify-run:9:2026-05-13"],
+        workflow07DigestDedupeKey: "daily-digest:2026-05-13",
+        workflow07DigestDedupeResetCount: "1",
+        workflow07DigestDedupeResetEventKeys: ["daily_clinician_digest:daily-digest:2026-05-13"],
       },
       failureDiagnostics: [],
     });
@@ -321,6 +391,9 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(markdown).toContain("# n8n Provider-Send All Workflows");
     expect(markdown).toContain("Provider-send-all gate status: enabled");
     expect(markdown).toContain("Manual wait seconds: 120");
+    expect(markdown).toContain("Workflow 07 digest dedupe reset flag: enabled");
+    expect(markdown).toContain("removed only same-day Workflow 07 Daily Digest AUTOMATION_STATUS sent/skipped records");
+    expect(markdown).toContain("workflow07DigestDedupeResetCount: 1");
     expect(markdown).toContain(PROVIDER_SEND_ALL_FINAL_REPORT_WORDING);
     expect(markdown).toContain("manual screenshot only if visible");
     expect(markdown).toContain("Workflow 02 is a list-alerts proxy; no Telegram send expected.");

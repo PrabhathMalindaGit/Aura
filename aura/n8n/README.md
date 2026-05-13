@@ -298,6 +298,14 @@ AURA_VERIFY_N8N_PROVIDER_ALL_MANUAL_WAIT_SECONDS=300 \
 npm run verify:n8n:workflows
 ```
 
+If Workflow 07 Daily Digest has already been sent or skipped on the same local/demo evidence day, the backend's date-level `daily-digest:<date>` dedupe key can block a second provider-send-all preflight. For a clean repeat evidence window, add this explicit reset flag:
+
+```bash
+AURA_VERIFY_N8N_PROVIDER_ALL_RESET_DIGEST_DEDUPE=true
+```
+
+That reset is disabled by default, cannot be used with non-local verifier URLs, and removes only same-day Workflow 07 Daily Digest `AUTOMATION_STATUS` sent/skipped records before preflight. The evidence markdown records whether it was used.
+
 During provider-send-all mode, keep the verifier terminal running and manually use **Execute Workflow** in the n8n UI for:
 
 1. `03 - Missed Check-in Follow-through`

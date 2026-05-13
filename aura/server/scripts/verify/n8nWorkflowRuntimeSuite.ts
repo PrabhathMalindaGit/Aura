@@ -102,6 +102,7 @@ type SuiteConfig = {
   cleanupSynthetic: boolean;
   providerSendEnabled: boolean;
   providerSendAllWorkflows: boolean;
+  providerAllResetDigestDedupe: boolean;
   providerAllManualWaitSeconds: number;
   providerAllPollSeconds: number;
   apiBaseUrl?: string;
@@ -122,6 +123,7 @@ type EvidenceState = {
   command: string;
   providerSendEnabled: boolean;
   providerSendAllWorkflows?: boolean;
+  providerAllResetDigestDedupe?: boolean;
   providerAllManualWaitSeconds?: number;
   staticResults: WorkflowValidationResult[];
   runtimeChecks: VerificationCheck[];
@@ -208,6 +210,9 @@ const SYNTHETIC_ALERT_REASON = "AURA_N8N_WORKFLOW_SUITE_SYNTHETIC";
 
 const DEFAULT_PROVIDER_ALL_MANUAL_WAIT_SECONDS = 300;
 const DEFAULT_PROVIDER_ALL_POLL_SECONDS = 5;
+const PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV =
+  "AURA_VERIFY_N8N_PROVIDER_ALL_RESET_DIGEST_DEDUPE";
+const DAILY_DIGEST_WORKFLOW = "daily_clinician_digest";
 
 const PROVIDER_ALL_MANUAL_WORKFLOW_IDS = new Set(["03", "04", "06", "07", "08"]);
 
@@ -522,6 +527,21 @@ export function buildSyntheticRunMarker(
     : `aura-n8n-workflow-suite:${runId}`;
 }
 
+export function dailyDigestDedupeKeyForDate(date: Date): string {
+  return `daily-digest:${date.toISOString().slice(0, 10)}`;
+}
+
+export function buildWorkflow07DigestDedupeBlockedMessage(params: {
+  workflowName: string;
+  dedupeKey: string;
+  resetEnabled: boolean;
+}): string {
+  const resetGuidance = params.resetEnabled
+    ? "The Workflow 07 dedupe reset flag was enabled, but no eligible digest item was returned after reset. Check that the backend is using the same evidence date window and that demo dashboard data is available."
+    : `Workflow 07 Daily Digest uses a global date-level dedupe key (${params.dedupeKey}). A prior local/demo sent or skipped automation-status event for this key can block a second same-day evidence run. To explicitly clear only this local/demo digest dedupe blocker before preflight, rerun provider-send-all with ${PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV}=true.`;
+  return `${params.workflowName} provider-send-all preflight returned no eligible synthetic/demo dedupe keys. ${resetGuidance}`;
+}
+
 export function workflowTriggerStrategy(
   expectation: WorkflowExpectation
 ): WorkflowTriggerStrategy {
@@ -590,6 +610,9 @@ export function loadSuiteConfig(rawEnv: NodeJS.ProcessEnv): SuiteConfig {
   const providerSendAll = checkProviderSendAllEnabled(rawEnv);
   const staticOnly = parseBoolean(rawEnv.AURA_VERIFY_N8N_STATIC_ONLY);
   const allowNonLocal = parseBoolean(rawEnv.AURA_VERIFY_ALLOW_NON_LOCAL);
+  const providerAllResetDigestDedupe = parseBoolean(
+    rawEnv[PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV]
+  );
   const providerAllManualWaitSeconds = parsePositiveIntEnv(
     rawEnv,
     "AURA_VERIFY_N8N_PROVIDER_ALL_MANUAL_WAIT_SECONDS",
@@ -606,6 +629,16 @@ export function loadSuiteConfig(rawEnv: NodeJS.ProcessEnv): SuiteConfig {
       "AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS=true requires AURA_VERIFY_ALLOW_PROVIDER_SEND=true. Provider-send-all is explicitly gated because it can send Telegram messages in local/demo n8n."
     );
   }
+  if (providerAllResetDigestDedupe && !providerSendAll.enabled) {
+    throw new Error(
+      `${PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV}=true requires provider-send-all mode with AURA_VERIFY_ALLOW_PROVIDER_SEND=true and AURA_VERIFY_N8N_PROVIDER_ALL_WORKFLOWS=true. The reset is local/demo-only and can remove Daily Digest automation-status dedupe evidence.`
+    );
+  }
+  if (providerAllResetDigestDedupe && allowNonLocal) {
+    throw new Error(
+      `${PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV}=true cannot be used with AURA_VERIFY_ALLOW_NON_LOCAL=true. Daily Digest dedupe reset is restricted to local/demo evidence windows.`
+    );
+  }
 
   if (staticOnly) {
     return {
@@ -614,6 +647,7 @@ export function loadSuiteConfig(rawEnv: NodeJS.ProcessEnv): SuiteConfig {
       cleanupSynthetic: parseBoolean(rawEnv.AURA_VERIFY_CLEANUP_SYNTHETIC),
       providerSendEnabled: false,
       providerSendAllWorkflows: false,
+      providerAllResetDigestDedupe: false,
       providerAllManualWaitSeconds,
       providerAllPollSeconds,
     };
@@ -640,6 +674,7 @@ export function loadSuiteConfig(rawEnv: NodeJS.ProcessEnv): SuiteConfig {
     cleanupSynthetic: parseBoolean(rawEnv.AURA_VERIFY_CLEANUP_SYNTHETIC),
     providerSendEnabled: providerSend.enabled,
     providerSendAllWorkflows: providerSendAll.enabled,
+    providerAllResetDigestDedupe,
     providerAllManualWaitSeconds,
     providerAllPollSeconds,
     apiBaseUrl,
@@ -1087,6 +1122,7 @@ export function buildEvidenceMarkdown(state: EvidenceState): string {
     ? `
 - Provider-send-all gate status: enabled
 - Manual wait seconds: ${state.providerAllManualWaitSeconds ?? DEFAULT_PROVIDER_ALL_MANUAL_WAIT_SECONDS}
+- Workflow 07 digest dedupe reset flag: ${state.providerAllResetDigestDedupe ? "enabled" : "disabled"}
 `
     : "- Provider-send-all gate status: disabled";
   const screenshotChecklist = state.providerSendAllWorkflows
@@ -1140,6 +1176,8 @@ ${markdownChecks(state.workflowSummaries)}
 ${state.providerSendAllWorkflows ? `## Provider-Send-All Manual Observation Results
 
 Workflow 01 is automatic through the synthetic high-risk alert path. Workflow 02 is automatic and is expected not to send Telegram. Workflows 03, 04, 06, 07, and 08 require manual n8n Execute Workflow runs; provider message ids for those workflows are recorded as "manual screenshot only if visible" when n8n callback payloads do not include Telegram message ids.
+
+Workflow 07 Daily Digest uses a date-level dedupe key. If the explicit local/demo reset flag was enabled, this verifier removed only same-day Workflow 07 Daily Digest AUTOMATION_STATUS sent/skipped records before preflight and recorded that action in captured IDs.
 ` : ""}
 
 ## IDs Captured
@@ -1481,6 +1519,48 @@ function syntheticDedupeKeysForWorkflow(params: {
   ];
 }
 
+async function resetWorkflow07DigestDedupeForLocalDemo(params: {
+  state: EvidenceState;
+  config: SuiteConfig;
+  now: Date;
+}): Promise<void> {
+  if (!params.config.providerAllResetDigestDedupe) {
+    return;
+  }
+  if (!params.config.providerSendAllWorkflows || params.config.allowNonLocal) {
+    throw new Error(
+      `${PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV}=true is restricted to provider-send-all mode against local/demo URLs.`
+    );
+  }
+
+  const dedupeKey = dailyDigestDedupeKeyForDate(params.now);
+  const filter = {
+    type: "AUTOMATION_STATUS",
+    "payload.workflow": DAILY_DIGEST_WORKFLOW,
+    "payload.dedupeKey": dedupeKey,
+    "payload.status": { $in: ["sent", "skipped"] },
+  };
+  const existingRows = await CareEvent.find(filter).select({ _id: 1, payload: 1 }).lean();
+  const eventKeys = existingRows
+    .map((row) => summarizeAutomationEvent(row as Record<string, unknown>).eventKey)
+    .filter((eventKey): eventKey is string => Boolean(eventKey));
+  const existingIds = existingRows.map((row) => row._id);
+  const deleteResult = existingIds.length > 0
+    ? await CareEvent.deleteMany({ _id: { $in: existingIds } })
+    : { deletedCount: 0 };
+  const deletedCount = Number(deleteResult.deletedCount ?? 0);
+
+  params.state.capturedIds.workflow07DigestDedupeKey = dedupeKey;
+  params.state.capturedIds.workflow07DigestDedupeResetCount = String(deletedCount);
+  params.state.capturedIds.workflow07DigestDedupeResetEventKeys = eventKeys;
+  pushCheck(
+    params.state.workflowSummaries,
+    "Workflow 07 local/demo digest dedupe reset",
+    true,
+    `${PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV}=true; removed ${deletedCount} local/demo ${DAILY_DIGEST_WORKFLOW} AUTOMATION_STATUS sent/skipped record(s) for dedupeKey=${dedupeKey}.`
+  );
+}
+
 async function preflightProviderAllAutomationEndpoint(params: {
   config: SuiteConfig;
   path: string;
@@ -1512,6 +1592,15 @@ async function preflightProviderAllAutomationEndpoint(params: {
   });
 
   if (items.length === 0 || expectedDedupeKeys.length === 0) {
+    if (params.workflowId === "07") {
+      throw new Error(
+        buildWorkflow07DigestDedupeBlockedMessage({
+          workflowName: params.workflowName,
+          dedupeKey: dailyDigestDedupeKeyForDate(params.now),
+          resetEnabled: params.config.providerAllResetDigestDedupe,
+        })
+      );
+    }
     throw new Error(
       `${params.workflowName} provider-send-all preflight returned no eligible synthetic/demo dedupe keys. This can happen if today's dedupe key was already sent/skipped or the synthetic fixture no longer matches the process criteria.`
     );
@@ -1767,6 +1856,9 @@ async function runProviderSendAllWorkflowChecks(
 
   const preflights: PreflightResult[] = [];
   for (const check of AUTOMATION_CHECKS) {
+    if (check.id === "07") {
+      await resetWorkflow07DigestDedupeForLocalDemo({ state, config, now });
+    }
     const expectation = WORKFLOW_EXPECTATIONS.find((workflow) => workflow.id === check.id);
     const preflight = await preflightProviderAllAutomationEndpoint({
       config,
@@ -1966,6 +2058,7 @@ function createInitialState(params: {
   mode: RuntimeMode;
   providerSendEnabled: boolean;
   providerSendAllWorkflows?: boolean;
+  providerAllResetDigestDedupe?: boolean;
   providerAllManualWaitSeconds?: number;
 }): EvidenceState {
   return {
@@ -1976,6 +2069,7 @@ function createInitialState(params: {
     command: "npm run verify:n8n:workflows",
     providerSendEnabled: params.providerSendEnabled,
     providerSendAllWorkflows: params.providerSendAllWorkflows,
+    providerAllResetDigestDedupe: params.providerAllResetDigestDedupe,
     providerAllManualWaitSeconds: params.providerAllManualWaitSeconds,
     staticResults: [],
     runtimeChecks: [],
@@ -1996,6 +2090,9 @@ async function runSuite(): Promise<{ evidencePath: string; state: EvidenceState 
     mode: providerAllRequested ? "provider-send-all" : "static-only",
     providerSendEnabled: providerSendRequested,
     providerSendAllWorkflows: providerAllRequested,
+    providerAllResetDigestDedupe: parseBoolean(
+      process.env[PROVIDER_ALL_RESET_DIGEST_DEDUPE_ENV]
+    ),
     providerAllManualWaitSeconds: DEFAULT_PROVIDER_ALL_MANUAL_WAIT_SECONDS,
   });
   let config: SuiteConfig | undefined;
@@ -2008,6 +2105,7 @@ async function runSuite(): Promise<{ evidencePath: string; state: EvidenceState 
       mode: config.mode,
       providerSendEnabled: config.providerSendEnabled,
       providerSendAllWorkflows: config.providerSendAllWorkflows,
+      providerAllResetDigestDedupe: config.providerAllResetDigestDedupe,
       providerAllManualWaitSeconds: config.providerAllManualWaitSeconds,
     });
     state.staticResults = validateAllWorkflowExports();

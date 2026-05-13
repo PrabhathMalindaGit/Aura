@@ -173,6 +173,29 @@ type AlertJobSummary = {
   messageId?: string;
 };
 
+const SYNTHETIC_ALERT_REASON = "AURA_N8N_WORKFLOW_SUITE_SYNTHETIC";
+
+export function buildSyntheticAlertFixture(params: {
+  patientId: string;
+  checkInId: string;
+  marker: string;
+}): Record<string, unknown> {
+  return {
+    patientId: params.patientId,
+    reason: SYNTHETIC_ALERT_REASON,
+    risk: "high",
+    riskAuto: "high",
+    riskFinal: "high",
+    reasonsAuto: [SYNTHETIC_ALERT_REASON],
+    source: {
+      type: "checkin",
+      sourceId: params.checkInId,
+    },
+    status: "open",
+    demoTag: params.marker,
+  };
+}
+
 export const WORKFLOW_EXPECTATIONS: WorkflowExpectation[] = [
   {
     id: "01",
@@ -1038,21 +1061,15 @@ async function createSyntheticFixtures(runId: string): Promise<Record<string, st
     pain: 8,
     adherence: { exercises: 0.1, medication: false },
     notes: marker,
-    risk: { level: "high", reasons: ["AURA_N8N_WORKFLOW_SUITE_SYNTHETIC"] },
+    risk: { level: "high", reasons: [SYNTHETIC_ALERT_REASON] },
     demoTag: marker,
   });
 
-  const alert = await Alert.create({
+  const alert = await Alert.create(buildSyntheticAlertFixture({
     patientId,
-    reason: ["AURA_N8N_WORKFLOW_SUITE_SYNTHETIC"],
-    risk: "high",
-    source: {
-      type: "checkin",
-      sourceId: String(checkIn._id),
-    },
-    status: "open",
-    demoTag: marker,
-  });
+    checkInId: String(checkIn._id),
+    marker,
+  }));
 
   const task = await Task.create({
     patientId,

@@ -7,6 +7,7 @@ import {
   SAFE_FINAL_REPORT_WORDING,
   WorkflowExpectation,
   buildEvidenceMarkdown,
+  buildSyntheticAlertFixture,
   checkProviderSendEnabled,
   loadSuiteConfig,
   redactSecrets,
@@ -268,5 +269,18 @@ describe("n8n workflow runtime suite helpers", () => {
     expect(config.mode).toBe("static-only");
     expect(config.apiBaseUrl).toBeUndefined();
     expect(config.mongoUrl).toBeUndefined();
+  });
+
+  it("builds synthetic Alert fixtures with schema-valid string reason and reason-code metadata", () => {
+    const fixture = buildSyntheticAlertFixture({
+      patientId: "verify-run",
+      checkInId: "checkin-1",
+      marker: "aura-n8n-workflow-suite:run-1",
+    });
+
+    expect(fixture.reason).toBe("AURA_N8N_WORKFLOW_SUITE_SYNTHETIC");
+    expect(Array.isArray(fixture.reason)).toBe(false);
+    expect(fixture.reasonsAuto).toEqual(["AURA_N8N_WORKFLOW_SUITE_SYNTHETIC"]);
+    expect(fixture.demoTag).toBe("aura-n8n-workflow-suite:run-1");
   });
 });

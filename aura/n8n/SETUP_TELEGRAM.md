@@ -25,7 +25,7 @@ You can use either a group or a direct chat.
 6. Save it as `TELEGRAM_CLINICIAN_CHAT_ID`.
 
 ## 3) Set environment variables for n8n
-Use `/Users/University/Final Project/aura/n8n/.env.example` as a template.
+Set local values in `/Users/University/Final Project/aura/.env`; Docker Compose reads the project root `.env` for the n8n service. Use `/Users/University/Final Project/aura/n8n/.env.example` only as an n8n-specific reference template.
 
 Minimum variables:
 - `TELEGRAM_CLINICIAN_CHAT_ID`

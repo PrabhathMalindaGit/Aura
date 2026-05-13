@@ -32,12 +32,13 @@ services:
       N8N_PROTOCOL: http
       WEBHOOK_URL: http://localhost:5678
       GENERIC_TIMEZONE: Asia/Colombo
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: ${N8N_BLOCK_ENV_ACCESS_IN_NODE:-false}
       AURA_API_BASE: ${AURA_API_BASE:-http://host.docker.internal:3000}
       AURA_WEBHOOK_KEY: ${AURA_WEBHOOK_KEY:-}
       AURA_N8N_WEBHOOK_KEY: ${AURA_N8N_WEBHOOK_KEY:-}
       AURA_N8N_API_KEY: ${AURA_N8N_API_KEY:-}
-      TELEGRAM_CLINICIAN_CHAT_ID: CHANGE_ME
-      TELEGRAM_DEV_CHAT_ID: CHANGE_ME
+      TELEGRAM_CLINICIAN_CHAT_ID: ${TELEGRAM_CLINICIAN_CHAT_ID:-CHANGE_ME}
+      TELEGRAM_DEV_CHAT_ID: ${TELEGRAM_DEV_CHAT_ID:-CHANGE_ME}
     volumes:
       - n8n_data:/home/node/.n8n
     restart: unless-stopped

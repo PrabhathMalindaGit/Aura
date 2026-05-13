@@ -80,7 +80,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{$json}}",
+        "responseBody": "{\"ok\":false,\"error\":\"UNAUTHORIZED\"}",
         "options": {
           "responseCode": 401
         }

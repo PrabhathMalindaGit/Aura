@@ -542,6 +542,11 @@ describe("Today screen", () => {
     expect(weeklyReportCard?.props.chips).toEqual([
       expect.objectContaining({ text: "2 highlights" }),
     ]);
+    routerPush.mockClear();
+    await act(async () => {
+      weeklyReportCard?.props.onPress();
+    });
+    expect(routerPush).toHaveBeenCalledWith("/weekly-report");
   });
 
   it("opens support entries from their existing routes without exposing the voice agent shortcut", async () => {

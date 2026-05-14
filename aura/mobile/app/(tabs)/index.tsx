@@ -364,6 +364,7 @@ export default function HomeScreen() {
   const rehabPhasesRefresh = useLastRefreshed("rehabPhases");
   const promsRefresh = useLastRefreshed("proms");
   const weeklyReportRefresh = useLastRefreshed("weeklyReport");
+  const refreshWeeklyReportLocal = weeklyReportRefresh.refreshLocal;
   const insightsRefresh = useLastRefreshed("insights");
   const appointmentsRefresh = useLastRefreshed("appointments");
   const tasksRefresh = useLastRefreshed("tasks");
@@ -889,7 +890,7 @@ export default function HomeScreen() {
 
           await Promise.all([
             setCachedWeeklyReport(patientId, thisWeekStart, report),
-            weeklyReportRefresh.refreshLocal(),
+            refreshWeeklyReportLocal(),
           ]);
 
           const isBuilding = report.checkins.count === 0 && report.summary.highlights.length === 0;
@@ -926,9 +927,9 @@ export default function HomeScreen() {
       auth.token,
       isOffline,
       patientId,
+      refreshWeeklyReportLocal,
       thisWeekStart,
       tzOffsetMinutes,
-      weeklyReportRefresh,
     ]),
   );
 

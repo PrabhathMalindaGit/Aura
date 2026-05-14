@@ -1,0 +1,101 @@
+- generic [ref=e7]:
+  - generic [ref=e15]:
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - img "Avatar for Unknown" [ref=e20]:
+            - generic [ref=e23]: U
+          - generic [ref=e24]:
+            - heading "Today" [level=1] [ref=e25]
+            - generic [ref=e26]: Friday, May 15
+          - generic [ref=e27]:
+            - button "Open Safety support" [ref=e28] [cursor=pointer]
+            - button "Open reminders" [ref=e29] [cursor=pointer]
+            - button "Open Tasks" [ref=e30] [cursor=pointer]
+        - generic [ref=e32]: A short update keeps your recovery plan clear and helps your care team follow along.
+      - 'generic "Status: Last check-in: …. Status: Synced" [ref=e34]':
+        - generic [ref=e36]: "Last check-in: …"
+        - generic [ref=e38]: Synced
+    - generic "Today’s check-in" [ref=e39]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]: Today’s check-in
+          - generic [ref=e43]: Start today’s check-in.
+          - generic [ref=e44]: A short check-in keeps your recovery timeline current and helps your care team stay aligned.
+        - generic [ref=e46]: Ready today
+    - generic [ref=e54]:
+      - heading "Today’s exercise" [level=1] [ref=e56]
+      - generic [ref=e57]: Continue rehab after your check-in.
+    - generic [ref=e62]:
+      - generic [ref=e64]:
+        - heading "Support" [level=1] [ref=e66]
+        - generic [ref=e67]: Message your care team, open safety support, or review appointments.
+      - generic [ref=e69]:
+        - generic "Chat. Message your care team." [ref=e71]:
+          - button "Chat. Message your care team." [ref=e73] [cursor=pointer]:
+            - generic [ref=e78]:
+              - generic [ref=e80]: Chat
+              - generic [ref=e81]: Message your care team.
+              - generic [ref=e84]: Care support
+        - generic "Safety. Open your safety plan." [ref=e86]:
+          - button "Safety. Open your safety plan." [ref=e88] [cursor=pointer]:
+            - generic [ref=e93]:
+              - generic [ref=e95]: Safety
+              - generic [ref=e96]: Open your safety plan.
+              - generic [ref=e99]: Always available
+        - generic "Appointments. Loading…" [ref=e101]:
+          - button "Appointments. Loading…" [ref=e103] [cursor=pointer]:
+            - generic [ref=e108]:
+              - generic [ref=e110]: Appointments
+              - generic [ref=e111]: Loading…
+              - generic [ref=e112]:
+                - generic [ref=e114]: Pending 0
+                - generic [ref=e116]: None upcoming
+    - generic [ref=e117]:
+      - generic [ref=e119]:
+        - heading "Progress" [level=1] [ref=e121]
+        - generic [ref=e122]: A quick view of recent check-ins.
+      - generic [ref=e124]:
+        - generic [ref=e125]:
+          - 'button "Pain: —, Last 7 check-ins" [ref=e129] [cursor=pointer]':
+            - generic [ref=e130]:
+              - generic [ref=e134]: Pain
+              - generic [ref=e135]: —
+              - generic [ref=e137]: Last 7 check-ins
+          - 'button "Mood: —, Last 7 check-ins" [ref=e146] [cursor=pointer]':
+            - generic [ref=e147]:
+              - generic [ref=e151]: Mood
+              - generic [ref=e152]: —
+              - generic [ref=e154]: Last 7 check-ins
+        - generic [ref=e160]:
+          - 'button "Adherence: —, Exercises" [ref=e164] [cursor=pointer]':
+            - generic [ref=e165]:
+              - generic [ref=e169]: Adherence
+              - generic [ref=e170]: —
+              - generic [ref=e172]: Exercises
+          - 'button "Medication: —, Taken" [ref=e181] [cursor=pointer]':
+            - generic [ref=e182]:
+              - generic [ref=e186]: Medication
+              - generic [ref=e187]: —
+              - generic [ref=e189]: Taken
+    - generic [ref=e195]:
+      - generic [ref=e197]:
+        - heading "More recovery tools" [level=1] [ref=e199]
+        - generic [ref=e200]: Review updates, reports, and extra recovery context when you have time.
+      - generic "Weekly report. Loading…" [ref=e206]:
+        - button "Weekly report. Loading…" [ref=e208] [cursor=pointer]:
+          - generic [ref=e213]:
+            - generic [ref=e215]: Weekly report
+            - generic [ref=e216]: Loading…
+    - generic [ref=e217]: Loading latest dashboard data…
+  - tablist [ref=e219]:
+    - tab "Today" [selected] [ref=e221] [cursor=pointer]:
+      - generic [ref=e227]: Today
+    - tab "Check-in" [ref=e229] [cursor=pointer]:
+      - generic [ref=e235]: Check-in
+    - tab "Messages" [ref=e237] [cursor=pointer]:
+      - generic [ref=e243]: Messages
+    - tab "Progress" [ref=e245] [cursor=pointer]:
+      - generic [ref=e251]: Progress
+    - tab "Settings" [ref=e253] [cursor=pointer]:
+      - generic [ref=e259]: Settings

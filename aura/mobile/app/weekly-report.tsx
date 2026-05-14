@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Redirect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
 import { getWeeklyReport, type WeeklyReport } from "@/src/api/patient";
@@ -169,12 +168,56 @@ function buildShareText(report: WeeklyReport): string {
   return lines.join("\n");
 }
 
+function WeeklyReportLoadingState({
+  title,
+  styles,
+  tokens,
+}: {
+  title: string;
+  styles: ReturnType<typeof createStyles>;
+  tokens: ReturnType<typeof useTokens>;
+}) {
+  return (
+    <Section
+      title={title}
+      subtitle="Preparing the latest weekly signals without shifting the review controls."
+      right={<StatusPill label="Loading" variant="neutral" accessible={false} />}
+      card
+      cardVariant="elevated"
+    >
+      <View
+        style={styles.loadingPanel}
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel="Loading weekly summary"
+      >
+        <View style={styles.loadingRow}>
+          <ActivityIndicator
+            size="small"
+            color={tokens.colors.primary}
+            accessibilityLabel="Loading weekly summary"
+          />
+          <Text style={styles.loadingText}>Preparing weekly summary</Text>
+        </View>
+        <View style={styles.loadingSkeleton}>
+          <View style={[styles.skeletonLine, styles.skeletonLineStrong]} />
+          <View style={styles.skeletonLine} />
+          <View style={[styles.skeletonLine, styles.skeletonLineShort]} />
+        </View>
+      </View>
+    </Section>
+  );
+}
+
 export default function WeeklyReportScreen() {
   const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
   const weeklyRefresh = useLastRefreshed("weeklyReport");
   const weeklyLoadError = useLastError("weeklyReportLoad");
+  const refreshWeeklyReportLocal = weeklyRefresh.refreshLocal;
+  const clearWeeklyReportLoadError = weeklyLoadError.clear;
+  const setWeeklyReportLoadError = weeklyLoadError.setLocalError;
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
@@ -195,25 +238,39 @@ export default function WeeklyReportScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
+  const latestLoadRequestRef = useRef(0);
 
   const activeWeekStart = selectedWeek === "this" ? thisWeekStart : lastWeekStart;
 
   const loadReport = useCallback(
-    async (mode: "initial" | "refresh" = "initial") => {
+    async (
+      mode: "initial" | "refresh" = "initial",
+      weekStart: string = activeWeekStart
+    ) => {
       if (!auth.token || !patientId) {
         return;
       }
+
+      const requestId = latestLoadRequestRef.current + 1;
+      latestLoadRequestRef.current = requestId;
+      const isLatestRequest = () => latestLoadRequestRef.current === requestId;
 
       if (mode === "refresh") {
         setIsRefreshing(true);
       } else {
         setIsLoading(true);
+        setReport((current) =>
+          current?.period.weekStart === weekStart ? current : null
+        );
       }
 
       setNotice(null);
 
       if (isOffline) {
-        const cached = await getCachedWeeklyReport(patientId, activeWeekStart);
+        const cached = await getCachedWeeklyReport(patientId, weekStart);
+        if (!isLatestRequest()) {
+          return;
+        }
         if (cached) {
           setReport(cached.report);
           setNotice({
@@ -237,24 +294,30 @@ export default function WeeklyReportScreen() {
 
       try {
         const live = await getWeeklyReport(auth.token, {
-          weekStart: activeWeekStart,
+          weekStart,
           tzOffsetMinutes,
         });
 
+        await setCachedWeeklyReport(patientId, weekStart, live);
+        if (!isLatestRequest()) {
+          return;
+        }
         setReport(live);
-        await setCachedWeeklyReport(patientId, activeWeekStart, live);
-        await weeklyRefresh.refreshLocal();
-        await weeklyLoadError.clear();
+        await refreshWeeklyReportLocal();
+        await clearWeeklyReportLoadError();
       } catch (error) {
         const friendly = toFriendlyError(error, "Couldn’t load weekly summary");
-        await weeklyLoadError.setLocalError({
+        await setWeeklyReportLoadError({
           title: friendly.title,
           message: friendly.message,
           kind: friendly.kind,
           retryable: friendly.retryable,
         });
 
-        const cached = await getCachedWeeklyReport(patientId, activeWeekStart);
+        const cached = await getCachedWeeklyReport(patientId, weekStart);
+        if (!isLatestRequest()) {
+          return;
+        }
         if (cached) {
           setReport(cached.report);
           setNotice({
@@ -264,7 +327,7 @@ export default function WeeklyReportScreen() {
             actionLabel: friendly.retryable ? "Retry" : undefined,
             onAction: friendly.retryable
               ? () => {
-                  void loadReport("refresh");
+                  void loadReport("refresh", weekStart);
                 }
               : undefined,
           });
@@ -277,42 +340,35 @@ export default function WeeklyReportScreen() {
             actionLabel: friendly.retryable ? "Retry" : undefined,
             onAction: friendly.retryable
               ? () => {
-                  void loadReport("refresh");
+                  void loadReport("refresh", weekStart);
                 }
               : undefined,
           });
         }
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        if (isLatestRequest()) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     },
     [
       activeWeekStart,
       auth.token,
+      clearWeeklyReportLoadError,
       isOffline,
       patientId,
+      refreshWeeklyReportLocal,
+      setWeeklyReportLoadError,
       tzOffsetMinutes,
-      weeklyLoadError,
-      weeklyRefresh,
     ]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      if (auth.status !== "signedIn") {
-        return;
-      }
-      void loadReport("initial");
-      return undefined;
-    }, [auth.status, loadReport])
   );
 
   useEffect(() => {
     if (auth.status !== "signedIn") {
       return;
     }
-    void loadReport("initial");
+    void loadReport("initial", activeWeekStart);
   }, [activeWeekStart, auth.status, loadReport]);
 
   const shareReport = useCallback(async () => {
@@ -686,10 +742,12 @@ export default function WeeklyReportScreen() {
           </View>
         </Section>
 
-        {isLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
-              </View>
+            {isLoading && !report ? (
+              <WeeklyReportLoadingState
+                title={weeklyTakeawayTitle}
+                styles={styles}
+                tokens={tokens}
+              />
             ) : null}
 
             {!isLoading && !report ? (
@@ -862,10 +920,39 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexWrap: "wrap",
       gap: tokens.spacing.xs,
     },
-    centered: {
-      alignItems: "center",
+    loadingPanel: {
+      gap: tokens.spacing.md,
+      minHeight: 180,
       justifyContent: "center",
-      minHeight: 120,
+    },
+    loadingRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+    },
+    loadingText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    loadingSkeleton: {
+      gap: tokens.spacing.sm,
+    },
+    skeletonLine: {
+      height: 14,
+      width: "82%",
+      borderRadius: 999,
+      backgroundColor: tokens.colors.border,
+      opacity: 0.65,
+    },
+    skeletonLineStrong: {
+      height: 18,
+      width: "62%",
+      opacity: 0.9,
+    },
+    skeletonLineShort: {
+      width: "44%",
     },
     devBlock: {
       gap: tokens.spacing.sm,

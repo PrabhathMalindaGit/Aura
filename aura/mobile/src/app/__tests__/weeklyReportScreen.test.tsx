@@ -210,7 +210,7 @@ vi.mock("@/src/state/auth", () => ({
 }));
 
 vi.mock("@/src/state/lastError", () => ({
-  useLastError: () => weeklyErrorState,
+  useLastError: () => ({ ...weeklyErrorState }),
 }));
 
 vi.mock("@/src/state/network", () => ({
@@ -223,7 +223,7 @@ vi.mock("@/src/state/weeklyReportCache", () => ({
 }));
 
 vi.mock("@/src/state/refresh", () => ({
-  useLastRefreshed: () => weeklyRefreshState,
+  useLastRefreshed: () => ({ ...weeklyRefreshState }),
 }));
 
 vi.mock("@/src/theme/tokens", () => ({
@@ -353,6 +353,17 @@ async function flush() {
   await Promise.resolve();
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, resolve, reject };
+}
+
 describe("Weekly report screen", () => {
   let renderer: ReactTestRenderer | undefined;
 
@@ -367,6 +378,138 @@ describe("Weekly report screen", () => {
     weeklyErrorState.setLocalError = setWeeklyError;
     weeklyErrorState.lastError = null;
     weeklyErrorState.label = "Never";
+  });
+
+  it("renders a stable loading section before weekly data arrives", async () => {
+    const pending = createDeferred<ReturnType<typeof buildWeeklyReport>>();
+    getWeeklyReport.mockReturnValueOnce(pending.promise);
+
+    await act(async () => {
+      renderer = create(<WeeklyReportScreen />);
+      await flush();
+    });
+
+    const root = renderer!.root;
+    const sections = findHostNodes(root, "mock-section");
+
+    expect(sections.some((node) => node.props.title === "This week at a glance")).toBe(true);
+    expect(flattenText(root)).toContain("Preparing weekly summary");
+    expect(findHostNodes(root, "mock-activity-indicator").length).toBe(1);
+    expect(findHostNodes(root, "mock-media-card").length).toBe(0);
+
+    await act(async () => {
+      pending.resolve(buildWeeklyReport());
+      await flush();
+    });
+
+    expect(
+      findHostNodes(renderer!.root, "mock-media-card").some((node) => node.props.title === "Check-ins"),
+    ).toBe(true);
+  });
+
+  it("does not restart the initial weekly fetch when refresh metadata changes", async () => {
+    getWeeklyReport.mockResolvedValue(buildWeeklyReport());
+
+    await act(async () => {
+      renderer = create(<WeeklyReportScreen />);
+      await flush();
+    });
+
+    expect(getWeeklyReport).toHaveBeenCalledTimes(1);
+
+    weeklyRefreshState.label = "Just now";
+    weeklyRefreshState.lastRefreshedAt = 2;
+
+    await act(async () => {
+      renderer!.update(<WeeklyReportScreen />);
+      await flush();
+    });
+
+    expect(getWeeklyReport).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches to last week with a stable placeholder instead of stale report content", async () => {
+    const lastWeekRequest = createDeferred<ReturnType<typeof buildWeeklyReport>>();
+    getWeeklyReport
+      .mockResolvedValueOnce(buildWeeklyReport())
+      .mockReturnValueOnce(lastWeekRequest.promise);
+
+    await act(async () => {
+      renderer = create(<WeeklyReportScreen />);
+      await flush();
+    });
+
+    const rangeSelector = findHostNodes(renderer!.root, "mock-segmented-control")[0];
+
+    await act(async () => {
+      rangeSelector.props.onChange("last");
+      await flush();
+    });
+
+    expect(getWeeklyReport).toHaveBeenCalledTimes(2);
+    expect(getWeeklyReport).toHaveBeenLastCalledWith(
+      "token-1",
+      expect.objectContaining({ weekStart: "2026-03-30" }),
+    );
+    expect(flattenText(renderer!.root)).toContain("Preparing weekly summary");
+    expect(
+      findHostNodes(renderer!.root, "mock-media-card").some((node) => node.props.title === "Check-ins"),
+    ).toBe(false);
+
+    await act(async () => {
+      lastWeekRequest.resolve(
+        buildWeeklyReport({
+          period: {
+            weekStart: "2026-03-30",
+            weekEnd: "2026-04-05",
+            tzOffsetMinutes: 330,
+          },
+        }),
+      );
+      await flush();
+    });
+
+    const header = findHostNodes(renderer!.root, "mock-hero-header")[0];
+    expect(header?.props.subtitle).toBe("2026-03-30 to 2026-04-05");
+  });
+
+  it("refreshes the selected week without replacing loaded content with the loading section", async () => {
+    const refreshRequest = createDeferred<ReturnType<typeof buildWeeklyReport>>();
+    getWeeklyReport
+      .mockResolvedValueOnce(buildWeeklyReport())
+      .mockReturnValueOnce(refreshRequest.promise);
+
+    await act(async () => {
+      renderer = create(<WeeklyReportScreen />);
+      await flush();
+    });
+
+    const refreshButton = findHostNodes(renderer!.root, "mock-primary-button").find(
+      (node) => node.props.label === "Refresh summary",
+    );
+
+    await act(async () => {
+      refreshButton?.props.onPress();
+      await flush();
+    });
+
+    expect(getWeeklyReport).toHaveBeenCalledTimes(2);
+    expect(flattenText(renderer!.root)).not.toContain("Preparing weekly summary");
+    expect(
+      findHostNodes(renderer!.root, "mock-media-card").some((node) => node.props.title === "Check-ins"),
+    ).toBe(true);
+    expect(
+      findHostNodes(renderer!.root, "mock-primary-button").some(
+        (node) => node.props.label === "Refreshing..." && node.props.loading === true,
+      ),
+    ).toBe(true);
+
+    await act(async () => {
+      refreshRequest.resolve(buildWeeklyReport());
+      await flush();
+    });
+
+    expect(getWeeklyReport).toHaveBeenCalledTimes(2);
   });
 
   it("shows a truthful building narrative when this week has started but summary data is still sparse", async () => {

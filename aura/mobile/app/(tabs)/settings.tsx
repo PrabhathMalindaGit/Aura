@@ -559,6 +559,15 @@ export default function SettingsScreen() {
   };
 
   const confirmSignOut = () => {
+    const browserConfirm = (globalThis as { confirm?: (message: string) => boolean }).confirm;
+    if (typeof browserConfirm === "function") {
+      const shouldSignOut = browserConfirm("Log out? You’ll need your access code to sign in again.");
+      if (shouldSignOut) {
+        void handleSignOut();
+      }
+      return;
+    }
+
     Alert.alert("Log out?", "You’ll need your access code to sign in again.", [
       { text: "Cancel", style: "cancel" },
       {

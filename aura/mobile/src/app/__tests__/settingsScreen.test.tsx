@@ -327,6 +327,7 @@ function findByTestId(root: ReactTestInstance, typeName: string, testID: string)
 describe("SettingsScreen", () => {
   beforeEach(() => {
     (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+    delete (globalThis as { confirm?: unknown }).confirm;
     routerPush.mockReset();
     signOut.mockReset();
     getReminderPrefs.mockClear();
@@ -357,6 +358,53 @@ describe("SettingsScreen", () => {
     expect(findByTestId(renderer!.root, "mock-settings-group", "settings-group-support")).toHaveLength(1);
     expect(findByTestId(renderer!.root, "mock-settings-group", "settings-group-app")).toHaveLength(1);
     expect(findByTestId(renderer!.root, "mock-pressable", "settings-logout-button")).toHaveLength(1);
+  });
+
+  it("logs out from the web-safe confirmation path", async () => {
+    let renderer: ReactTestRenderer;
+    const confirmMock = vi.fn(() => true);
+    (globalThis as unknown as { confirm?: typeof confirmMock }).confirm = confirmMock;
+
+    await act(async () => {
+      renderer = create(<SettingsScreen />);
+    });
+
+    await act(async () => {
+      findByTestId(renderer!.root, "mock-pressable", "settings-logout-button")[0]?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(confirmMock).toHaveBeenCalledWith("Log out? You’ll need your access code to sign in again.");
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(alertMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the native alert logout confirmation when browser confirm is unavailable", async () => {
+    let renderer: ReactTestRenderer;
+
+    await act(async () => {
+      renderer = create(<SettingsScreen />);
+    });
+
+    await act(async () => {
+      findByTestId(renderer!.root, "mock-pressable", "settings-logout-button")[0]?.props.onPress();
+    });
+
+    expect(alertMock).toHaveBeenCalledWith(
+      "Log out?",
+      "You’ll need your access code to sign in again.",
+      expect.arrayContaining([
+        expect.objectContaining({ text: "Log out" }),
+      ]),
+    );
+
+    const buttons = alertMock.mock.calls[0]?.[2] as Array<{ text: string; onPress?: () => void }>;
+    await act(async () => {
+      buttons.find((button) => button.text === "Log out")?.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(signOut).toHaveBeenCalledTimes(1);
   });
 
   it("keeps caregiver and safety concepts to one primary row each, without exposing developer controls", async () => {

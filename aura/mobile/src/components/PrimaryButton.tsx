@@ -52,7 +52,10 @@ export function PrimaryButton({
         pressed && !isDisabled ? getPressFeedbackStyle(reduceMotion, 0.88) : null,
       ]}
     >
-      <Text style={[styles.label, size === "compact" ? styles.labelCompact : null]}>
+      <Text
+        numberOfLines={2}
+        style={[styles.label, size === "compact" ? styles.labelCompact : null]}
+      >
         {loading ? "…" : label}
       </Text>
     </Pressable>
@@ -84,6 +87,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+      textAlign: "center",
     },
     labelCompact: {
       fontSize: 15,

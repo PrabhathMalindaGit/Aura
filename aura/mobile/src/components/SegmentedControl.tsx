@@ -186,7 +186,7 @@ export function SegmentedControl<T extends string>({
             ) : null}
             <Text
               allowFontScaling
-              numberOfLines={1}
+              numberOfLines={allowWrap ? 2 : 1}
               style={[
                 styles.segmentLabel,
                 {
@@ -245,6 +245,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     segmentLabel: {
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
+      textAlign: "center",
     },
     nativeWrap: {
       borderWidth: 1,

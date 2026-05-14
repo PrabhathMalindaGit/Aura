@@ -152,6 +152,13 @@ const CHECKIN_STEPS: Array<{
 const BODY_MAP_LIMIT = 12;
 const CHECKIN_AUTO_SAVE_DELAY_MS = 450;
 const FIVE_POINT_CHOICES = [1, 2, 3, 4, 5] as const;
+const MOOD_EMOJI_LABELS: Record<number, string> = {
+  1: "😟",
+  2: "😕",
+  3: "🙂",
+  4: "😊",
+  5: "🤩",
+};
 type MedicationStatusOption = CheckinMedicationStatus | "skip";
 type CheckinValidation = {
   field: CheckinValidationField;
@@ -546,10 +553,11 @@ function renderFixedFiveChoiceControl(params: {
   value: number | null;
   onChange: (nextValue: number) => void;
   options: Record<number, string>;
+  emojiOptions?: Record<number, string>;
   helperText?: string;
   styles: ReturnType<typeof createStyles>;
 }) {
-  const { label, value, onChange, options, helperText, styles } = params;
+  const { label, value, onChange, options, emojiOptions, helperText, styles } = params;
 
   return (
     <View style={styles.fixedChoiceStack}>
@@ -570,6 +578,17 @@ function renderFixedFiveChoiceControl(params: {
                 pressed ? styles.choiceChipPressed : null,
               ]}
             >
+              {emojiOptions ? (
+                <Text
+                  accessible={false}
+                  style={[
+                    styles.fixedChoiceEmoji,
+                    selected ? styles.fixedChoiceEmojiSelected : null,
+                  ]}
+                >
+                  {emojiOptions[entry]}
+                </Text>
+              ) : null}
               <Text
                 style={[
                   styles.fixedChoiceValue,
@@ -1193,7 +1212,13 @@ export default function CheckinScreen() {
       {
         key: "mood",
         label: "Mood",
-        value: scaleLabel(support.mood, FIVE_POINT_RECOVERY_LABELS),
+        value:
+          support.mood === null
+            ? scaleLabel(support.mood, FIVE_POINT_RECOVERY_LABELS)
+            : `${MOOD_EMOJI_LABELS[support.mood]} ${scaleLabel(
+                support.mood,
+                FIVE_POINT_RECOVERY_LABELS,
+              )}`,
       },
       {
         key: "stress",
@@ -2337,8 +2362,30 @@ export default function CheckinScreen() {
               },
               helperText: "1 is very low and 5 is very strong.",
               options: FIVE_POINT_RECOVERY_LABELS,
+              emojiOptions: MOOD_EMOJI_LABELS,
               styles,
             })}
+            {support.mood ? (
+              <View
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={`Mood selected: ${scaleLabel(
+                  support.mood,
+                  FIVE_POINT_RECOVERY_LABELS,
+                )}`}
+                style={styles.moodPreviewCard}
+              >
+                <Text accessible={false} style={styles.moodPreviewEmoji}>
+                  {MOOD_EMOJI_LABELS[support.mood]}
+                </Text>
+                <View style={styles.moodPreviewCopy}>
+                  <Text style={styles.moodPreviewLabel}>Selected mood</Text>
+                  <Text style={styles.moodPreviewValue}>
+                    {scaleLabel(support.mood, FIVE_POINT_RECOVERY_LABELS)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </CheckinFieldBlock>
 
           <OptionalStepper
@@ -3269,25 +3316,40 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     fixedChoiceButton: {
       flex: 1,
-      minHeight: 86,
-      borderRadius: tokens.radius.lg,
+      minWidth: 0,
+      minHeight: 96,
+      borderRadius: tokens.radius.xl,
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: "rgba(255, 255, 255, 0.9)",
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: tokens.spacing.xs,
       paddingVertical: tokens.spacing.sm,
-      gap: tokens.spacing.xs,
+      gap: 2,
     },
     fixedChoiceButtonSelected: {
       borderColor: tokens.colors.primary,
-      backgroundColor: tokens.colors.primarySoft,
+      backgroundColor: "#EAF2FF",
+      shadowColor: "rgba(47, 111, 237, 0.28)",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 1,
+      shadowRadius: 10,
+      elevation: 2,
+    },
+    fixedChoiceEmoji: {
+      fontSize: 22,
+      lineHeight: 28,
+      marginBottom: 2,
+      transform: [{ scale: 0.96 }],
+    },
+    fixedChoiceEmojiSelected: {
+      transform: [{ scale: 1.08 }],
     },
     fixedChoiceValue: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
+      fontSize: 23,
+      lineHeight: 27,
       fontWeight: tokens.typography.weights.semibold,
     },
     fixedChoiceValueSelected: {
@@ -3295,9 +3357,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     fixedChoiceCaption: {
       color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
+      fontSize: 12,
+      lineHeight: 16,
       textAlign: "center",
+      fontWeight: tokens.typography.weights.medium,
     },
     fixedChoiceCaptionSelected: {
       color: tokens.colors.primary,
@@ -3307,17 +3370,22 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       minHeight: 44,
       borderRadius: 22,
       borderWidth: 1,
-      borderColor: tokens.colors.border,
+      borderColor: "rgba(183, 199, 211, 0.9)",
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: tokens.spacing.md,
       paddingVertical: tokens.spacing.sm,
       gap: 2,
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: "rgba(255, 255, 255, 0.92)",
     },
     choiceChipSelected: {
-      backgroundColor: tokens.colors.primarySoft,
+      backgroundColor: "#EAF2FF",
       borderColor: tokens.colors.primary,
+      shadowColor: "rgba(47, 111, 237, 0.18)",
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 1,
+      shadowRadius: 8,
+      elevation: 1,
     },
     choiceChipPressed: {
       opacity: 0.82,
@@ -3344,14 +3412,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     notesInput: {
       minHeight: 120,
       borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.lg,
+      borderColor: "rgba(183, 199, 211, 0.9)",
+      borderRadius: tokens.radius.xl,
       paddingHorizontal: tokens.spacing.lg,
       paddingVertical: tokens.spacing.md,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       color: tokens.colors.text,
-      backgroundColor: tokens.colors.surfaceSubtle,
+      backgroundColor: "rgba(255, 255, 255, 0.88)",
     },
     stepperWrapper: {
       gap: tokens.spacing.sm,
@@ -3359,10 +3427,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     stepperValueWrap: {
       flex: 1,
       minHeight: 72,
-      borderRadius: tokens.radius.lg,
+      borderRadius: tokens.radius.xl,
       borderWidth: 1,
-      borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surfaceSubtle,
+      borderColor: "rgba(183, 199, 211, 0.92)",
+      backgroundColor: "rgba(255, 255, 255, 0.9)",
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: tokens.spacing.md,
@@ -3432,12 +3500,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     stepperButton: {
       width: 44,
       height: 44,
-      borderRadius: tokens.radius.md,
+      borderRadius: tokens.radius.lg,
       borderWidth: 1,
-      borderColor: tokens.colors.border,
+      borderColor: "rgba(183, 199, 211, 0.92)",
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: "rgba(255, 255, 255, 0.92)",
     },
     stepperButtonPressed: {
       opacity: 0.8,
@@ -3468,16 +3536,24 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
     },
     primaryGroupCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.96)",
-      borderColor: "rgba(215, 224, 231, 0.94)",
+      backgroundColor: "rgba(255, 255, 255, 0.9)",
+      borderColor: "rgba(196, 211, 222, 0.9)",
+      borderRadius: tokens.radius.xl,
+      shadowColor: "rgba(24, 48, 66, 0.06)",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 1,
+      shadowRadius: 18,
+      elevation: 1,
     },
     secondaryGroupCard: {
-      backgroundColor: "rgba(251, 249, 245, 0.94)",
-      borderColor: "rgba(215, 224, 231, 0.94)",
+      backgroundColor: "rgba(255, 252, 247, 0.9)",
+      borderColor: "rgba(216, 205, 185, 0.72)",
+      borderRadius: tokens.radius.xl,
     },
     safetyGroupCard: {
-      backgroundColor: tokens.colors.warningSoft,
-      borderColor: tokens.colors.border,
+      backgroundColor: "rgba(255, 247, 232, 0.95)",
+      borderColor: "rgba(201, 137, 43, 0.24)",
+      borderRadius: tokens.radius.xl,
     },
     regionDetailStack: {
       gap: tokens.spacing.md,
@@ -3528,15 +3604,52 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     supportSwitchRow: {
       minHeight: 64,
       borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.lg,
+      borderColor: "rgba(196, 211, 222, 0.9)",
+      borderRadius: tokens.radius.xl,
       paddingHorizontal: tokens.spacing.lg,
       paddingVertical: tokens.spacing.md,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       gap: tokens.spacing.sm,
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: "rgba(255, 255, 255, 0.92)",
+    },
+    moodPreviewCard: {
+      borderWidth: 1,
+      borderColor: "rgba(47, 143, 131, 0.28)",
+      borderRadius: tokens.radius.xl,
+      backgroundColor: "rgba(234, 247, 244, 0.76)",
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+    },
+    moodPreviewEmoji: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      textAlign: "center",
+      lineHeight: 36,
+      fontSize: 24,
+      backgroundColor: "rgba(255, 255, 255, 0.78)",
+      overflow: "hidden",
+    },
+    moodPreviewCopy: {
+      flex: 1,
+      gap: 1,
+    },
+    moodPreviewLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    moodPreviewValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
     },
     supportSwitchCopy: {
       flex: 1,

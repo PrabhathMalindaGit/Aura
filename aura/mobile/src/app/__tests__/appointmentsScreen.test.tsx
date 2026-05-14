@@ -313,7 +313,25 @@ vi.mock("@/src/components/SecondaryButton", () => ({
 
 vi.mock("@/src/components/SegmentedControl", () => ({
   SegmentedControl: (props: Record<string, unknown>) =>
-    React.createElement("mock-segmented-control", props),
+    React.createElement(
+      "mock-segmented-control",
+      props,
+      (props.options as Array<{ value: string; label: string }> | undefined)?.map((option) =>
+        React.createElement(
+          "mock-pressable",
+          {
+            key: option.value,
+            accessibilityRole: "button",
+            accessibilityLabel: option.label,
+            accessibilityState: { selected: props.value === option.value },
+            onPress: () => {
+              (props.onChange as (value: string) => void)?.(option.value);
+            },
+          },
+          option.label,
+        ),
+      ),
+    ),
 }));
 
 vi.mock("@/src/components/StatusPill", () => ({
@@ -402,6 +420,18 @@ const slots = [
   },
 ];
 
+const pendingRequest = {
+  requestId: "request-pending-1",
+  slotId: "slot-missed",
+  startsAt: "2026-05-12T10:00:00.000Z",
+  endsAt: "2026-05-12T10:30:00.000Z",
+  createdAt: "2026-05-10T10:00:00.000Z",
+  status: "pending" as const,
+  workflowStatus: "missed" as const,
+  modality: "video" as const,
+  meetingLink: "https://example.test/visit",
+};
+
 async function flush() {
   await Promise.resolve();
   await Promise.resolve();
@@ -429,6 +459,10 @@ function findByA11y(renderer: ReactTestRenderer, label: string) {
 
 function findAllByA11y(renderer: ReactTestRenderer, label: string) {
   return renderer.root.findAllByProps({ accessibilityLabel: label });
+}
+
+function findSegmentedControl(renderer: ReactTestRenderer) {
+  return renderer.root.findByProps({ accessibilityLabel: "Appointments view selector" });
 }
 
 async function selectSlot(renderer: ReactTestRenderer, slotId = "slot-1") {
@@ -517,6 +551,58 @@ describe("AppointmentsScreen final-demo appointment flow", () => {
     expect(findAllByA11y(renderer, "Cancel voice request")).toHaveLength(0);
     expect(renderer.root.findByProps({ testID: "appointment-slot-slot-1" })).toBeTruthy();
     expect(createAppointmentRequest).not.toHaveBeenCalled();
+  });
+
+  it("renders compact appointment overview labels without awkward truncation", async () => {
+    listMyRequests.mockResolvedValue([pendingRequest]);
+    const renderer = await renderScreen();
+
+    const text = textContent(renderer);
+    expect(text).toContain("Planning overview");
+    expect(text).toContain("No upcoming");
+    expect(text).toContain("Pending");
+    expect(text).toContain("1 waiting");
+    expect(text).not.toContain("Pending: 1");
+    expect(text).not.toContain("No upco...");
+  });
+
+  it("switches between Find time, Requests, and Upcoming appointment views", async () => {
+    const renderer = await renderScreen();
+
+    expect(findSegmentedControl(renderer).props.value).toBe("book");
+
+    await act(async () => {
+      findByA11y(renderer, "Requests").props.onPress();
+      await flush();
+    });
+    expect(findSegmentedControl(renderer).props.value).toBe("requests");
+
+    await act(async () => {
+      findByA11y(renderer, "Upcoming").props.onPress();
+      await flush();
+    });
+    expect(findSegmentedControl(renderer).props.value).toBe("upcoming");
+
+    await act(async () => {
+      findByA11y(renderer, "Find time").props.onPress();
+      await flush();
+    });
+    expect(findSegmentedControl(renderer).props.value).toBe("book");
+  });
+
+  it("renders pending request cards with the cancel request action available", async () => {
+    listMyRequests.mockResolvedValue([pendingRequest]);
+    const renderer = await renderScreen();
+
+    await act(async () => {
+      findByA11y(renderer, "Requests").props.onPress();
+      await flush();
+    });
+
+    const text = textContent(renderer);
+    expect(text).toContain("This visit was missed");
+    expect(text).toContain("Tue, May 12");
+    expect(findByA11y(renderer, "Cancel request")).toBeTruthy();
   });
 
   it("keeps normal selected appointment request actions available", async () => {

@@ -120,6 +120,8 @@ export function SegmentedControl<T extends string>({
   const buttonMinHeight = size === "sm" ? 44 : 48;
   const buttonHorizontalPadding = size === "sm" ? tokens.spacing.sm : tokens.spacing.md;
   const iconSize = size === "sm" ? 16 : 18;
+  const labelFontSize = size === "sm" ? 14 : tokens.typography.body.fontSize;
+  const labelLineHeight = size === "sm" ? 18 : tokens.typography.body.lineHeight;
 
   return (
     <View
@@ -191,6 +193,8 @@ export function SegmentedControl<T extends string>({
                 styles.segmentLabel,
                 {
                   color: isSelected ? selectedTextColor : tokens.colors.textMuted,
+                  fontSize: labelFontSize,
+                  lineHeight: labelLineHeight,
                   fontWeight: isSelected
                     ? tokens.typography.weights.semibold
                     : tokens.typography.weights.medium,
@@ -243,8 +247,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       alignItems: "center",
     },
     segmentLabel: {
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
       textAlign: "center",
     },
     nativeWrap: {

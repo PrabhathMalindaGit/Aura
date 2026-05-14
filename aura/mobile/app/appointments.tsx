@@ -40,7 +40,6 @@ import { GlassPanel } from "@/src/components/GlassPanel";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
-import { MediaCard, type MediaCardAction, type MediaCardChip } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
@@ -138,6 +137,18 @@ type ListItem = SlotGroupListItem | RequestListItem | EmptyListItem;
 type AppointmentRouteParams = {
   mode?: string | string[];
 };
+type AppointmentSummaryTileProps = {
+  icon: "appointments" | "info";
+  label: string;
+  value: string;
+  detail: string;
+  cta: string;
+  tone: "info" | "warning" | "success" | "muted";
+  accessibilityLabel: string;
+  onPress: () => void;
+  styles: ReturnType<typeof createStyles>;
+};
+type CompactStatusTone = AppointmentSummaryTileProps["tone"] | "danger";
 
 const REMINDER_LEAD_MS = 15 * 60 * 1000;
 const VOICE_REQUEST_CONFIRMATION_EXPIRY_MS = 30_000;
@@ -244,6 +255,71 @@ function formatDurationMinutes(startsAt: string, endsAt: string): string | null 
 
 function formatModalityLabel(modality: AppointmentSlot["modality"]): string {
   return modality === "video" ? "Video visit" : "Appointment";
+}
+
+function statusPillVariantForTone(
+  tone: CompactStatusTone,
+): "info" | "warning" | "success" | "danger" | "neutral" {
+  if (tone === "danger") {
+    return "danger";
+  }
+  if (tone === "warning") {
+    return "warning";
+  }
+  if (tone === "success") {
+    return "success";
+  }
+  if (tone === "info") {
+    return "info";
+  }
+  return "neutral";
+}
+
+function AppointmentSummaryTile({
+  icon,
+  label,
+  value,
+  detail,
+  cta,
+  tone,
+  accessibilityLabel,
+  onPress,
+  styles,
+}: AppointmentSummaryTileProps) {
+  const iconTone = tone === "warning" ? "warning" : tone === "success" ? "success" : "accent";
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.summaryTile,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <View style={styles.summaryTileTopRow}>
+        <View style={styles.summaryTileIcon}>
+          <DomainIcon icon={icon} tone={iconTone} size={18} accessibilityLabel={`${label} icon`} />
+        </View>
+        <Text style={styles.summaryTileLabel}>{label}</Text>
+      </View>
+      <Text numberOfLines={2} style={styles.summaryTileValue}>
+        {value}
+      </Text>
+      <Text numberOfLines={2} style={styles.summaryTileDetail}>
+        {detail}
+      </Text>
+      <View style={styles.summaryTileFooter}>
+        <StatusPill
+          label={cta}
+          variant={statusPillVariantForTone(tone)}
+          accessible={false}
+          style={styles.summaryTilePill}
+        />
+      </View>
+    </Pressable>
+  );
 }
 
 function buildVoiceRequestSignature(
@@ -387,27 +463,27 @@ export default function AppointmentsScreen() {
     if (nextApproved) {
       return {
         title: "Your next session is already taking shape.",
-        body: "Keep upcoming visits in view here, then use requests when you need to check approval or make a change.",
+        body: "Keep the next visit in view and track any changes here.",
       };
     }
 
     if (pendingCount > 0) {
       return {
         title: "A request is waiting for review.",
-        body: "You can keep an eye on request status here while you browse other times or add context for your clinician.",
+        body: "Track the request while you browse other times or add context for your clinician.",
       };
     }
 
     if (slots.length > 0) {
       return {
         title: "Open times are ready to review.",
-        body: "Start with available slots, then move to requests or upcoming visits once a time is selected and approved.",
+        body: "Pick an open time, then follow requests and upcoming visits from here.",
       };
     }
 
     return {
       title: "No visit is lined up right now.",
-      body: "Check back here for new availability or review your existing requests when something changes.",
+      body: "New availability and request updates will appear here.",
     };
   }, [nextApproved, pendingCount, slots.length]);
 
@@ -1102,6 +1178,7 @@ export default function AppointmentsScreen() {
         <SegmentedControl
           value={mode}
           onChange={setMode}
+          size="sm"
           options={[
             { value: "book", label: "Find time", icon: "appointments" },
             { value: "requests", label: "Requests", icon: "info" },
@@ -1112,39 +1189,45 @@ export default function AppointmentsScreen() {
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryCardWrap}>
-            <MediaCard
-              variant="compact"
-              leading={{ type: "icon", icon: "appointments", tone: "accent" }}
-              title={nextApproved ? formatDateTime(nextApproved.startsAt) : "No upcoming"}
-              subtitle={
+            <AppointmentSummaryTile
+              icon="appointments"
+              label="Next visit"
+              value={nextApproved ? formatDateTime(nextApproved.startsAt) : "No upcoming"}
+              detail={
                 nextApproved
                   ? "Next confirmed visit"
                   : "Choose a time to request"
               }
-              chips={[
+              cta={nextApproved ? "Upcoming" : "Browse times"}
+              tone={nextApproved ? "success" : "info"}
+              accessibilityLabel={
                 nextApproved
-                  ? { text: "Upcoming", tone: "success" as const }
-                  : { text: "Browse times", tone: "muted" as const },
-              ]}
+                  ? `Next visit ${formatDateTime(nextApproved.startsAt)}`
+                  : "No upcoming appointment. Browse times"
+              }
               onPress={() => {
                 setMode(nextApproved ? "upcoming" : "book");
               }}
+              styles={styles}
             />
           </View>
           <View style={styles.summaryCardWrap}>
-            <MediaCard
-              variant="compact"
-              leading={{ type: "icon", icon: "info", tone: "muted" }}
-              title={`Pending: ${pendingCount}`}
-              subtitle={pendingCount > 0 ? "Waiting for review" : "No pending requests"}
-              chips={[
+            <AppointmentSummaryTile
+              icon="info"
+              label="Pending"
+              value={pendingCount > 0 ? `${pendingCount} waiting` : "None waiting"}
+              detail={pendingCount > 0 ? "Waiting for review" : "No pending requests"}
+              cta={pendingCount > 0 ? "Requests" : "All clear"}
+              tone={pendingCount > 0 ? "warning" : "success"}
+              accessibilityLabel={
                 pendingCount > 0
-                  ? { text: "Requests", tone: "warning" as const }
-                  : { text: "All clear", tone: "success" as const },
-              ]}
+                  ? `${pendingCount} pending appointment request${pendingCount === 1 ? "" : "s"} waiting for review`
+                  : "No pending appointment requests"
+              }
               onPress={() => {
                 setMode("requests");
               }}
+              styles={styles}
             />
           </View>
         </View>
@@ -1223,104 +1306,138 @@ export default function AppointmentsScreen() {
       const workflowStatus = getAppointmentWorkflowStatus(requestItem);
       const link = requestItem.meetingLink?.trim();
       const relativeLabel = formatAppointmentRelativeLabel(requestItem);
-      const chips: MediaCardChip[] = buildAppointmentChips(requestItem);
-
-      const actions: MediaCardAction[] = [];
-
-      if (workflowStatus === "upcoming" && link) {
-        actions.push({
-          label: "Open link",
-          kind: "secondary",
-          onPress: () => {
-            void Linking.openURL(link);
-          },
-        });
-      }
-
-      if (requestItem.status === "pending" || requestItem.status === "approved") {
-        actions.push({
-          label:
-            cancelingRequestId === requestItem.requestId
-              ? "Canceling..."
-              : "Cancel request",
-          kind: "secondary",
-          disabled: isOffline || cancelingRequestId !== null,
-          onPress: () => {
-            Alert.alert(
-              "Cancel this request?",
-              "This updates your appointment request status.",
-              [
-                { text: "Keep", style: "cancel" },
-                {
-                  text: "Cancel request",
-                  style: "destructive",
-                  onPress: () => {
-                    void handleCancelRequest(requestItem);
-                  },
-                },
-              ],
-            );
-          },
-        });
-      }
+      const chips = buildAppointmentChips(requestItem);
+      const statusDescription =
+        workflowStatus === "upcoming"
+          ? "Confirmed and coming up"
+          : workflowStatus === "awaiting_confirmation"
+            ? "Waiting for clinician review"
+            : workflowStatus === "reschedule_requested"
+              ? "A new time is needed"
+              : workflowStatus === "missed"
+                ? "This visit was missed"
+                : workflowStatus === "completed"
+                  ? "This session is complete"
+                  : formatAppointmentWorkflowLabel(workflowStatus);
+      const reviewedSuffix =
+        relativeLabel
+          ? relativeLabel
+          : requestItem.reviewedAt
+            ? `Reviewed ${formatDateTime(requestItem.reviewedAt)}`
+            : null;
+      const canCancel = requestItem.status === "pending" || requestItem.status === "approved";
+      const isCanceling = cancelingRequestId === requestItem.requestId;
+      const cardIcon =
+        workflowStatus === "upcoming" || workflowStatus === "completed"
+          ? "success"
+          : workflowStatus === "awaiting_confirmation" ||
+              workflowStatus === "reschedule_requested" ||
+              workflowStatus === "missed"
+            ? "warning"
+            : "info";
+      const cardTone =
+        workflowStatus === "upcoming" || workflowStatus === "completed"
+          ? "success"
+          : workflowStatus === "awaiting_confirmation" ||
+              workflowStatus === "reschedule_requested" ||
+              workflowStatus === "missed"
+            ? "warning"
+            : "muted";
 
       return (
         <View style={styles.listItemWrap}>
-          <MediaCard
-            variant="default"
-            leading={{
-              type: "icon",
-              icon:
-                workflowStatus === "upcoming" || workflowStatus === "completed"
-                  ? "success"
-                  : workflowStatus === "awaiting_confirmation" ||
-                      workflowStatus === "reschedule_requested"
-                    ? "warning"
-                    : workflowStatus === "missed"
-                      ? "warning"
-                      : "info",
-              tone:
-                workflowStatus === "upcoming" || workflowStatus === "completed"
-                  ? "success"
-                  : workflowStatus === "awaiting_confirmation" ||
-                      workflowStatus === "reschedule_requested"
-                    ? "warning"
-                    : workflowStatus === "missed"
-                      ? "warning"
-                      : "muted",
-            }}
-            title={formatAppointmentTimeRange(requestItem)}
-            subtitle={`${
-              workflowStatus === "upcoming"
-                ? "Confirmed and coming up"
-                : workflowStatus === "awaiting_confirmation"
-                  ? "Waiting for clinician review"
-                  : workflowStatus === "reschedule_requested"
-                    ? "A new time is needed"
-                    : workflowStatus === "missed"
-                      ? "This visit was missed"
-                      : workflowStatus === "completed"
-                        ? "This session is complete"
-                        : formatAppointmentWorkflowLabel(workflowStatus)
-            }${
-              relativeLabel
-                ? ` · ${relativeLabel}`
-                : requestItem.reviewedAt
-                  ? ` · Reviewed ${formatDateTime(requestItem.reviewedAt)}`
-                  : ""
-            }`}
-            statusPill={{
-              text: formatAppointmentWorkflowLabel(workflowStatus),
-              tone: appointmentWorkflowTone(workflowStatus),
-            }}
-            chips={chips}
-            actions={actions.slice(0, 2)}
-            showChevron={false}
-          />
+          <Card
+            variant="outlined"
+            padding={tokens.spacing.md}
+            style={styles.requestCard}
+            accessibilityLabel={`${formatAppointmentTimeRange(requestItem)}. ${statusDescription}`}
+          >
+            <View style={styles.requestHeader}>
+              <View style={styles.requestIcon}>
+                <DomainIcon
+                  icon={cardIcon}
+                  tone={cardTone}
+                  size={20}
+                  accessibilityLabel={`${formatAppointmentWorkflowLabel(workflowStatus)} icon`}
+                />
+              </View>
+              <View style={styles.requestMain}>
+                <View style={styles.requestTitleRow}>
+                  <Text numberOfLines={3} style={styles.requestTime}>
+                    {formatAppointmentTimeRange(requestItem)}
+                  </Text>
+                  <StatusPill
+                    label={formatAppointmentWorkflowLabel(workflowStatus)}
+                    variant={appointmentWorkflowTone(workflowStatus)}
+                    accessible
+                    accessibilityLabel={`Status: ${formatAppointmentWorkflowLabel(workflowStatus)}`}
+                    style={styles.requestStatusPill}
+                  />
+                </View>
+                <Text style={styles.requestSubtitle}>
+                  {reviewedSuffix ? `${statusDescription} · ${reviewedSuffix}` : statusDescription}
+                </Text>
+              </View>
+            </View>
+
+            {chips.length > 0 ? (
+              <View style={styles.requestChipsRow}>
+                {chips.slice(0, 3).map((chip) => (
+                  <StatusPill
+                    key={chip.text}
+                    label={chip.text}
+                    variant={statusPillVariantForTone(chip.tone ?? "muted")}
+                    accessible={false}
+                    style={styles.requestChip}
+                  />
+                ))}
+              </View>
+            ) : null}
+
+            {workflowStatus === "upcoming" && link ? (
+              <View style={styles.requestActionsRow}>
+                <SecondaryButton
+                  label="Open link"
+                  size="compact"
+                  accessibilityLabel="Open appointment link"
+                  onPress={() => {
+                    void Linking.openURL(link);
+                  }}
+                />
+              </View>
+            ) : null}
+
+            {canCancel ? (
+              <View style={styles.requestActionsRow}>
+                <SecondaryButton
+                  label={isCanceling ? "Canceling..." : "Cancel request"}
+                  size="compact"
+                  disabled={isOffline || cancelingRequestId !== null}
+                  accessibilityLabel="Cancel request"
+                  onPress={() => {
+                    Alert.alert(
+                      "Cancel this request?",
+                      "This updates your appointment request status.",
+                      [
+                        { text: "Keep", style: "cancel" },
+                        {
+                          text: "Cancel request",
+                          style: "destructive",
+                          onPress: () => {
+                            void handleCancelRequest(requestItem);
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                />
+              </View>
+            ) : null}
+          </Card>
         </View>
       );
     },
-    [cancelingRequestId, handleCancelRequest, isOffline, styles.listItemWrap],
+    [cancelingRequestId, handleCancelRequest, isOffline, styles, tokens.spacing.md],
   );
 
   const renderSlotGroup = useCallback(
@@ -1802,19 +1919,22 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingBottom: tokens.spacing.md,
     },
     listHeader: {
-      gap: tokens.spacing.md,
-      marginBottom: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.sm,
     },
     headerMeta: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.xs,
+      marginTop: -tokens.spacing.xs,
     },
     storyCard: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+      backgroundColor: "rgba(255, 255, 255, 0.9)",
+      borderColor: "rgba(196, 211, 222, 0.9)",
     },
     storyCopy: {
-      gap: tokens.spacing.xs,
+      gap: 2,
     },
     storyEyebrow: {
       color: tokens.colors.textMuted,
@@ -1826,19 +1946,19 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     storyTitle: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
+      fontSize: 18,
+      lineHeight: 24,
       fontWeight: tokens.typography.weights.semibold,
     },
     storyText: {
       color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: 14,
+      lineHeight: 20,
     },
     storyFacts: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     storyFact: {
       flexGrow: 1,
@@ -1846,9 +1966,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.md,
-      backgroundColor: tokens.colors.surfaceElevated,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
+      backgroundColor: "rgba(255, 255, 255, 0.72)",
+      paddingHorizontal: tokens.spacing.sm,
+      paddingVertical: tokens.spacing.xs + 2,
       gap: 2,
     },
     storyFactLabel: {
@@ -1861,8 +1981,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     storyFactValue: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: 15,
+      lineHeight: 20,
       fontWeight: tokens.typography.weights.medium,
     },
     listItemWrap: {
@@ -1916,6 +2036,58 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     summaryCardWrap: {
       flex: 1,
       minWidth: 0,
+    },
+    summaryTile: {
+      minHeight: 126,
+      borderWidth: 1,
+      borderColor: "rgba(196, 211, 222, 0.92)",
+      borderRadius: tokens.radius.lg,
+      backgroundColor: "rgba(255, 255, 255, 0.92)",
+      padding: tokens.spacing.md,
+      justifyContent: "space-between",
+      gap: tokens.spacing.xs,
+    },
+    summaryTileTopRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    summaryTileIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    summaryTileLabel: {
+      flex: 1,
+      color: tokens.colors.textMuted,
+      fontSize: 11,
+      lineHeight: 15,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    summaryTileValue: {
+      color: tokens.colors.text,
+      fontSize: 18,
+      lineHeight: 24,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    summaryTileDetail: {
+      color: tokens.colors.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    summaryTileFooter: {
+      alignItems: "flex-start",
+    },
+    summaryTilePill: {
+      minHeight: 24,
+      paddingHorizontal: tokens.spacing.sm,
     },
     noteHeader: {
       flexDirection: "row",
@@ -2008,6 +2180,68 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     slotChipTextSelected: {
       color: tokens.colors.primaryTextOn,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    requestCard: {
+      backgroundColor: "rgba(255, 255, 255, 0.94)",
+      borderColor: "rgba(196, 211, 222, 0.92)",
+      gap: tokens.spacing.sm,
+    },
+    requestHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: tokens.spacing.sm,
+    },
+    requestIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    requestMain: {
+      flex: 1,
+      minWidth: 0,
+      gap: tokens.spacing.xs,
+    },
+    requestTitleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: tokens.spacing.sm,
+    },
+    requestTime: {
+      flex: 1,
+      color: tokens.colors.text,
+      fontSize: 20,
+      lineHeight: 26,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    requestStatusPill: {
+      minHeight: 26,
+      paddingHorizontal: tokens.spacing.sm,
+    },
+    requestSubtitle: {
+      color: tokens.colors.textMuted,
+      fontSize: 15,
+      lineHeight: 21,
+    },
+    requestChipsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+      paddingLeft: 44 + tokens.spacing.sm,
+    },
+    requestChip: {
+      minHeight: 26,
+      paddingHorizontal: tokens.spacing.sm,
+    },
+    requestActionsRow: {
+      alignSelf: "flex-start",
+      minWidth: 148,
+      paddingLeft: 44 + tokens.spacing.sm,
+      paddingTop: tokens.spacing.xs,
     },
     footerPanel: {
       marginTop: tokens.spacing.xs,

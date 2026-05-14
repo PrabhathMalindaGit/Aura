@@ -159,6 +159,13 @@ const MOOD_EMOJI_LABELS: Record<number, string> = {
   4: "😊",
   5: "🤩",
 };
+const REHAB_DIFFICULTY_EMOJI_LABELS: Record<number, string> = {
+  1: "😌",
+  2: "🙂",
+  3: "😐",
+  4: "😣",
+  5: "🥵",
+};
 type MedicationStatusOption = CheckinMedicationStatus | "skip";
 type CheckinValidation = {
   field: CheckinValidationField;
@@ -451,6 +458,7 @@ function renderFivePointChips(params: {
   helperText?: string;
   errorText?: string | null;
   options: Record<number, string>;
+  emojiOptions?: Record<number, string>;
   styles: ReturnType<typeof createStyles>;
   fieldId?: CheckinValidationField;
   onMeasureField?: (fieldId: CheckinValidationField, y: number) => void;
@@ -463,6 +471,7 @@ function renderFivePointChips(params: {
     helperText,
     errorText,
     options,
+    emojiOptions,
     styles,
     fieldId,
     onMeasureField,
@@ -511,6 +520,17 @@ function renderFivePointChips(params: {
                 pressed ? styles.choiceChipPressed : null,
               ]}
             >
+              {emojiOptions ? (
+                <Text
+                  accessible={false}
+                  style={[
+                    styles.choiceChipEmoji,
+                    selected ? styles.choiceChipEmojiSelected : null,
+                  ]}
+                >
+                  {emojiOptions[entry]}
+                </Text>
+              ) : null}
               <Text
                 style={[
                   styles.choiceChipText,
@@ -2223,6 +2243,7 @@ export default function CheckinScreen() {
                 },
                 helperText: "1 is very easy and 5 is very hard.",
                 options: FIVE_POINT_DIFFICULTY_LABELS,
+                emojiOptions: REHAB_DIFFICULTY_EMOJI_LABELS,
                 styles,
               })}
             </View>
@@ -3389,6 +3410,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     choiceChipPressed: {
       opacity: 0.82,
+    },
+    choiceChipEmoji: {
+      fontSize: 20,
+      lineHeight: 24,
+      marginBottom: 1,
+    },
+    choiceChipEmojiSelected: {
+      transform: [{ scale: 1.06 }],
     },
     choiceChipText: {
       color: tokens.colors.text,

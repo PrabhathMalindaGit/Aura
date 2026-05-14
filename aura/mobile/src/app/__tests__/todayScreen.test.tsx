@@ -478,7 +478,7 @@ describe("Today screen", () => {
     const root = renderer!.root;
     const screen = findHostNodes(root, "mock-screen")[0];
     const heroHeader = findHostNodes(root, "mock-hero-header")[0];
-    expect(screen.props.background).toBeTruthy();
+    expect(screen.props.background).toBeUndefined();
     expect(heroHeader.props.title).toBe("Today");
 
     const primaryButtons = findHostNodes(root, "mock-primary-button");

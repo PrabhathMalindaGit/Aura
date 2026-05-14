@@ -118,47 +118,6 @@ type AppointmentSummary = {
   hasUpcoming: boolean;
 };
 
-const BACKGROUND_DOTS: Array<{ top: number; left?: number; right?: number; size: number }> = [
-  { top: 92, left: 26, size: 3 },
-  { top: 168, right: 44, size: 4 },
-  { top: 286, left: 64, size: 3 },
-  { top: 438, right: 28, size: 3 },
-  { top: 584, left: 34, size: 4 },
-  { top: 742, right: 68, size: 3 },
-];
-
-function TodayBackgroundTexture() {
-  const tokens = useTokens();
-  const styles = useMemo(() => createBackgroundStyles(tokens), [tokens]);
-
-  return (
-    <View style={styles.wrap}>
-      <View style={styles.creamBase} />
-      <View style={styles.blueWash} />
-      <View style={styles.lowerCreamWash} />
-      <View style={styles.softCircleTop} />
-      <View style={styles.softCircleMid} />
-      <View style={styles.softBand} />
-      {BACKGROUND_DOTS.map((dot, index) => (
-        <View
-          key={`today-dot-${index}`}
-          style={[
-            styles.dot,
-            {
-              top: dot.top,
-              left: dot.left,
-              right: dot.right,
-              width: dot.size,
-              height: dot.size,
-              borderRadius: dot.size / 2,
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
 function ReviewedInsightsEmptyState({ styles }: { styles: ReturnType<typeof createStyles> }) {
   const title = "No care-team insights yet";
   const description = "Reviewed guidance will appear here after your clinician approves it.";
@@ -1089,7 +1048,6 @@ export default function HomeScreen() {
       auditLabel="TodayScreen"
       contentContainerStyle={styles.container}
       containerStyle={styles.screenContent}
-      background={<TodayBackgroundTexture />}
       banner={
         trustStatus.kind === "ok" ? undefined : (
           <View style={styles.bannerBlock}>
@@ -1886,75 +1844,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       textAlign: "center",
-    },
-  });
-}
-
-function createBackgroundStyles(tokens: ReturnType<typeof useTokens>) {
-  return StyleSheet.create({
-    wrap: {
-      flex: 1,
-      overflow: "hidden",
-      backgroundColor: tokens.colors.background,
-    },
-    creamBase: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      backgroundColor: "#FBF8F1",
-    },
-    blueWash: {
-      position: "absolute",
-      top: 0,
-      right: -72,
-      width: 260,
-      height: 520,
-      borderRadius: 130,
-      backgroundColor: "rgba(238, 244, 255, 0.72)",
-      transform: [{ rotate: "-12deg" }],
-    },
-    lowerCreamWash: {
-      position: "absolute",
-      left: -80,
-      bottom: -140,
-      width: 280,
-      height: 360,
-      borderRadius: 140,
-      backgroundColor: "rgba(247, 244, 237, 0.8)",
-    },
-    softCircleTop: {
-      position: "absolute",
-      top: -86,
-      right: -94,
-      width: 230,
-      height: 230,
-      borderRadius: 115,
-      backgroundColor: "rgba(47, 111, 237, 0.055)",
-    },
-    softCircleMid: {
-      position: "absolute",
-      top: 356,
-      left: -118,
-      width: 250,
-      height: 250,
-      borderRadius: 125,
-      backgroundColor: "rgba(47, 143, 131, 0.045)",
-    },
-    softBand: {
-      position: "absolute",
-      top: 214,
-      right: -80,
-      width: 180,
-      height: 520,
-      borderRadius: 90,
-      backgroundColor: "rgba(255, 255, 255, 0.18)",
-      transform: [{ rotate: "18deg" }],
-    },
-    dot: {
-      position: "absolute",
-      backgroundColor: "rgba(94, 113, 130, 0.16)",
     },
   });
 }

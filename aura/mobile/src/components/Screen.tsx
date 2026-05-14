@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppBackground } from "@/src/components/AppBackground";
 import { isPatientDebugUIEnabled, useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useTokens } from "@/src/theme/tokens";
 
@@ -65,11 +66,10 @@ export function Screen({
         testID={testID}
         edges={["top", "bottom"]}
       >
-        {background ? (
-          <View pointerEvents="none" style={styles.backgroundLayer}>
-            {background}
-          </View>
-        ) : null}
+        <View style={styles.backgroundLayer}>
+          <AppBackground />
+          {background}
+        </View>
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -93,11 +93,10 @@ export function Screen({
       testID={testID}
       edges={["top", "bottom"]}
     >
-      {background ? (
-        <View pointerEvents="none" style={styles.backgroundLayer}>
-          {background}
-        </View>
-      ) : null}
+      <View style={styles.backgroundLayer}>
+        <AppBackground />
+        {background}
+      </View>
       <View style={[styles.nonScrollContainer, maxWidth ? styles.centered : null]}>
         <View style={[styles.fill, widthStyle, containerStyle]}>
           {title ? <Text style={styles.title}>{title}</Text> : null}
@@ -122,6 +121,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       right: 0,
       bottom: 0,
       left: 0,
+      pointerEvents: "none",
     },
     scrollContainer: {
       paddingHorizontal: tokens.layout.screenPaddingHorizontal,

@@ -125,7 +125,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingHorizontal: 10,
       borderTopWidth: 1,
       borderTopColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: "rgba(255, 255, 255, 0.96)",
       ...tokens.elevation.card,
     },
     tabItem: {

@@ -588,7 +588,7 @@ describe("Check-in screen validation", () => {
     expect(scrollToMock).toHaveBeenCalled();
   });
 
-  it("keeps recovery focused on two primary inputs until optional detail is expanded", async () => {
+  it("keeps recovery focused and removes the visible optional detail section", async () => {
     await act(async () => {
       renderer = create(<CheckinScreen />);
       await Promise.resolve();
@@ -607,20 +607,53 @@ describe("Check-in screen validation", () => {
 
     expect(initialText).toContain("Exercise completion");
     expect(initialText).toContain("How rehab felt");
+    expect(initialText).toContain("Medication");
+    expect(initialText).not.toContain("Optional detail");
     expect(initialText).not.toContain("Confidence in progress");
     expect(initialText).not.toContain("Movement and function");
+    expect(
+      renderer!.root.findAll(
+        (node) => node.props.accessibilityLabel === "Show optional recovery details",
+      ),
+    ).toHaveLength(0);
+  });
 
-    act(() => {
-      findByA11y(renderer!.root, "Show optional recovery details").props.onPress();
+  it("renders all four check-in steps and keeps continue actions navigating", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
     });
 
-    const expandedText = renderer!.root
-      .findAll((node) => String(node.type) === "mock-text")
-      .map((node) => node.children.join(" "));
+    expect(textContent(renderer!.root)).toContain("Symptoms");
 
-    expect(expandedText).toContain("Confidence in progress");
-    expect(expandedText).toContain("Movement and function");
-    expect(expandedText).toContain("Medication");
+    await act(async () => {
+      renderer!.root
+        .findAll((node) => String(node.type) === "mock-primary-button")
+        .find((node) => node.props.label === "Continue to Recovery")
+        ?.props.onPress();
+    });
+    expect(textContent(renderer!.root)).toContain("Exercise completion");
+
+    await act(async () => {
+      renderer!.root
+        .findAll((node) => String(node.type) === "mock-primary-button")
+        .find((node) => node.props.label === "Continue to Support")
+        ?.props.onPress();
+    });
+    expect(textContent(renderer!.root)).toContain("Daily context");
+
+    act(() => {
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
+    });
+    await act(async () => {
+      renderer!.root
+        .findAll((node) => String(node.type) === "mock-primary-button")
+        .find((node) => node.props.label === "Continue to Review")
+        ?.props.onPress();
+    });
+
+    expect(textContent(renderer!.root)).toContain("Support request");
+    expect(findSubmitButton(renderer!.root)?.props.label).toBe("Submit check-in");
   });
 
   it("shows a calm shortened-check-in cue when adaptation is enabled for the day", async () => {
@@ -684,14 +717,15 @@ describe("Check-in screen validation", () => {
       (node) => String(node.type) === "mock-checkin-step-navigator",
     );
     act(() => {
-      navigator.props.onSelectStep(1);
+      navigator.props.onSelectStep(2);
     });
 
     const expandedText = renderer!.root
       .findAll((node) => String(node.type) === "mock-text")
       .map((node) => node.children.join(" "));
 
-    expect(expandedText).toContain("Confidence in progress");
+    expect(expandedText).toContain("Daily context");
+    expect(expandedText).not.toContain("Optional detail");
   });
 
   it("shows the calm full-flow explanation during a cooldown-backed standard day", async () => {
@@ -784,8 +818,10 @@ describe("Check-in screen validation", () => {
       .map((node) => node.children.join(" "));
 
     expect(statusPills.map((node) => node.props.label)).toContain("Extra detail today");
-    expect(text).toContain("Confidence in progress");
-    expect(text).toContain("Movement and function");
+    expect(text).toContain("Medication");
+    expect(text).not.toContain("Optional detail");
+    expect(text).not.toContain("Confidence in progress");
+    expect(text).not.toContain("Movement and function");
   });
 
   it("renders a read-only check-in shell when care status blocks active tracking", async () => {

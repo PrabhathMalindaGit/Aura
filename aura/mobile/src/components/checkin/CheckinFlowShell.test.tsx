@@ -159,6 +159,11 @@ describe("CheckinFlowShell", () => {
         typeof node.type === "string" &&
         (node.type as string) === "mock-glass-panel",
     );
+    const scrollView = root.find(
+      (node) =>
+        typeof node.type === "string" &&
+        (node.type as string) === "mock-scroll-view",
+    );
 
     expect(heroHeaders).toHaveLength(1);
     expect(navigators).toHaveLength(1);
@@ -182,6 +187,9 @@ describe("CheckinFlowShell", () => {
 
     expect(textContent).toContain("Recovery");
     expect(textContent).toContain("Exercises, strain and medication");
+    expect(scrollView.props.contentContainerStyle).toEqual(
+      expect.arrayContaining([expect.objectContaining({ paddingBottom: 136 })]),
+    );
     expect(scrollViewRef.current).toBeTruthy();
   });
 });

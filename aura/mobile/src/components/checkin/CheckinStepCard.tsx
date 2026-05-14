@@ -27,7 +27,7 @@ export function CheckinStepCard({
 
   return (
     <Card
-      padding={compact ? tokens.spacing.lg : tokens.spacing.xl}
+      padding={compact ? tokens.spacing.md + tokens.spacing.sm : tokens.spacing.xl}
       style={styles.card}
     >
       <View style={[styles.stack, compact ? styles.stackCompact : null]}>
@@ -49,14 +49,15 @@ export function CheckinStepCard({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     card: {
-      backgroundColor: tokens.colors.surface,
-      borderColor: tokens.colors.border,
+      backgroundColor: "rgba(255, 255, 255, 0.96)",
+      borderColor: "rgba(215, 224, 231, 0.94)",
+      ...(tokens.elevation?.sm ?? {}),
     },
     stack: {
       gap: tokens.spacing.xl,
     },
     stackCompact: {
-      gap: tokens.spacing.lg,
+      gap: tokens.spacing.md,
     },
     header: {
       flexDirection: "row",
@@ -79,8 +80,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     title: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
+      fontSize: 20,
+      lineHeight: 27,
       fontWeight: tokens.typography.weights.semibold,
     },
     description: {

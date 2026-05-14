@@ -66,10 +66,12 @@ export type MediaCardProps = {
   rightAccessory?: ReactNode;
   showChevron?: boolean;
   actions?: MediaCardAction[];
+  actionsDensity?: "default" | "compact";
   variant?: "default" | "emphasis" | "compact";
   density?: "default" | "calm";
   testID?: string;
   style?: StyleProp<ViewStyle>;
+  surfaceStyle?: StyleProp<ViewStyle>;
 };
 
 function resolveChipStyle(
@@ -133,10 +135,12 @@ export function MediaCard({
   rightAccessory,
   showChevron = true,
   actions = [],
+  actionsDensity = "default",
   variant = "default",
   density = "default",
   testID,
   style,
+  surfaceStyle,
 }: MediaCardProps) {
   const tokens = useTokens();
   const reduceMotion = useReducedMotion();
@@ -145,6 +149,7 @@ export function MediaCard({
   const isCompact = variant === "compact";
   const isEmphasis = variant === "emphasis";
   const isCalm = density === "calm";
+  const hasCompactActions = actionsDensity === "compact";
   const leadingSize = isCompact ? (isCalm ? 44 : 48) : isCalm ? 48 : 56;
   const avatarSize = isCompact ? (isCalm ? 38 : 40) : isCalm ? 40 : 44;
   const iconSize = isCompact ? (isCalm ? 20 : 22) : isCalm ? 22 : 24;
@@ -288,17 +293,18 @@ export function MediaCard({
 
   const actionsContent =
     actions.length > 0 ? (
-      <View style={styles.actionsRow}>
+      <View style={[styles.actionsRow, hasCompactActions ? styles.actionsRowCompact : null]}>
         {actions.slice(0, 2).map((action, index, arr) => (
           <View
             key={`${action.label}-${index}`}
-            style={arr.length === 2 ? styles.actionFlex : undefined}
+            style={arr.length === 2 && !hasCompactActions ? styles.actionFlex : undefined}
           >
             {action.kind === "secondary" ? (
               <SecondaryButton
                 testID={action.testID}
                 label={action.label}
                 disabled={action.disabled}
+                size={hasCompactActions ? "compact" : "default"}
                 accessibilityLabel={action.label}
                 onPress={() => {
                   action.onPress();
@@ -309,6 +315,7 @@ export function MediaCard({
                 testID={action.testID}
                 label={action.label}
                 disabled={action.disabled}
+                size={hasCompactActions ? "compact" : "default"}
                 accessibilityLabel={action.label}
                 onPress={() => {
                   action.onPress();
@@ -331,7 +338,7 @@ export function MediaCard({
     return (
       <Card
         padding={0}
-        style={[cardStyle, style]}
+        style={[cardStyle, surfaceStyle, style]}
         accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`}
       >
         <View style={styles.contentWrap}>
@@ -363,7 +370,7 @@ export function MediaCard({
     <View testID={testID} style={style}>
       <Card
         padding={resolvedPadding}
-        style={cardStyle}
+        style={[cardStyle, surfaceStyle]}
         accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`.trim()}
       >
         {content}
@@ -469,6 +476,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
+    },
+    actionsRowCompact: {
+      alignItems: "flex-start",
+      paddingTop: tokens.spacing.xs,
     },
     actionsWrap: {
       paddingTop: 0,

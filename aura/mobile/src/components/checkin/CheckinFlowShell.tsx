@@ -49,12 +49,14 @@ export function CheckinFlowShell({
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const [measuredFooterHeight, setMeasuredFooterHeight] = useState(0);
+  const footerBreathingRoom = tokens.spacing.xl;
+  const fallbackFooterReserve = tokens.spacing.xxxl * 3 + tokens.spacing.lg;
   const resolvedFooterSpacerHeight = footer
     ? Math.max(
         footerSpacerHeight,
         measuredFooterHeight > 0
-          ? measuredFooterHeight + tokens.spacing.sm
-          : tokens.spacing.xxxl + tokens.spacing.xxxl + tokens.spacing.sm,
+          ? measuredFooterHeight + footerBreathingRoom
+          : fallbackFooterReserve,
       )
     : tokens.spacing.xxxl;
 
@@ -102,6 +104,9 @@ export function CheckinFlowShell({
           style={styles.footerWrap}
           onLayout={({ nativeEvent }) => {
             const nextHeight = Math.ceil(nativeEvent.layout.height);
+            if (!Number.isFinite(nextHeight)) {
+              return;
+            }
             Promise.resolve().then(() => {
               setMeasuredFooterHeight((current) =>
                 current === nextHeight ? current : nextHeight
@@ -110,8 +115,9 @@ export function CheckinFlowShell({
           }}
         >
           <GlassPanel
+            intensity={28}
             fallbackVariant="surface"
-            fallbackOpacity={0.92}
+            fallbackOpacity={0.96}
             style={styles.footerPanel}
             accessibilityLabel="Check-in footer actions"
           >
@@ -156,13 +162,15 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       left: 0,
       right: 0,
       bottom: 0,
-      paddingTop: tokens.spacing.xs,
+      paddingTop: tokens.spacing.md,
       paddingBottom: tokens.spacing.sm,
     },
     footerPanel: {
       borderRadius: tokens.radius.xl,
       borderWidth: 1,
-      borderColor: tokens.colors.border,
+      borderColor: "rgba(215, 224, 231, 0.92)",
+      backgroundColor: "rgba(255, 255, 255, 0.96)",
+      ...(tokens.elevation?.card ?? {}),
     },
   });
 }

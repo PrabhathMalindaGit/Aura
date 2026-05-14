@@ -10,6 +10,7 @@ type PrimaryButtonProps = {
   onPress: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   loading?: boolean;
+  size?: "default" | "compact";
   accessibilityLabel?: string;
   accessibilityHint?: string;
   testID?: string;
@@ -20,6 +21,7 @@ export function PrimaryButton({
   onPress,
   disabled = false,
   loading = false,
+  size = "default",
   accessibilityLabel,
   accessibilityHint,
   testID,
@@ -45,11 +47,14 @@ export function PrimaryButton({
       hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       style={({ pressed }) => [
         styles.button,
+        size === "compact" ? styles.buttonCompact : null,
         isDisabled ? styles.buttonDisabled : null,
         pressed && !isDisabled ? getPressFeedbackStyle(reduceMotion, 0.88) : null,
       ]}
     >
-      <Text style={styles.label}>{loading ? "…" : label}</Text>
+      <Text style={[styles.label, size === "compact" ? styles.labelCompact : null]}>
+        {loading ? "…" : label}
+      </Text>
     </Pressable>
   );
 }
@@ -67,6 +72,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingHorizontal: tokens.spacing.lg,
       ...tokens.elevation.sm,
     },
+    buttonCompact: {
+      minHeight: 44,
+      paddingHorizontal: tokens.spacing.lg,
+    },
     buttonDisabled: {
       opacity: 0.55,
     },
@@ -75,6 +84,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    labelCompact: {
+      fontSize: 15,
+      lineHeight: 20,
     },
   });
 }

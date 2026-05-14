@@ -1079,8 +1079,6 @@ export default function CheckinScreen() {
     () => resolveCheckinHelperNotice(notice, validationMessage),
     [notice, validationMessage],
   );
-  const shouldShowRecoveryDetails =
-    adaptationDecision?.optionalSections.recovery === false || showRecoveryDetails;
   const shouldShowDailyContext =
     adaptationDecision?.optionalSections.dailyContext === false ||
     showDailyContext ||
@@ -2204,157 +2202,92 @@ export default function CheckinScreen() {
               })}
             </View>
           </CheckinFieldBlock>
-        </View>
-      </Card>
 
-      <Card
-        variant="outlined"
-        padding={tokens.spacing.md}
-        style={styles.recoveryDisclosureCard}
-      >
-        <View style={styles.inlineHeaderRow}>
-          <View style={styles.sectionStack}>
-            <Text style={styles.fieldLabel}>Optional detail</Text>
-            <Text style={styles.helperText}>
-              Add confidence, mobility, or medication detail only when it helps explain today.
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              shouldShowRecoveryDetails
-                ? "Hide optional recovery details"
-                : "Show optional recovery details"
-            }
-            onPress={() => setShowRecoveryDetails((current) => !current)}
-            style={({ pressed }) => [
-              styles.inlineTextButton,
-              pressed ? styles.inlineTextButtonPressed : null,
-            ]}
+          <CheckinFieldBlock
+            title="Medication"
+            description="Record whether medication was taken today."
+            compact
           >
-            <Text style={styles.inlineTextButtonText}>
-              {shouldShowRecoveryDetails ? "Hide details" : "Add details"}
-            </Text>
-          </Pressable>
-        </View>
+            <SegmentedControl
+              value={adherence.medicationStatus ?? "skip"}
+              onChange={(value: MedicationStatusOption) => {
+                setNotice(null);
+                setAdherence((current) => ({
+                  ...current,
+                  medicationStatus: value === "skip" ? null : value,
+                  medicationReason:
+                    value === "taken" || value === "skip" ? null : current.medicationReason,
+                }));
+              }}
+              options={[
+                { value: "skip", label: "Skip" },
+                ...CHECKIN_MEDICATION_STATUSES.map((status) => ({
+                  value: status,
+                  label: MEDICATION_STATUS_LABELS[status],
+                })),
+              ]}
+              allowWrap
+              tone="primary"
+              accessibilityLabel="Medication status"
+            />
 
-        {shouldShowRecoveryDetails ? (
-          <View style={styles.metricStackCompact}>
-          {renderFivePointChips({
-            label: "Confidence in progress",
-            value: recovery.confidenceLevel,
-            onChange: (value) => {
-              setNotice(null);
-              setRecovery((current) => ({ ...current, confidenceLevel: value }));
-            },
-            onClear: () => {
-              setNotice(null);
-              setRecovery((current) => ({ ...current, confidenceLevel: null }));
-            },
-            options: FIVE_POINT_RECOVERY_LABELS,
-            styles,
-          })}
-
-          {renderFivePointChips({
-            label: "Movement and function",
-            value: recovery.mobilityLevel,
-            onChange: (value) => {
-              setNotice(null);
-              setRecovery((current) => ({ ...current, mobilityLevel: value }));
-            },
-            onClear: () => {
-              setNotice(null);
-              setRecovery((current) => ({ ...current, mobilityLevel: null }));
-            },
-            options: FIVE_POINT_RECOVERY_LABELS,
-            styles,
-          })}
-            <CheckinFieldBlock
-              title="Medication"
-              description="Record whether medication was taken today."
-              compact
-            >
-              <SegmentedControl
-                value={adherence.medicationStatus ?? "skip"}
-                onChange={(value: MedicationStatusOption) => {
-                  setNotice(null);
-                  setAdherence((current) => ({
-                    ...current,
-                    medicationStatus: value === "skip" ? null : value,
-                    medicationReason:
-                      value === "taken" || value === "skip" ? null : current.medicationReason,
-                  }));
-                }}
-                options={[
-                  { value: "skip", label: "Skip" },
-                  ...CHECKIN_MEDICATION_STATUSES.map((status) => ({
-                    value: status,
-                    label: MEDICATION_STATUS_LABELS[status],
-                  })),
-                ]}
-                allowWrap
-                tone="primary"
-                accessibilityLabel="Medication status"
-              />
-
-              {adherence.medicationStatus && adherence.medicationStatus !== "taken" ? (
-                <View style={styles.fieldGroup}>
-                  <View style={styles.inlineHeaderRow}>
-                    <Text style={styles.fieldLabel}>Why was it missed or not needed?</Text>
-                    {adherence.medicationReason ? (
+            {adherence.medicationStatus && adherence.medicationStatus !== "taken" ? (
+              <View style={styles.fieldGroup}>
+                <View style={styles.inlineHeaderRow}>
+                  <Text style={styles.fieldLabel}>Why was it missed or not needed?</Text>
+                  {adherence.medicationReason ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear medication reason"
+                      accessibilityHint="Clears why medication was missed or not needed."
+                      onPress={() => {
+                        setNotice(null);
+                        setAdherence((current) => ({ ...current, medicationReason: null }));
+                      }}
+                      style={({ pressed }) => [
+                        styles.clearOptionalButton,
+                        pressed ? styles.clearOptionalButtonPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.clearOptionalButtonText}>Clear</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <View style={styles.chipRow}>
+                  {MEDICATION_REASON_OPTIONS.map((option) => {
+                    const selected = adherence.medicationReason === option;
+                    return (
                       <Pressable
+                        key={option}
                         accessibilityRole="button"
-                        accessibilityLabel="Clear medication reason"
-                        accessibilityHint="Clears why medication was missed or not needed."
+                        accessibilityLabel={`Set medication reason ${option}`}
+                        accessibilityState={{ selected }}
                         onPress={() => {
                           setNotice(null);
-                          setAdherence((current) => ({ ...current, medicationReason: null }));
+                          setAdherence((current) => ({ ...current, medicationReason: option }));
                         }}
                         style={({ pressed }) => [
-                          styles.clearOptionalButton,
-                          pressed ? styles.clearOptionalButtonPressed : null,
+                          styles.choiceChip,
+                          selected ? styles.choiceChipSelected : null,
+                          pressed ? styles.choiceChipPressed : null,
                         ]}
                       >
-                        <Text style={styles.clearOptionalButtonText}>Clear</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                  <View style={styles.chipRow}>
-                    {MEDICATION_REASON_OPTIONS.map((option) => {
-                      const selected = adherence.medicationReason === option;
-                      return (
-                        <Pressable
-                          key={option}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Set medication reason ${option}`}
-                          accessibilityState={{ selected }}
-                          onPress={() => {
-                            setNotice(null);
-                            setAdherence((current) => ({ ...current, medicationReason: option }));
-                          }}
-                          style={({ pressed }) => [
-                            styles.choiceChip,
-                            selected ? styles.choiceChipSelected : null,
-                            pressed ? styles.choiceChipPressed : null,
+                        <Text
+                          style={[
+                            styles.choiceChipText,
+                            selected ? styles.choiceChipTextSelected : null,
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.choiceChipText,
-                              selected ? styles.choiceChipTextSelected : null,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                          {option}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
-              ) : null}
-            </CheckinFieldBlock>
-          </View>
-        ) : null}
+              </View>
+            ) : null}
+          </CheckinFieldBlock>
+        </View>
       </Card>
     </CheckinStepCard>
   );
@@ -2886,7 +2819,7 @@ export default function CheckinScreen() {
 
   const showExpandedDetailAction =
     adaptationDecision?.mode === "shortened" &&
-    (!shouldShowRecoveryDetails || !shouldShowDailyContext);
+    !shouldShowDailyContext;
   const shellFooterSpacerHeight = tokens.spacing.xxxl * 2 + tokens.spacing.sm;
 
   const shellHelperContent =
@@ -2907,7 +2840,6 @@ export default function CheckinScreen() {
                   label="Add more detail"
                   onPress={() => {
                     setNotice(null);
-                    setShowRecoveryDetails(true);
                     setShowDailyContext(true);
                   }}
                 />
@@ -2983,9 +2915,10 @@ export default function CheckinScreen() {
 
       {isLastStep ? (
         <View style={styles.footerButtonRow}>
-          <View style={styles.footerButtonSlot}>
+          <View style={styles.footerBackButtonSlot}>
             <SecondaryButton
               label="Back"
+              size="compact"
               disabled={isSubmitting}
               onPress={() => {
                 setNotice(null);
@@ -2993,9 +2926,10 @@ export default function CheckinScreen() {
               }}
             />
           </View>
-          <View style={styles.footerButtonSlot}>
+          <View style={styles.footerPrimaryButtonSlot}>
             <PrimaryButton
               label={primaryLabel}
+              size="compact"
               loading={isSubmitting}
               disabled={primaryDisabled}
               onPress={() => {
@@ -3006,9 +2940,10 @@ export default function CheckinScreen() {
         </View>
       ) : activeStep > 0 ? (
         <View style={styles.footerButtonRow}>
-          <View style={styles.footerButtonSlot}>
+          <View style={styles.footerBackButtonSlot}>
             <SecondaryButton
               label="Back"
+              size="compact"
               disabled={isSubmitting}
               onPress={() => {
                 setNotice(null);
@@ -3016,9 +2951,10 @@ export default function CheckinScreen() {
               }}
             />
           </View>
-          <View style={styles.footerButtonSlot}>
+          <View style={styles.footerPrimaryButtonSlot}>
             <PrimaryButton
               label={primaryLabel}
+              size="compact"
               disabled={primaryDisabled}
               onPress={() => {
                 setNotice(null);
@@ -3032,6 +2968,7 @@ export default function CheckinScreen() {
       ) : (
         <PrimaryButton
           label={primaryLabel}
+          size="compact"
           disabled={primaryDisabled}
           onPress={() => {
             setNotice(null);
@@ -3531,17 +3468,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
     },
     primaryGroupCard: {
-      backgroundColor: tokens.colors.surfaceElevated,
-      borderColor: tokens.colors.border,
+      backgroundColor: "rgba(255, 255, 255, 0.96)",
+      borderColor: "rgba(215, 224, 231, 0.94)",
     },
     secondaryGroupCard: {
-      backgroundColor: tokens.colors.surfaceSubtle,
-      borderColor: tokens.colors.border,
-    },
-    recoveryDisclosureCard: {
-      gap: tokens.spacing.md,
-      backgroundColor: tokens.colors.surfaceSubtle,
-      borderColor: tokens.colors.border,
+      backgroundColor: "rgba(251, 249, 245, 0.94)",
+      borderColor: "rgba(215, 224, 231, 0.94)",
     },
     safetyGroupCard: {
       backgroundColor: tokens.colors.warningSoft,
@@ -3722,7 +3654,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.medium,
     },
     footerInner: {
-      gap: tokens.spacing.xs,
+      gap: tokens.spacing.sm,
     },
     footerHint: {
       color: tokens.colors.danger,
@@ -3732,11 +3664,16 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     footerButtonRow: {
       flexDirection: "row",
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.md,
       alignItems: "center",
     },
-    footerButtonSlot: {
-      flex: 1,
+    footerBackButtonSlot: {
+      flex: 0.82,
+      minWidth: 0,
+    },
+    footerPrimaryButtonSlot: {
+      flex: 1.18,
+      minWidth: 0,
     },
   });
 }

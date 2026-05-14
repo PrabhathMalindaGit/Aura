@@ -1202,6 +1202,7 @@ export default function HomeScreen() {
             ) : (
               <PrimaryButton
                 label="Start check-in"
+                size="compact"
                 onPress={() => {
                   router.push("/(tabs)/checkin");
                 }}
@@ -1224,7 +1225,6 @@ export default function HomeScreen() {
             />
           </View>
         }
-        card
       >
         {planSummary.status === "loading" ? (
           <View style={styles.skeletonStack}>
@@ -1244,8 +1244,10 @@ export default function HomeScreen() {
           />
         ) : (
           <MediaCard
-            variant="emphasis"
+            variant="default"
             density="calm"
+            actionsDensity="compact"
+            surfaceStyle={styles.exercisePlanCard}
             leading={{ type: "icon", icon: "exercise", tone: "primary" }}
             title={planSummary.title}
             subtitle={planSummary.description}
@@ -1672,7 +1674,7 @@ export default function HomeScreen() {
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     container: {
-      paddingBottom: tokens.spacing.xxl,
+      paddingBottom: tokens.spacing.xxxl,
     },
     screenContent: {
       gap: 0,
@@ -1680,13 +1682,13 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     topStack: {
       gap: tokens.spacing.md,
-      marginBottom: tokens.spacing.xl,
+      marginBottom: 20,
     },
     bannerBlock: {
       marginBottom: tokens.spacing.md,
     },
     sectionBlock: {
-      marginBottom: tokens.spacing.xl,
+      marginBottom: 22,
     },
     statusStrip: {
       flexDirection: "row",
@@ -1700,11 +1702,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       maxWidth: 320,
     },
     trackerGrid: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     trackerRow: {
       flexDirection: "row",
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     trackerCell: {
       flex: 1,
@@ -1713,7 +1715,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     supportGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     supportCardWrap: {
       flexGrow: 1,
@@ -1727,19 +1729,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
     },
     checkinCard: {
-      backgroundColor: tokens.colors.primarySoft,
-      borderColor: tokens.colors.border,
+      backgroundColor: "rgba(238, 244, 255, 0.94)",
+      borderColor: "rgba(122, 167, 255, 0.34)",
+      ...(tokens.elevation?.sm ?? {}),
     },
     checkinHeaderRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "flex-start",
       gap: tokens.spacing.sm,
-      marginBottom: tokens.spacing.md,
+      marginBottom: tokens.spacing.sm,
     },
     checkinCopy: {
       flex: 1,
-      gap: tokens.spacing.sm,
+      gap: 6,
     },
     checkinEyebrow: {
       color: tokens.colors.primary,
@@ -1749,8 +1752,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     checkinTitle: {
       color: tokens.colors.text,
-      fontSize: 24,
-      lineHeight: 30,
+      fontSize: 23,
+      lineHeight: 29,
       fontWeight: tokens.typography.weights.semibold,
     },
     checkinMetaRow: {
@@ -1773,12 +1776,17 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     actionStack: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.md,
     },
     bodyText: {
       color: tokens.colors.textMuted,
       fontSize: 15,
-      lineHeight: 23,
+      lineHeight: 22,
+    },
+    exercisePlanCard: {
+      backgroundColor: "rgba(255, 255, 255, 0.96)",
+      borderColor: "rgba(215, 224, 231, 0.94)",
+      ...(tokens.elevation?.sm ?? {}),
     },
     supportText: {
       color: tokens.colors.textMuted,

@@ -466,7 +466,7 @@ function emitSpeech(eventName: string, event?: unknown) {
   }
 }
 
-describe("AppointmentsScreen voice appointment request", () => {
+describe("AppointmentsScreen final-demo appointment flow", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     authState.status = "signedIn";
@@ -507,24 +507,19 @@ describe("AppointmentsScreen voice appointment request", () => {
     }
   });
 
-  it("blocks voice request review without a selected slot", async () => {
+  it("hides voice request review while preserving available appointment slots", async () => {
     const renderer = await renderScreen();
 
-    expect(textContent(renderer)).toContain("Select a time before voice request.");
-    expect(findByA11y(renderer, "Review for voice request").props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
-
-    await act(async () => {
-      findByA11y(renderer, "Review for voice request").props.onPress();
-      await flush();
-    });
-
+    expect(textContent(renderer)).not.toContain("Voice request review");
+    expect(textContent(renderer)).not.toContain("Select a time before voice request.");
+    expect(findAllByA11y(renderer, "Review for voice request")).toHaveLength(0);
+    expect(findAllByA11y(renderer, "Listen for request confirmation")).toHaveLength(0);
+    expect(findAllByA11y(renderer, "Cancel voice request")).toHaveLength(0);
+    expect(renderer.root.findByProps({ testID: "appointment-slot-slot-1" })).toBeTruthy();
     expect(createAppointmentRequest).not.toHaveBeenCalled();
-    expect(textContent(renderer)).toContain("Choose an available time before using voice request.");
   });
 
-  it("shows exact selected appointment details and optional note in voice review", async () => {
+  it("keeps normal selected appointment request actions available", async () => {
     const renderer = await renderScreen();
 
     await selectSlot(renderer);
@@ -534,187 +529,46 @@ describe("AppointmentsScreen voice appointment request", () => {
       );
       await flush();
     });
-    await reviewForVoiceRequest(renderer);
 
     const text = textContent(renderer);
-    expect(text).toContain("Voice request review");
-    expect(text).toContain("Dr. Rivera");
-    expect(text).toContain("Video visit");
-    expect(text).toContain("30 minutes");
-    expect(text).toContain("Morning rehab works best.");
-    expect(text).toContain(
-      "This sends an appointment request for clinician approval. It does not guarantee the appointment.",
+    expect(text).toContain("Selected time");
+    expect(text).toContain("This sends a request for clinician approval before the visit is confirmed.");
+    expect(text).not.toContain("Voice request review");
+    expect(findByA11y(renderer, "Request this time")).toBeTruthy();
+    expect(createAppointmentRequest).not.toHaveBeenCalled();
+  });
+
+  it("normal appointment request button still asks for confirmation without voice UI", async () => {
+    const renderer = await renderScreen();
+
+    await selectSlot(renderer);
+    await act(async () => {
+      findByA11y(renderer, "Request this time").props.onPress();
+      await flush();
+    });
+
+    expect(alertMock).toHaveBeenCalledWith(
+      "Request this slot?",
+      expect.stringContaining("This sends a pending request for clinician approval."),
+      expect.any(Array),
     );
-    expect(text).toContain("Aura does not call emergency services.");
     expect(createAppointmentRequest).not.toHaveBeenCalled();
   });
 
-  it.each(["yes request", "confirm request", "request appointment"])(
-    "submits through existing request path after explicit voice confirmation %s",
-    async (phrase) => {
-      const renderer = await renderScreen();
-
-      await selectSlot(renderer);
-      await reviewForVoiceRequest(renderer);
-      await listenAndEmitVoiceRequest(renderer, phrase);
-
-      expect(createAppointmentRequest).toHaveBeenCalledWith("token-appointments", {
-        slotId: "slot-1",
-        note: undefined,
-      });
-      expect(textContent(renderer)).toContain("Your request is pending clinician approval.");
-      expect(textContent(renderer)).not.toContain("confirmed appointment");
-    },
-  );
-
-  it("manual Confirm request in the voice review uses the same request path", async () => {
-    const renderer = await renderScreen();
-
-    await selectSlot(renderer);
-    await reviewForVoiceRequest(renderer);
-    await act(async () => {
-      findAllByA11y(renderer, "Confirm request")[0].props.onPress();
-      await flush();
-    });
-
-    expect(createAppointmentRequest).toHaveBeenCalledWith("token-appointments", {
-      slotId: "slot-1",
-      note: undefined,
-    });
-  });
-
-  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
-    "does not request ambiguous voice confirmation %s",
-    async (phrase) => {
-      const renderer = await renderScreen();
-
-      await selectSlot(renderer);
-      await reviewForVoiceRequest(renderer);
-      await listenAndEmitVoiceRequest(renderer, phrase);
-
-      expect(createAppointmentRequest).not.toHaveBeenCalled();
-      expect(textContent(renderer)).toContain("That was not a clear request confirmation.");
-    },
-  );
-
-  it.each([
-    "cancel",
-    "stop",
-    "do not submit",
-    "dont submit",
-    "do not send",
-    "dont send",
-    "do not request",
-    "dont request",
-    "do not log",
-    "dont log",
-    "never mind",
-    "go back",
-  ])(
-    "clears voice request state for negative phrase %s",
-    async (phrase) => {
-      const renderer = await renderScreen();
-
-      await selectSlot(renderer);
-      await reviewForVoiceRequest(renderer);
-      await listenAndEmitVoiceRequest(renderer, phrase);
-
-      expect(createAppointmentRequest).not.toHaveBeenCalled();
-      expect(textContent(renderer)).toContain("Voice request cancelled.");
-      expect(findAllByA11y(renderer, "Confirm request")).toHaveLength(0);
-    },
-  );
-
-  it("does not request on speech parser errors, nomatch, or Cancel press", async () => {
-    const renderer = await renderScreen();
-
-    await selectSlot(renderer);
-    await reviewForVoiceRequest(renderer);
-    await act(async () => {
-      await findByA11y(renderer, "Listen for request confirmation").props.onPress();
-      emitSpeech("error", { error: "network" });
-      await flush();
-    });
-    expect(createAppointmentRequest).not.toHaveBeenCalled();
-    expect(textContent(renderer)).toContain("That was not a clear request confirmation. Nothing was sent.");
-
-    await act(async () => {
-      emitSpeech("nomatch");
-      await flush();
-    });
-    expect(createAppointmentRequest).not.toHaveBeenCalled();
-
-    await act(async () => {
-      findByA11y(renderer, "Cancel voice request").props.onPress();
-      await flush();
-    });
-    expect(createAppointmentRequest).not.toHaveBeenCalled();
-    expect(textContent(renderer)).toContain("Voice request cancelled.");
-  });
-
-  it("prevents voice request after confirmation expiry", async () => {
-    const renderer = await renderScreen();
-
-    await selectSlot(renderer);
-    await reviewForVoiceRequest(renderer);
-    await act(async () => {
-      vi.advanceTimersByTime(31_000);
-      await flush();
-    });
-
-    expect(createAppointmentRequest).not.toHaveBeenCalled();
-    expect(textContent(renderer)).toContain("Voice request review expired.");
-    expect(findAllByA11y(renderer, "Listen for request confirmation")).toHaveLength(0);
-  });
-
-  it("invalidates voice review when selected slot or note changes", async () => {
-    const renderer = await renderScreen();
-
-    await selectSlot(renderer);
-    await reviewForVoiceRequest(renderer);
-    await selectSlot(renderer, "slot-2");
-
-    expect(createAppointmentRequest).not.toHaveBeenCalled();
-    expect(textContent(renderer)).toContain("Appointment request changed. Review again before requesting.");
-
-    await reviewForVoiceRequest(renderer);
-    await act(async () => {
-      renderer.root.findByProps({ placeholder: "Optional note for your clinician" }).props.onChangeText(
-        "New context",
-      );
-      await flush();
-    });
-
-    expect(textContent(renderer)).toContain("Appointment request changed. Review again before requesting.");
-  });
-
-  it("keeps offline voice request behavior identical to manual request", async () => {
+  it("keeps offline appointment booking quiet and free of voice warnings", async () => {
     networkState.offline = true;
     const renderer = await renderScreen();
 
     expect(createAppointmentRequest).not.toHaveBeenCalled();
-    expect(textContent(renderer)).toContain("Select a time before voice request.");
+    expect(textContent(renderer)).not.toContain("Select a time before voice request.");
+    expect(textContent(renderer)).not.toContain("Voice confirmation is not available");
+    expect(findAllByA11y(renderer, "Review for voice request")).toHaveLength(0);
   });
 
-  it("shows unavailable slot failure without implying confirmed booking", async () => {
-    createAppointmentRequest.mockRejectedValue(new Error("Slot is no longer available."));
+  it("does not call unrelated clinical mutation or persistence APIs from the hidden voice UI", async () => {
     const renderer = await renderScreen();
 
     await selectSlot(renderer);
-    await reviewForVoiceRequest(renderer);
-    await listenAndEmitVoiceRequest(renderer, "yes request");
-
-    expect(createAppointmentRequest).toHaveBeenCalledTimes(1);
-    expect(textContent(renderer)).toContain("Couldn’t request appointment");
-    expect(textContent(renderer)).toContain("Slot is no longer available.");
-    expect(textContent(renderer)).not.toContain("confirmed appointment");
-  });
-
-  it("does not call unrelated clinical mutation or persistence APIs", async () => {
-    const renderer = await renderScreen();
-
-    await selectSlot(renderer);
-    await reviewForVoiceRequest(renderer);
 
     expect(JSON.stringify(asyncStorage.setItem.mock.calls)).not.toContain("slot-1");
     expect(asyncStorage.setItem).not.toHaveBeenCalled();
@@ -726,25 +580,5 @@ describe("AppointmentsScreen voice appointment request", () => {
     }
     expect(textContent(renderer)).not.toContain("OPENAI_API_KEY");
     expect(textContent(renderer)).not.toContain("EXPO_PUBLIC_OPENAI_API_KEY");
-  });
-
-  it("exposes accessible voice request controls and live status", async () => {
-    const renderer = await renderScreen();
-
-    await selectSlot(renderer);
-    await reviewForVoiceRequest(renderer);
-
-    expect(findByA11y(renderer, "Review for voice request").props.accessibilityHint).toContain(
-      "Shows the exact appointment request summary",
-    );
-    expect(findByA11y(renderer, "Listen for request confirmation").props.accessibilityHint).toContain(
-      "Listens once for yes request, confirm request, or request appointment.",
-    );
-    expect(findAllByA11y(renderer, "Confirm request")[0].props.accessibilityHint).toContain(
-      "Sends this reviewed appointment request",
-    );
-    expect(findByA11y(renderer, "Voice appointment request status").props.accessibilityLiveRegion).toBe(
-      "polite",
-    );
   });
 });

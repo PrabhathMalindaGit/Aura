@@ -34,6 +34,7 @@ import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { VoiceDictationButton } from "@/src/components/VoiceDictationButton";
 import { ReadAloudButton, normalizeReadAloudText } from "@/src/components/ReadAloudButton";
+import { FINAL_DEMO_VOICE_UI_ENABLED } from "@/src/config/finalDemoScope";
 import { BodyMapSelector } from "@/src/components/checkin/BodyMapSelector";
 import { CheckinConfirmationPanel } from "@/src/components/checkin/CheckinConfirmationPanel";
 import { CheckinFieldBlock } from "@/src/components/checkin/CheckinFieldBlock";
@@ -1902,7 +1903,7 @@ export default function CheckinScreen() {
     }
   }, []);
 
-  const guidedCheckinPanel = (
+  const guidedCheckinPanel = FINAL_DEMO_VOICE_UI_ENABLED ? (
     <VoiceGuidedCheckinPanel
       initialExpanded={shouldOpenVoiceGuided}
       beginOnMount={shouldOpenVoiceGuided}
@@ -1949,7 +1950,7 @@ export default function CheckinScreen() {
         handlePrepareVoiceSubmitReview();
       }}
     />
-  );
+  ) : null;
 
   const renderSymptomsStep = () => (
     <CheckinStepCard
@@ -2564,12 +2565,14 @@ export default function CheckinScreen() {
               style={styles.notesInput}
               textAlignVertical="top"
               accessibilityLabel="Check-in notes for your care team"
-              accessibilityHint="Optional. Dictation adds text here for review before you submit."
+              accessibilityHint="Optional. Add text here for review before you submit."
             />
-            <VoiceDictationButton
-              onTranscript={handleNotesDictationTranscript}
-              testID="checkin-notes-voice-dictation"
-            />
+            {FINAL_DEMO_VOICE_UI_ENABLED ? (
+              <VoiceDictationButton
+                onTranscript={handleNotesDictationTranscript}
+                testID="checkin-notes-voice-dictation"
+              />
+            ) : null}
             <Text style={styles.helperText}>
               Notes can still help your care team spot issues that need follow-up.
             </Text>
@@ -2670,6 +2673,10 @@ export default function CheckinScreen() {
   );
 
   const renderVoiceSubmitReviewPanel = () => {
+    if (!FINAL_DEMO_VOICE_UI_ENABLED) {
+      return null;
+    }
+
     const canReviewSubmit = canUseCurrentVoiceSubmitReview && !isSubmitting;
     const canListen =
       canReviewSubmit &&

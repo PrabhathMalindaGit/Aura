@@ -42,6 +42,7 @@ import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { VoiceDictationButton } from "@/src/components/VoiceDictationButton";
 import { ReadAloudButton } from "@/src/components/ReadAloudButton";
+import { FINAL_DEMO_VOICE_UI_ENABLED } from "@/src/config/finalDemoScope";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedChat,
@@ -1603,12 +1604,13 @@ export default function ChatScreen() {
     ? `Message to send: ${voiceSendSnapshot.messageToReview}. ${VOICE_SEND_REVIEW_COPY}`
     : VOICE_SEND_REVIEW_COPY;
   const shouldShowVoiceSendReview =
-    Boolean(voiceSendSnapshot) ||
-    isVoiceSendListening ||
-    voiceSendState === "reviewMessage" ||
-    voiceSendState === "awaitingVoiceConfirmation" ||
-    voiceSendState === "confirmedSend" ||
-    voiceSendState === "sending";
+    FINAL_DEMO_VOICE_UI_ENABLED &&
+    (Boolean(voiceSendSnapshot) ||
+      isVoiceSendListening ||
+      voiceSendState === "reviewMessage" ||
+      voiceSendState === "awaitingVoiceConfirmation" ||
+      voiceSendState === "confirmedSend" ||
+      voiceSendState === "sending");
 
   return (
     <Screen
@@ -1882,11 +1884,13 @@ export default function ChatScreen() {
                       textAlignVertical="top"
                     />
 
-                    <VoiceDictationButton
-                      disabled={isSending}
-                      onTranscript={handleDictationTranscript}
-                      testID="chat-voice-dictation"
-                    />
+                    {FINAL_DEMO_VOICE_UI_ENABLED ? (
+                      <VoiceDictationButton
+                        disabled={isSending}
+                        onTranscript={handleDictationTranscript}
+                        testID="chat-voice-dictation"
+                      />
+                    ) : null}
 
                     <Pressable
                       accessibilityRole="button"

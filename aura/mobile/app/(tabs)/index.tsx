@@ -1525,39 +1525,6 @@ export default function HomeScreen() {
       </Section>
 
       <Section
-        title="Voice support"
-        subtitle="Optional voice tools for navigation and practice."
-        left={
-          <View accessible={false} importantForAccessibility="no-hide-descendants">
-            <DomainIcon
-              icon="chat"
-              size={18}
-              tone="muted"
-              accessibilityLabel="Voice support icon"
-            />
-          </View>
-        }
-      >
-        <TipCard
-          tone="info"
-          compact
-          leading={{ type: "icon", icon: "chat", tone: "primary" }}
-          title="Aura Voice Agent"
-          text="Try the browser voice demo. It does not submit check-ins, send messages, or take clinical actions."
-          chips={["Browser demo", "No clinical actions"]}
-          actions={[
-            {
-              label: "Open Voice Agent",
-              kind: "secondary",
-              onPress: () => {
-                router.push("/voice-agent" as never);
-              },
-            },
-          ]}
-        />
-      </Section>
-
-      <Section
         title="More recovery tools"
         subtitle="Review updates, reports, and extra recovery context when you have time."
         left={

@@ -711,8 +711,7 @@ describe("chat truth fix", () => {
     expect(getLocalAttemptCard(root)).toBeNull();
   });
 
-  it("appends dictated transcript to the draft without sending until Send is pressed", async () => {
-    voiceTranscript.current = "better after exercises";
+  it("keeps manually typed draft unsent until Send is pressed without showing dictation", async () => {
     sendChat.mockResolvedValue({
       ok: true,
       risk: { level: "low", reasonCodes: [] },
@@ -730,11 +729,13 @@ describe("chat truth fix", () => {
     const root = renderer.root;
 
     await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain is");
-      findByA11y(root, "Start voice dictation").props.onPress();
+      findByA11y(root, "Message input").props.onChangeText("Pain is better after exercises");
       await flush();
     });
 
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Start voice dictation"),
+    ).toHaveLength(0);
     expect(findByA11y(root, "Message input").props.value).toBe(
       "Pain is better after exercises",
     );
@@ -785,8 +786,7 @@ describe("chat truth fix", () => {
     expect(sendChat).not.toHaveBeenCalled();
   });
 
-  it("routes high-risk dictated text through the existing send flow", async () => {
-    voiceTranscript.current = "I feel unsafe";
+  it("routes high-risk typed text through the existing send flow", async () => {
     sendChat.mockResolvedValue({
       ok: true,
       risk: { level: "high", reasonCodes: ["CRISIS_LANGUAGE"] },
@@ -805,10 +805,13 @@ describe("chat truth fix", () => {
     const root = renderer.root;
 
     await act(async () => {
-      findByA11y(root, "Start voice dictation").props.onPress();
+      findByA11y(root, "Message input").props.onChangeText("I feel unsafe");
       await flush();
     });
 
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Start voice dictation"),
+    ).toHaveLength(0);
     expect(sendChat).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -826,9 +829,8 @@ describe("chat truth fix", () => {
     });
   });
 
-  it("keeps offline send blocking unchanged after dictation fills the draft", async () => {
+  it("keeps offline send blocking unchanged after typing the draft", async () => {
     networkState.offline = true;
-    voiceTranscript.current = "Pain increased after walking";
     getCachedChat.mockResolvedValue({
       confirmedMessages: [],
       localAttempt: null,
@@ -839,10 +841,13 @@ describe("chat truth fix", () => {
     const root = renderer.root;
 
     await act(async () => {
-      findByA11y(root, "Start voice dictation").props.onPress();
+      findByA11y(root, "Message input").props.onChangeText("Pain increased after walking");
       await flush();
     });
 
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Start voice dictation"),
+    ).toHaveLength(0);
     expect(findByA11y(root, "Message input").props.value).toBe(
       "Pain increased after walking",
     );
@@ -886,7 +891,7 @@ describe("chat truth fix", () => {
     expect(findByA11y(root, "Message input")).toBeTruthy();
   });
 
-  it("shows the exact trimmed draft in voice send review before any send can happen", async () => {
+  it("keeps voice send review hidden even after a draft is typed", async () => {
     const renderer = await renderScreen();
     const root = renderer.root;
 
@@ -894,276 +899,26 @@ describe("chat truth fix", () => {
       findByA11y(root, "Message input").props.onChangeText("  Pain is better today  ");
       await flush();
     });
-    await reviewForVoiceSend(root);
 
     const text = flattenText(root);
-    expect(text).toContain("Voice send review");
-    expect(text).toContain("Pain is better today");
-    expect(text).toContain(
-      "I’ll send this exact message after you say ‘yes send.’ High-risk content still goes through Aura’s normal safety review. Aura does not call emergency services.",
-    );
-    expect(findByA11y(root, "Read voice message summary")).toBeTruthy();
-    expect(sendChat).not.toHaveBeenCalled();
-  });
-
-  it.each(["yes send", "confirm send", "send message"])(
-    "sends through the existing chat path after explicit voice confirmation %s",
-    async (phrase) => {
-      sendChat.mockResolvedValue({
-        ok: true,
-        risk: { level: "low", reasonCodes: [] },
-        messages: {
-          user: {
-            id: `user-${phrase.replace(/\s+/g, "-")}`,
-            role: "user",
-            text: "Pain is better today",
-            createdAt: "2026-03-24T12:20:00.000Z",
-          },
-          assistant: {
-            id: `assistant-${phrase.replace(/\s+/g, "-")}`,
-            role: "assistant",
-            text: "Thanks for sharing.",
-            createdAt: "2026-03-24T12:20:01.000Z",
-          },
-        },
-      });
-
-      const renderer = await renderScreen();
-      const root = renderer.root;
-
-      await act(async () => {
-        findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-        await flush();
-      });
-      await reviewForVoiceSend(root);
-      await listenAndEmitVoiceSend(root, phrase);
-
-      expect(sendChat).toHaveBeenCalledWith("token-1", "Pain is better today");
-      expect(flattenText(root)).toContain("Thanks for sharing.");
-    },
-  );
-
-  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
-    "does not send ambiguous voice confirmation %s",
-    async (phrase) => {
-      const renderer = await renderScreen();
-      const root = renderer.root;
-
-      await act(async () => {
-        findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-        await flush();
-      });
-      await reviewForVoiceSend(root);
-      await listenAndEmitVoiceSend(root, phrase);
-
-      expect(sendChat).not.toHaveBeenCalled();
-      expect(flattenText(root)).toContain("That was not a clear send confirmation.");
-    },
-  );
-
-  it("does not send on voice confirmation parser errors", async () => {
-    const renderer = await renderScreen();
-    const root = renderer.root;
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
-
-    await act(async () => {
-      await findByA11y(root, "Listen for voice send confirmation").props.onPress();
-      emitSpeech("nomatch");
-      await flush();
-    });
-
-    expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).toContain("That was not a clear send confirmation. Nothing was sent.");
-  });
-
-  it("does not send on voice recognition error", async () => {
-    const renderer = await renderScreen();
-    const root = renderer.root;
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
-
-    await act(async () => {
-      await findByA11y(root, "Listen for voice send confirmation").props.onPress();
-      emitSpeech("error", { error: "network" });
-      await flush();
-    });
-
-    expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).toContain("That was not a clear send confirmation. Nothing was sent.");
-  });
-
-  it.each([
-    "cancel",
-    "stop",
-    "do not submit",
-    "dont submit",
-    "do not send",
-    "dont send",
-    "do not request",
-    "dont request",
-    "do not log",
-    "dont log",
-    "never mind",
-    "go back",
-  ])(
-    "clears voice send state for negative phrase %s",
-    async (phrase) => {
-      const renderer = await renderScreen();
-      const root = renderer.root;
-
-      await act(async () => {
-        findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-        await flush();
-      });
-      await reviewForVoiceSend(root);
-      await listenAndEmitVoiceSend(root, phrase);
-
-      expect(sendChat).not.toHaveBeenCalled();
-      expect(flattenText(root)).not.toContain("Voice send review");
-      expect(flattenText(root)).not.toContain("Voice send cancelled.");
-    },
-  );
-
-  it("clears voice send state when Cancel is pressed", async () => {
-    const renderer = await renderScreen();
-    const root = renderer.root;
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
-
-    await act(async () => {
-      findByA11y(root, "Cancel voice send").props.onPress();
-      await flush();
-    });
-
-    expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).not.toContain("Voice send review");
-    expect(flattenText(root)).not.toContain("Voice send cancelled.");
-  });
-
-  it("prevents voice send after confirmation expiry", async () => {
-    const renderer = await renderScreen();
-    const root = renderer.root;
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
-
-    await act(async () => {
-      vi.advanceTimersByTime(31_000);
-      await flush();
-    });
-
-    expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).not.toContain("Voice send review");
-    expect(flattenText(root)).not.toContain("Message to send: Pain is better today");
-  });
-
-  it("invalidates voice send review when the draft changes", async () => {
-    const renderer = await renderScreen();
-    const root = renderer.root;
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain is better today");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain is better today ");
-      await flush();
-    });
-
-    expect(sendChat).not.toHaveBeenCalled();
-    expect(flattenText(root)).not.toContain("Voice send review");
-    expect(flattenText(root)).not.toContain("Message to send: Pain is better today");
+    expect(text).not.toContain("Voice send review");
+    expect(text).not.toContain("Voice send state");
+    expect(text).not.toContain("I’ll send this exact message after you say");
     expect(
-      root.findAll((node) => node.props?.accessibilityLabel === "Review for voice send"),
+      root.findAll((node) => node.props?.accessibilityLabel === "Listen for voice send confirmation"),
     ).toHaveLength(0);
-  });
-
-  it("routes high-risk voice-confirmed sends exactly like manual send", async () => {
-    sendChat.mockResolvedValue({
-      ok: true,
-      risk: { level: "high", reasonCodes: ["CRISIS_LANGUAGE"] },
-      alertId: "alert-voice-confirmed",
-      messages: {
-        user: {
-          id: "user-voice-confirmed",
-          role: "user",
-          text: "I feel unsafe",
-          createdAt: "2026-03-24T12:25:00.000Z",
-        },
-      },
-    });
-
-    const renderer = await renderScreen();
-    const root = renderer.root;
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("I feel unsafe");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
-    await listenAndEmitVoiceSend(root, "yes send");
-
-    expect(sendChat).toHaveBeenCalledWith("token-1", "I feel unsafe");
-    expect(routerPush).toHaveBeenCalledWith({
-      pathname: "/safety",
-      params: {
-        alertId: "alert-voice-confirmed",
-        reasonCodes: "CRISIS_LANGUAGE",
-      },
-    });
-  });
-
-  it("keeps offline voice-confirmed send behavior identical to manual send", async () => {
-    networkState.offline = true;
-    getCachedChat.mockResolvedValue({
-      confirmedMessages: [],
-      localAttempt: null,
-    });
-    getCachedTasks.mockResolvedValue({ items: [] });
-
-    const renderer = await renderScreen();
-    const root = renderer.root;
-
-    await act(async () => {
-      findByA11y(root, "Message input").props.onChangeText("Pain increased after walking");
-      await flush();
-    });
-    await reviewForVoiceSend(root);
-
-    await act(async () => {
-      findByA11y(root, "Confirm voice chat send").props.onPress();
-      await flush();
-    });
-
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Confirm voice chat send"),
+    ).toHaveLength(0);
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Start voice dictation"),
+    ).toHaveLength(0);
+    expect(findByA11y(root, "Message input")).toBeTruthy();
+    expect(findByA11y(root, "Send message")).toBeTruthy();
     expect(sendChat).not.toHaveBeenCalled();
-    expect(chatSendSetError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "offline",
-        retryable: true,
-      }),
-    );
-    expect(flattenText(root)).not.toContain("Voice send is paused while you’re offline.");
   });
 
-  it("does not expose unsafe voice actions, persistence, or OpenAI keys from chat voice send", async () => {
+  it("does not expose unsafe voice actions, persistence, or OpenAI keys from hidden chat voice UI", async () => {
     const renderer = await renderScreen();
     const root = renderer.root;
 
@@ -1171,8 +926,8 @@ describe("chat truth fix", () => {
       findByA11y(root, "Message input").props.onChangeText("Pain is better today");
       await flush();
     });
-    await reviewForVoiceSend(root);
 
+    expect(flattenText(root)).not.toContain("Voice send review");
     expect(flattenText(root)).not.toContain("appointment");
     expect(flattenText(root)).not.toContain("medication dosage");
     expect(flattenText(root)).not.toContain("create alert");
@@ -1181,7 +936,7 @@ describe("chat truth fix", () => {
     expect(flattenText(root)).not.toContain("EXPO_PUBLIC_OPENAI_API_KEY");
   });
 
-  it("exposes accessible voice send controls and live status", async () => {
+  it("does not expose voice send controls or live status in the final-demo composer", async () => {
     const renderer = await renderScreen();
     const root = renderer.root;
 
@@ -1189,20 +944,20 @@ describe("chat truth fix", () => {
       findByA11y(root, "Message input").props.onChangeText("Pain is better today");
       await flush();
     });
-    await reviewForVoiceSend(root);
 
-    expect(findByA11y(root, "Listen for voice send confirmation").props.accessibilityHint).toBe(
-      "Listens once for yes send, confirm send, or send message.",
-    );
-    expect(findByA11y(root, "Confirm voice chat send").props.accessibilityHint).toBe(
-      "Sends the reviewed message through the same normal chat send path.",
-    );
-    const status = root.findAll(
-      (node) =>
-        String(node.type) === "mock-view" &&
-        node.props.accessibilityLabel?.startsWith("Voice send state:"),
-    )[0];
-    expect(status.props.accessibilityLiveRegion).toBe("polite");
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Listen for voice send confirmation"),
+    ).toHaveLength(0);
+    expect(
+      root.findAll((node) => node.props?.accessibilityLabel === "Confirm voice chat send"),
+    ).toHaveLength(0);
+    expect(
+      root.findAll(
+        (node) =>
+          String(node.type) === "mock-view" &&
+          node.props.accessibilityLabel?.startsWith("Voice send state:"),
+      ),
+    ).toHaveLength(0);
   });
 
   it("marks 502 AI-unavailable sends as failed with retry", async () => {

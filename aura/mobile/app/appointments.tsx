@@ -62,6 +62,7 @@ import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTokens } from "@/src/theme/tokens";
+import { FINAL_DEMO_VOICE_UI_ENABLED } from "@/src/config/finalDemoScope";
 import {
   appointmentWorkflowTone,
   buildAppointmentChips,
@@ -1480,7 +1481,7 @@ export default function AppointmentsScreen() {
   }
 
   const showBookFooter = mode === "book" && selectedSlot !== null;
-  const showVoiceRequestPanel = mode === "book";
+  const showVoiceRequestPanel = FINAL_DEMO_VOICE_UI_ENABLED && mode === "book";
   const voiceRequestCanReview = selectedSlot !== null && !isOffline && requestingSlotId === null;
   const voiceRequestCanConfirm =
     canUseCurrentVoiceRequestReview &&

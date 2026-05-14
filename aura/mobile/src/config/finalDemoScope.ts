@@ -1,0 +1,2 @@
+export const FINAL_DEMO_VOICE_UI_ENABLED = false;
+export const FINAL_DEMO_EXERCISE_READ_ALOUD_UI_ENABLED = false;

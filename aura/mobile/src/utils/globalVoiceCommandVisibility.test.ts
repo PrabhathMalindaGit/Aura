@@ -7,8 +7,8 @@ describe("shouldShowGlobalVoiceCommand", () => {
     expect(shouldShowGlobalVoiceCommand("signedIn", ["(tabs)", "index"], false)).toBe(false);
   });
 
-  it("keeps the global floating mic on supported signed-in patient routes", () => {
-    expect(shouldShowGlobalVoiceCommand("signedIn", ["(tabs)", "index"], true)).toBe(true);
+  it("hides the global floating mic during the final demo scope even on supported routes", () => {
+    expect(shouldShowGlobalVoiceCommand("signedIn", ["(tabs)", "index"], true)).toBe(false);
   });
 
   it("does not override route-level hiding such as the dedicated Voice Agent screen", () => {

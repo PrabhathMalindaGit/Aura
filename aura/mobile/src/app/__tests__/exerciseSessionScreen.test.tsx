@@ -324,6 +324,17 @@ describe("ExerciseSessionScreen feedback accessibility", () => {
     const exerciseCard = renderer!.root
       .findAll((node) => String(node.type) === "mock-media-card")
       .find((node) => node.props.title === "Heel slides");
+    const currentReadAloudButtons = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-read-aloud-button",
+    );
+
+    expect(exerciseCard?.props.rightAccessory).toBeNull();
+    expect(currentReadAloudButtons).toHaveLength(0);
+    const text = renderer!.root
+      .findAll((node) => String(node.type) === "mock-text")
+      .flatMap((node) => node.children)
+      .join(" ");
+    expect(text).not.toContain("Read-aloud is unavailable right now.");
 
     act(() => {
       exerciseCard?.props.actions[0].onPress();

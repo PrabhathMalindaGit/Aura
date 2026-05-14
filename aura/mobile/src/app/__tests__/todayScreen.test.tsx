@@ -468,7 +468,7 @@ describe("Today screen", () => {
     getPending.mockResolvedValue([]);
   });
 
-  it("renders daily tasks before support, voice, and more recovery tools", async () => {
+  it("renders daily tasks before support and more recovery tools without final-demo voice entry points", async () => {
     await act(async () => {
       renderer = create(<HomeScreen />);
       await Promise.resolve();
@@ -490,7 +490,6 @@ describe("Today screen", () => {
         "Today’s exercise",
         "Support",
         "Progress",
-        "Voice support",
         "More recovery tools",
       ]),
     );
@@ -501,7 +500,6 @@ describe("Today screen", () => {
     const exerciseSection = sections.find((node) => node.props.title === "Today’s exercise");
     const supportSection = sections.find((node) => node.props.title === "Support");
     const progressSection = sections.find((node) => node.props.title === "Progress");
-    const voiceSection = sections.find((node) => node.props.title === "Voice support");
     const moreToolsSection = sections.find((node) => node.props.title === "More recovery tools");
     const voiceCard = findHostNodes(root, "mock-tip-card").find(
       (node) => node.props.title === "Aura Voice Agent",
@@ -511,16 +509,14 @@ describe("Today screen", () => {
     expect(exerciseSection).toBeTruthy();
     expect(supportSection).toBeTruthy();
     expect(progressSection).toBeTruthy();
-    expect(voiceSection).toBeTruthy();
     expect(moreToolsSection).toBeTruthy();
-    expect(voiceCard).toBeTruthy();
+    expect(voiceCard).toBeFalsy();
+    expect(sections.map((node) => node.props.title)).not.toContain("Voice support");
 
     expect(getTreeIndex(root, checkinCard!)).toBeLessThan(getTreeIndex(root, exerciseSection!));
     expect(getTreeIndex(root, exerciseSection!)).toBeLessThan(getTreeIndex(root, supportSection!));
     expect(getTreeIndex(root, supportSection!)).toBeLessThan(getTreeIndex(root, progressSection!));
-    expect(getTreeIndex(root, progressSection!)).toBeLessThan(getTreeIndex(root, voiceSection!));
-    expect(getTreeIndex(root, voiceSection!)).toBeLessThan(getTreeIndex(root, moreToolsSection!));
-    expect(getTreeIndex(root, checkinCard!)).toBeLessThan(getTreeIndex(root, voiceCard!));
+    expect(getTreeIndex(root, progressSection!)).toBeLessThan(getTreeIndex(root, moreToolsSection!));
 
     const attentionCard = findHostNodes(root, "mock-tip-card")
       .find((node) => node.props.title === "Please reply to your care team");
@@ -548,7 +544,7 @@ describe("Today screen", () => {
     ]);
   });
 
-  it("opens support and voice entries from their existing routes", async () => {
+  it("opens support entries from their existing routes without exposing the voice agent shortcut", async () => {
     await act(async () => {
       renderer = create(<HomeScreen />);
       await Promise.resolve();
@@ -563,8 +559,7 @@ describe("Today screen", () => {
     const safetyCard = mediaCards.find((node) => node.props.title === "Safety");
     const appointmentsCard = mediaCards.find((node) => node.props.title === "Appointments");
 
-    expect(voiceCard).toBeTruthy();
-    expect(voiceCard?.props.text).toContain("Try the browser voice demo");
+    expect(voiceCard).toBeFalsy();
     expect(chatCard).toBeTruthy();
     expect(safetyCard).toBeTruthy();
     expect(appointmentsCard).toBeTruthy();
@@ -573,13 +568,12 @@ describe("Today screen", () => {
       chatCard?.props.onPress();
       safetyCard?.props.onPress();
       appointmentsCard?.props.onPress();
-      voiceCard?.props.actions[0].onPress();
     });
 
     expect(routerPush).toHaveBeenCalledWith("/(tabs)/chat");
     expect(routerPush).toHaveBeenCalledWith("/safety");
     expect(routerPush).toHaveBeenCalledWith("/appointments");
-    expect(routerPush).toHaveBeenCalledWith("/voice-agent");
+    expect(routerPush).not.toHaveBeenCalledWith("/voice-agent");
   });
 
   it("shows rest-day plan truth and reviewed-insight empty state when no exercises are scheduled today", async () => {

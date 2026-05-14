@@ -399,7 +399,7 @@ describe("Exercise plan screen", () => {
     expect(statusPills.some((node) => node.props.label === "In progress")).toBe(true);
   });
 
-  it("adds read-aloud for visible exercise instruction text only", async () => {
+  it("hides exercise read-aloud controls and unsupported warnings for the final demo", async () => {
     getTodayExercisePlan.mockResolvedValue({
       ok: true,
       patientId: "patient-1",
@@ -432,13 +432,12 @@ describe("Exercise plan screen", () => {
     const exerciseCard = findHostNodes(renderer!.root, "mock-media-card").find(
       (node) => node.props.title === "Heel slides",
     );
-    const readAloud = exerciseCard?.props.rightAccessory;
 
-    expect(readAloud?.props.label).toBe("Read instructions");
-    expect(readAloud?.props.text).toBe(
-      "Heel slides. 2 sets x 10 reps. Slide your heel in and out.",
-    );
-    expect(readAloud?.props.text).not.toContain("Sharp pain");
+    expect(exerciseCard?.props.rightAccessory).toBeNull();
+    const text = findHostNodes(renderer!.root, "mock-text")
+      .flatMap((node) => node.children)
+      .join(" ");
+    expect(text).not.toContain("Read-aloud is unavailable right now.");
   });
 
   it("keeps the plan readable but non-startable after discharge", async () => {

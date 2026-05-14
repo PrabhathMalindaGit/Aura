@@ -27,6 +27,7 @@ import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard } from "@/src/components/MediaCard";
 import { ReadAloudButton, normalizeReadAloudText } from "@/src/components/ReadAloudButton";
+import { FINAL_DEMO_EXERCISE_READ_ALOUD_UI_ENABLED } from "@/src/config/finalDemoScope";
 import { Screen } from "@/src/components/Screen";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
@@ -812,12 +813,14 @@ export default function ExercisePlanScreen() {
                 item.order === 1 ? { text: "Start here", tone: "info" } : { text: `Step ${item.order}`, tone: "neutral" }
               }
               rightAccessory={
-                <ReadAloudButton
-                  text={readAloudText}
-                  label="Read instructions"
-                  sourceId={`exercise-plan-${item.key}`}
-                  testID={`exercise-plan-read-${item.key}`}
-                />
+                FINAL_DEMO_EXERCISE_READ_ALOUD_UI_ENABLED ? (
+                  <ReadAloudButton
+                    text={readAloudText}
+                    label="Read instructions"
+                    sourceId={`exercise-plan-${item.key}`}
+                    testID={`exercise-plan-read-${item.key}`}
+                  />
+                ) : null
               }
               actions={[
                 ...(item.videoUrl

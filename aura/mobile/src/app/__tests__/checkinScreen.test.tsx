@@ -815,7 +815,7 @@ describe("Check-in screen validation", () => {
     expect(buttons.some((node) => node.props.label === "Back to Today")).toBe(true);
   });
 
-  it("renders guided check-in only in the active form and leaves manual controls available", async () => {
+  it("hides guided check-in in the final-demo form and leaves manual controls available", async () => {
     await act(async () => {
       renderer = create(<CheckinScreen />);
       await Promise.resolve();
@@ -823,14 +823,14 @@ describe("Check-in screen validation", () => {
 
     expect(
       renderer!.root.findAll((node) => String(node.type) === "mock-voice-guided-checkin-panel"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       renderer!.root.findAll((node) => String(node.type) === "mock-body-map-selector"),
     ).toHaveLength(1);
     expect(createCheckin).not.toHaveBeenCalled();
   });
 
-  it("uses the voiceGuided route flag only to expand guided check-in without writing data", async () => {
+  it("ignores the voiceGuided route flag without showing guided check-in or writing data", async () => {
     routeParams.voiceGuided = "1";
 
     await act(async () => {
@@ -838,19 +838,15 @@ describe("Check-in screen validation", () => {
       await Promise.resolve();
     });
 
-    const guidedPanel = renderer!.root.find(
-      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
-    );
-
-    expect(guidedPanel.props.initialExpanded).toBe(true);
-    expect(guidedPanel.props.beginOnMount).toBe(true);
-    expect(guidedPanel.props.accessibilityLabel).toBe("Voice-guided check-in panel");
+    expect(
+      renderer!.root.findAll((node) => String(node.type) === "mock-voice-guided-checkin-panel"),
+    ).toHaveLength(0);
     expect(createCheckin).not.toHaveBeenCalled();
     expect(setCheckinDraft).not.toHaveBeenCalled();
     expect(clearCheckinDraft).not.toHaveBeenCalled();
   });
 
-  it("ignores array voiceGuided route params safely", async () => {
+  it("ignores array voiceGuided route params safely without showing guided check-in", async () => {
     routeParams.voiceGuided = ["1"];
 
     await act(async () => {
@@ -858,12 +854,9 @@ describe("Check-in screen validation", () => {
       await Promise.resolve();
     });
 
-    const guidedPanel = renderer!.root.find(
-      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
-    );
-
-    expect(guidedPanel.props.initialExpanded).toBe(false);
-    expect(guidedPanel.props.beginOnMount).toBe(false);
+    expect(
+      renderer!.root.findAll((node) => String(node.type) === "mock-voice-guided-checkin-panel"),
+    ).toHaveLength(0);
     expect(createCheckin).not.toHaveBeenCalled();
   });
 
@@ -922,11 +915,11 @@ describe("Check-in screen validation", () => {
     expect(supportSwitch.props.accessibilityState).toEqual({ checked: false });
 
     expect(findByA11y(renderer!.root, "Check-in notes for your care team").props.accessibilityHint).toBe(
-      "Optional. Dictation adds text here for review before you submit.",
+      "Optional. Add text here for review before you submit.",
     );
   });
 
-  it("lets guided confirmation update draft fields without submitting", async () => {
+  it("lets manual pain changes update draft fields without submitting", async () => {
     createCheckin.mockResolvedValue({
       ok: true,
       risk: { level: "low", reasonCodes: [] },
@@ -937,12 +930,11 @@ describe("Check-in screen validation", () => {
       await Promise.resolve();
     });
 
-    const guidedPanel = renderer!.root.find(
-      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
-    );
-    act(() => {
-      guidedPanel.props.onConfirmPain(6);
-    });
+    for (let index = 0; index < 6; index += 1) {
+      act(() => {
+        findByA11y(renderer!.root, "Increase Pain").props.onPress();
+      });
+    }
 
     expect(createCheckin).not.toHaveBeenCalled();
 
@@ -1025,8 +1017,7 @@ describe("Check-in screen validation", () => {
     expect(confirmation).toBeTruthy();
   });
 
-  it("appends dictated notes without submitting until Submit is pressed", async () => {
-    voiceTranscript.current = "walking caused soreness";
+  it("keeps manual notes unsent until Submit is pressed", async () => {
     createCheckin.mockResolvedValue({
       ok: true,
       risk: { level: "low", reasonCodes: [] },
@@ -1045,13 +1036,17 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Check-in notes for your care team").props.onChangeText("Knee felt tight");
-      findByA11y(renderer!.root, "Start voice dictation").props.onPress();
+      findByA11y(renderer!.root, "Check-in notes for your care team").props.onChangeText(
+        "Knee felt tight walking caused soreness",
+      );
     });
 
     expect(findByA11y(renderer!.root, "Check-in notes for your care team").props.value).toBe(
       "Knee felt tight walking caused soreness",
     );
+    expect(
+      renderer!.root.findAll((node) => node.props?.accessibilityLabel === "Start voice dictation"),
+    ).toHaveLength(0);
     expect(createCheckin).not.toHaveBeenCalled();
 
     act(() => {
@@ -1113,8 +1108,7 @@ describe("Check-in screen validation", () => {
     expect(createCheckin).not.toHaveBeenCalled();
   });
 
-  it("keeps high-risk dictated notes inside the normal submit and safety flow", async () => {
-    voiceTranscript.current = "I need urgent help today";
+  it("keeps high-risk manual notes inside the normal submit and safety flow", async () => {
     createCheckin.mockResolvedValue({
       ok: true,
       risk: { level: "high", reasonCodes: ["URGENT_HELP"] },
@@ -1134,9 +1128,14 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Start voice dictation").props.onPress();
+      findByA11y(renderer!.root, "Check-in notes for your care team").props.onChangeText(
+        "I need urgent help today",
+      );
     });
 
+    expect(
+      renderer!.root.findAll((node) => node.props?.accessibilityLabel === "Start voice dictation"),
+    ).toHaveLength(0);
     expect(createCheckin).not.toHaveBeenCalled();
 
     act(() => {
@@ -1165,9 +1164,8 @@ describe("Check-in screen validation", () => {
     });
   });
 
-  it("keeps offline submit blocking unchanged after dictation fills notes", async () => {
+  it("keeps offline submit blocking unchanged after manual notes are filled", async () => {
     networkState.offline = true;
-    voiceTranscript.current = "Pain spiked after stairs";
 
     await act(async () => {
       renderer = create(<CheckinScreen />);
@@ -1182,9 +1180,14 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Start voice dictation").props.onPress();
+      findByA11y(renderer!.root, "Check-in notes for your care team").props.onChangeText(
+        "Pain spiked after stairs",
+      );
     });
 
+    expect(
+      renderer!.root.findAll((node) => node.props?.accessibilityLabel === "Start voice dictation"),
+    ).toHaveLength(0);
     expect(findByA11y(renderer!.root, "Check-in notes for your care team").props.value).toBe(
       "Pain spiked after stairs",
     );
@@ -1215,76 +1218,32 @@ describe("Check-in screen validation", () => {
     );
   });
 
-  it("blocks voice submit review when required fields are missing and uses existing validation", async () => {
+  it("does not show voice submit review in the final-demo check-in flow", async () => {
     await act(async () => {
       renderer = create(<CheckinScreen />);
       await Promise.resolve();
     });
 
-    await reviewForVoiceSubmit(renderer!.root);
-
-    expect(createCheckin).not.toHaveBeenCalled();
-    const navigator = renderer!.root.find(
-      (node) => String(node.type) === "mock-checkin-step-navigator",
-    );
-    expect(navigator.props.activeStep).toBe(2);
-    expect(textContent(renderer!.root)).toContain(
-      "Choose the number that best matches your mood today.",
-    );
-  });
-
-  it("shows a current voice submit summary with reviewable check-in fields", async () => {
-    await act(async () => {
-      renderer = create(<CheckinScreen />);
-      await Promise.resolve();
-    });
-
-    const guidedPanel = renderer!.root.find(
-      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
-    );
-    act(() => {
-      guidedPanel.props.onConfirmPain(6);
-      guidedPanel.props.onConfirmExercise(80);
-      guidedPanel.props.onConfirmMedicationStatus("missed");
-      guidedPanel.props.onConfirmSleepHours(7.5);
-      guidedPanel.props.onConfirmSleepQuality(3);
-      guidedPanel.props.onConfirmNotes("Knee felt tight after stairs");
-    });
-    selectStep(renderer!.root, 0);
-    const bodyMapSelector = renderer!.root.find(
-      (node) => String(node.type) === "mock-body-map-selector",
-    );
-    act(() => {
-      bodyMapSelector.props.onToggleRegion("knee_left");
-    });
     fillRequiredMood(renderer!.root);
-    const supportControls = renderer!.root.findAll(
-      (node) => String(node.type) === "mock-segmented-control",
-    );
-    act(() => {
-      supportControls.find((node) => node.props.accessibilityLabel === "Support request")?.props.onChange("follow_up");
-    });
+    selectStep(renderer!.root, 3);
 
-    await reviewForVoiceSubmit(renderer!.root);
-
-    const text = textContent(renderer!.root);
-    expect(text).toContain("Voice submit review");
-    expect(text).toContain("Pain 6/10");
-    expect(text).toContain("Mood 4/5, Strong");
-    expect(text).toContain("Exercises 80% complete");
-    expect(text).toContain("Medication Missed");
-    expect(text).toContain("Left knee 6/10 ache");
-    expect(text).toContain("Please follow up");
-    expect(text).toContain("7.5 hours asleep");
-    expect(text).toContain("Sleep quality okay");
-    expect(text).toContain("Notes: Knee felt tight after stairs");
-    expect(text).toContain(
-      "I’ll submit this exact check-in after you say ‘yes submit.’ Urgent symptoms still go through Aura’s normal safety review.",
-    );
-    expect(findByA11y(renderer!.root, "Read voice submit summary")).toBeTruthy();
-    expect(findByA11y(renderer!.root, "Confirm voice check-in submit").props.accessibilityState).toMatchObject({
-      disabled: false,
-    });
+    expect(textContent(renderer!.root)).not.toContain("Voice submit review");
+    expect(
+      renderer!.root.findAll(
+        (node) => node.props?.accessibilityLabel === "Review for voice submit",
+      ),
+    ).toHaveLength(0);
+    expect(
+      renderer!.root.findAll(
+        (node) => node.props?.accessibilityLabel === "Listen for voice submit confirmation",
+      ),
+    ).toHaveLength(0);
+    expect(
+      renderer!.root
+        .findAll((node) => String(node.type) === "mock-primary-button")
+        .some((node) => node.props.label === "Submit check-in"),
+    ).toBe(true);
+    expect(createCheckin).not.toHaveBeenCalled();
   });
 
   it("allows up to twelve body map areas before showing the selection limit", async () => {
@@ -1336,195 +1295,6 @@ describe("Check-in screen validation", () => {
       .findAll((node) => String(node.type) === "mock-banner")
       .find((node) => node.props.title === "Body map limit");
     expect(limitBanner?.props.message).toBe("Select up to 12 body areas.");
-  });
-
-  it("submits by voice only after explicit confirmation while awaiting confirmation", async () => {
-    createCheckin.mockResolvedValue({
-      ok: true,
-      risk: { level: "low", reasonCodes: [] },
-    });
-
-    await act(async () => {
-      renderer = create(<CheckinScreen />);
-      await Promise.resolve();
-    });
-    fillRequiredMood(renderer!.root);
-
-    await act(async () => {
-      emitSpeech("result", {
-        isFinal: true,
-        results: [{ transcript: "confirm submit" }],
-      });
-      await Promise.resolve();
-    });
-    expect(createCheckin).not.toHaveBeenCalled();
-
-    await reviewForVoiceSubmit(renderer!.root);
-    await listenAndEmitConfirmation(renderer!.root, "yes submit");
-
-    expect(createCheckin).toHaveBeenCalledTimes(1);
-    expect(createCheckin.mock.calls[0]?.[1]).toMatchObject({
-      date: "2026-04-11",
-      mood: 4,
-      pain: 0,
-    });
-    expect(clearCheckinDraft).toHaveBeenCalledWith("patient-1", "2026-04-11");
-  });
-
-  it.each(["confirm submit", "submit check-in"])(
-    "accepts %s only during voice confirmation review",
-    async (phrase) => {
-      createCheckin.mockResolvedValue({
-        ok: true,
-        risk: { level: "low", reasonCodes: [] },
-      });
-
-      await act(async () => {
-        renderer = create(<CheckinScreen />);
-        await Promise.resolve();
-      });
-      fillRequiredMood(renderer!.root);
-      await reviewForVoiceSubmit(renderer!.root);
-      await listenAndEmitConfirmation(renderer!.root, phrase);
-
-      expect(createCheckin).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it.each(["yes", "yeah", "okay", "ok", "sure", "maybe", "continue", "please", "go ahead", "submit", "send", "request", "log", ""])(
-    "does not submit ambiguous voice confirmation %s",
-    async (phrase) => {
-      await act(async () => {
-        renderer = create(<CheckinScreen />);
-        await Promise.resolve();
-      });
-      fillRequiredMood(renderer!.root);
-      await reviewForVoiceSubmit(renderer!.root);
-      await listenAndEmitConfirmation(renderer!.root, phrase);
-
-      expect(createCheckin).not.toHaveBeenCalled();
-      expect(textContent(renderer!.root)).toContain("That was not a clear submit confirmation.");
-    },
-  );
-
-  it.each([
-    "cancel",
-    "stop",
-    "do not submit",
-    "dont submit",
-    "do not send",
-    "dont send",
-    "do not request",
-    "dont request",
-    "do not log",
-    "dont log",
-    "never mind",
-    "go back",
-  ])(
-    "clears voice submit state for negative phrase %s",
-    async (phrase) => {
-      await act(async () => {
-        renderer = create(<CheckinScreen />);
-        await Promise.resolve();
-      });
-      fillRequiredMood(renderer!.root);
-      await reviewForVoiceSubmit(renderer!.root);
-      await listenAndEmitConfirmation(renderer!.root, phrase);
-
-      expect(createCheckin).not.toHaveBeenCalled();
-      expect(textContent(renderer!.root)).toContain("Voice submit cancelled.");
-      expect(findByA11y(renderer!.root, "Confirm voice check-in submit").props.accessibilityState).toMatchObject({
-        disabled: true,
-      });
-    },
-  );
-
-  it("prevents voice submit after confirmation expiry", async () => {
-    await act(async () => {
-      renderer = create(<CheckinScreen />);
-      await Promise.resolve();
-    });
-    fillRequiredMood(renderer!.root);
-    await reviewForVoiceSubmit(renderer!.root);
-
-    await act(async () => {
-      vi.advanceTimersByTime(31_000);
-      await Promise.resolve();
-    });
-    await listenAndEmitConfirmation(renderer!.root, "yes submit");
-
-    expect(createCheckin).not.toHaveBeenCalled();
-    expect(textContent(renderer!.root)).toContain("Voice submit review expired.");
-  });
-
-  it("invalidates voice submit review when the draft changes", async () => {
-    await act(async () => {
-      renderer = create(<CheckinScreen />);
-      await Promise.resolve();
-    });
-    fillRequiredMood(renderer!.root);
-    await reviewForVoiceSubmit(renderer!.root);
-
-    selectStep(renderer!.root, 2);
-    act(() => {
-      findByA11y(renderer!.root, "Set Mood to 5, Very strong").props.onPress();
-    });
-    selectStep(renderer!.root, 3);
-
-    expect(textContent(renderer!.root)).toContain("Check-in changed. Review again before voice submit.");
-    expect(findByA11y(renderer!.root, "Confirm voice check-in submit").props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
-  });
-
-  it("keeps offline voice-confirmed submit behavior identical to manual submit", async () => {
-    networkState.offline = true;
-
-    await act(async () => {
-      renderer = create(<CheckinScreen />);
-      await Promise.resolve();
-    });
-    fillRequiredMood(renderer!.root);
-    await reviewForVoiceSubmit(renderer!.root);
-
-    await act(async () => {
-      findByA11y(renderer!.root, "Confirm voice check-in submit").props.onPress();
-      await Promise.resolve();
-    });
-
-    expect(createCheckin).not.toHaveBeenCalled();
-    expect(setCheckinLocalError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "offline",
-        retryable: true,
-      }),
-    );
-    expect(textContent(renderer!.root)).toContain("Voice submit is paused while you’re offline.");
-  });
-
-  it("routes high-risk voice-confirmed submissions exactly like manual submit", async () => {
-    createCheckin.mockResolvedValue({
-      ok: true,
-      risk: { level: "high", reasonCodes: ["URGENT_HELP"] },
-      alertId: "alert-voice-submit",
-    });
-
-    await act(async () => {
-      renderer = create(<CheckinScreen />);
-      await Promise.resolve();
-    });
-    fillRequiredMood(renderer!.root);
-    await reviewForVoiceSubmit(renderer!.root);
-    await listenAndEmitConfirmation(renderer!.root, "yes submit");
-
-    expect(routerPush).toHaveBeenCalledWith({
-      pathname: "/safety",
-      params: {
-        alertId: "alert-voice-submit",
-        reasonCodes: "URGENT_HELP",
-      },
-    });
-    expect(clearCheckinDraft).not.toHaveBeenCalled();
   });
 
   it("keeps V5-D1 free of forbidden voice side effects and OpenAI key exposure", () => {

@@ -32,6 +32,7 @@ import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { ReadAloudButton, normalizeReadAloudText } from "@/src/components/ReadAloudButton";
+import { FINAL_DEMO_EXERCISE_READ_ALOUD_UI_ENABLED } from "@/src/config/finalDemoScope";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -910,7 +911,7 @@ export default function ExerciseSessionScreen() {
                 <View style={styles.currentHeaderCopy}>
                   <Text style={styles.sectionEyebrow}>Current step</Text>
                 </View>
-                {currentExercise ? (
+                {currentExercise && FINAL_DEMO_EXERCISE_READ_ALOUD_UI_ENABLED ? (
                   <ReadAloudButton
                     text={exerciseReadAloudText(currentExercise)}
                     label="Read instructions"
@@ -982,12 +983,14 @@ export default function ExerciseSessionScreen() {
                     tone: item.completed ? "success" : "info",
                   }}
                   rightAccessory={
-                    <ReadAloudButton
-                      text={exerciseReadAloudText(item)}
-                      label="Read instructions"
-                      sourceId={`exercise-session-${item.itemKey}`}
-                      testID={`exercise-session-read-${item.itemKey}`}
-                    />
+                    FINAL_DEMO_EXERCISE_READ_ALOUD_UI_ENABLED ? (
+                      <ReadAloudButton
+                        text={exerciseReadAloudText(item)}
+                        label="Read instructions"
+                        sourceId={`exercise-session-${item.itemKey}`}
+                        testID={`exercise-session-read-${item.itemKey}`}
+                      />
+                    ) : null
                   }
                   actions={
                     item.completed

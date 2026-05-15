@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.2, pytest-8.4.1, pluggy-1.6.0
+rootdir: /Users/University/Final Project/aura/ai
+plugins: anyio-4.12.1
+collected 50 items
+
+tests/test_auth.py ......                                                [ 12%]
+tests/test_config.py .....                                               [ 22%]
+tests/test_contracts.py ...                                              [ 28%]
+tests/test_embedding.py ....                                             [ 36%]
+tests/test_health.py ...                                                 [ 42%]
+tests/test_rag_static_retrieval.py ............                          [ 66%]
+tests/test_router_service.py .......                                     [ 80%]
+tests/test_safety_router_evaluation.py ..........                        [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/starlette/formparsers.py:12
+  /Users/University/Final Project/aura/ai/.venv/lib/python3.12/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 50 passed, 1 warning in 0.57s =========================

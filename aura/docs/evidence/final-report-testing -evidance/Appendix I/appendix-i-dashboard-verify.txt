@@ -1,0 +1,366 @@
+
+> dashboard@0.0.0 verify
+> npm run lint && npm run typecheck && npm run test && npm run build
+
+
+> dashboard@0.0.0 lint
+> eslint .
+
+
+> dashboard@0.0.0 typecheck
+> tsc --noEmit
+
+
+> dashboard@0.0.0 test
+> vitest run
+
+
+ RUN  v3.2.4 /Users/University/Final Project/aura/dashboard
+
+stderr | src/pages/CommunicationPage.test.tsx > CommunicationPage > renders grouped patient-linked threads and a truthful communication timeline
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/pages/AlertsPage.test.tsx > AlertsPage queue flow > keeps chat-origin continuity informational only when opened from patient communication
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/pages/PatientDetailPage.test.tsx > PatientDetailPage > renders a cockpit-consistent fallback when route context is missing
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/alerts/AlertsRoute.test.tsx > AlertsRoute > falls back to the legacy alerts page when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/triage-queue/TriageQueueRoute.test.tsx > TriageQueueRoute > falls back to the legacy worklist when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/inbox/InboxRoute.test.tsx > InboxRoute > falls back to the legacy communication route when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/modules/alerts/AlertsRoute.test.tsx (10 tests) 2766ms
+   ✓ AlertsRoute > renders the v2 alerts route by default and keeps selection in-route  325ms
+   ✓ AlertsRoute > keeps selected review aligned with the filtered queue  683ms
+   ✓ AlertsRoute > renders honest supported queue controls and filters by patient name  311ms
+   ✓ AlertsRoute > keeps selected alert header actions wired to governance, navigation, and status handlers  341ms
+   ✓ AlertsRoute > updates and submits the risk decision card without bypassing the override API  375ms
+ ✓ src/dashboard-v2/modules/triage-queue/TriageQueueRoute.test.tsx (14 tests) 2946ms
+   ✓ TriageQueueRoute > falls back to the legacy worklist when the route is explicitly rolled back  303ms
+   ✓ TriageQueueRoute > renders the v2 triage route by default and keeps row selection in-route  311ms
+   ✓ TriageQueueRoute > searches the visible queue by review reason text without relying on server search  460ms
+   ✓ TriageQueueRoute > applies status and quick chip filters, then reset clears the queue view  372ms
+   ✓ TriageQueueRoute > shows an empty filtered state and keeps selection safe after filters hide the active case  517ms
+ ✓ src/dashboard-v2/modules/inbox/InboxRoute.test.tsx (13 tests) 4080ms
+   ✓ InboxRoute > renders the v2 inbox route by default and keeps row selection in-route  472ms
+   ✓ InboxRoute > preserves CTA destinations and shows Unknown when metadata is absent  358ms
+   ✓ InboxRoute > keeps the local draft separate from shared coordination authoring  1173ms
+   ✓ InboxRoute > keeps Save local reply browser-local and does not create a patient message request  375ms
+   ✓ InboxRoute > uses queue-first and workspace-focused narrow navigation while preserving the local draft  516ms
+stderr | src/dashboard-v2/modules/settings/SettingsRoute.test.tsx > SettingsRouteFacade > keeps the legacy settings route available when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/appointments/AppointmentsRoute.test.tsx > AppointmentsRoute > falls back to the legacy scheduling page when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/SettingsPage.test.tsx (11 tests) 6835ms
+   ✓ SettingsPage clinician profile workspace > keeps the profile workspace truthful and browser-local  625ms
+   ✓ SettingsPage clinician profile workspace > saves a scoped clinician profile locally and syncs legacy identity outputs  2183ms
+   ✓ SettingsPage clinician profile workspace > keeps scoped clinician profiles separate across sign-out and later sign-in  446ms
+   ✓ SettingsPage clinician profile workspace > saves browser-local communication authoring settings and keeps template order stable  918ms
+   ✓ SettingsPage clinician profile workspace > rejects blank templates and normalizes whitespace-only signatures to empty  812ms
+   ✓ SettingsPage clinician profile workspace > caps saved communication templates at the configured local limit  558ms
+   ✓ SettingsPage clinician profile workspace > saves browser-local notification preferences and keeps quiet hours local to this browser  600ms
+   ✓ SettingsPage clinician profile workspace > blocks equal quiet-hours values with an accessible validation error  381ms
+stderr | src/pages/AppointmentsPage.test.tsx > AppointmentsPage > renders week schedule alongside request review using only supported slot states
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/CommunicationPage.test.tsx (28 tests) 7802ms
+   ✓ CommunicationPage > renders grouped patient-linked threads and a truthful communication timeline  347ms
+   ✓ CommunicationPage > reacts to Settings authoring changes in the open composer without a reload  1966ms
+   ✓ CommunicationPage > reacts to Settings notification changes without hiding the currently open thread  345ms
+   ✓ CommunicationPage > shows shared coordination loading without blocking the personal draft composer  482ms
+   ✓ CommunicationPage > renders a linked task as read-only shared context without mutating the local draft  658ms
+   ✓ CommunicationPage > appends a shared coordination note from Communication without changing the personal draft  747ms
+   ✓ CommunicationPage > preserves the personal draft when adding a shared note fails  864ms
+   ✓ CommunicationPage > retries cleanly when the shared coordination fetch fails and keeps the personal draft untouched  434ms
+stderr | src/app/AppShell.identity.test.tsx > AppShell identity reactivity > updates the shell and communication identity surfaces in the same tab after saving profile changes
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/AppointmentsPage.test.tsx (16 tests) 1590ms
+ ✓ src/app/AppShell.identity.test.tsx (1 test) 1162ms
+   ✓ AppShell identity reactivity > updates the shell and communication identity surfaces in the same tab after saving profile changes  1160ms
+ ✓ src/dashboard-v2/modules/settings/SettingsRoute.test.tsx (10 tests) 2755ms
+   ✓ SettingsRouteFacade > loads and resets presentation data through explicit user actions  373ms
+   ✓ SettingsRouteFacade > preserves save-based profile behavior  360ms
+   ✓ SettingsRouteFacade > preserves save-based communication authoring behavior  357ms
+   ✓ SettingsRouteFacade > preserves save-based notification preference behavior  603ms
+ ✓ src/dashboard-v2/modules/appointments/AppointmentsRoute.test.tsx (15 tests) 2795ms
+   ✓ AppointmentsRoute > keeps publishing inline on medium layouts and shows publish outcomes without implying booking truth  702ms
+   ✓ AppointmentsRoute > switches week and day views while previous, today, and next update the visible range  333ms
+stderr | src/dashboard-v2/modules/patients/PatientsRoute.test.tsx > PatientsRouteFacade > keeps the legacy patients roster available when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/pages/InsightsQueuePage.test.tsx > InsightsQueuePage > renders pending review with patient context and clinician actions
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/pages/PatientsPage.test.tsx > PatientsPage endpoint handling > renders endpoint not ready empty state when /clinician/patients is missing
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/pages/WorklistPage.test.tsx > WorklistPage > renders operational worklist rows and routes safely to patient detail
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/analytics/DashboardRoute.test.tsx > DashboardRoute > falls back to the legacy dashboard when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/modules/patients/PatientsRoute.test.tsx (9 tests) 1166ms
+ ✓ src/pages/InsightsQueuePage.test.tsx (14 tests) 903ms
+ ✓ src/pages/PatientsPage.test.tsx (12 tests) 1096ms
+ ✓ src/dashboard-v2/modules/analytics/DashboardRoute.test.tsx (12 tests) 1006ms
+stderr | src/app/AppShell.navigation.test.tsx > AppShell navigation > opens and closes mobile nav sheet with menu button and Escape
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/WorklistPage.test.tsx (12 tests) 1553ms
+   ✓ WorklistPage > renders filtered empty state and reset flow correctly  574ms
+   ✓ WorklistPage > restores saved workspace filters and clears local continuity on clear view  306ms
+ ✓ src/app/AppShell.navigation.test.tsx (14 tests) 551ms
+stderr | src/pages/DashboardHomePage.test.tsx > DashboardHomePage > renders the command-center modules from aggregate API data
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/insights/InsightsRoute.test.tsx > InsightsRoute > falls back to the legacy queue when the route is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/patient-workspace/PatientWorkspaceRoute.test.tsx > PatientWorkspaceRoute > falls back to the legacy patient detail route when the workspace is explicitly rolled back
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/DashboardHomePage.test.tsx (5 tests) 497ms
+   ✓ DashboardHomePage > renders the command-center modules from aggregate API data  306ms
+ ✓ src/pages/PatientDetailPage.test.tsx (52 tests) 11688ms
+   ✓ PatientDetailPage > keeps urgent context available before history-only reference queries wake up  419ms
+   ✓ PatientDetailPage > uses tabs to demote slower care review and history content until requested  312ms
+   ✓ PatientDetailPage > reveals compressed reference panels when requested  413ms
+   ✓ PatientDetailPage > switching 14/30 refetches trends and closes day detail panel  533ms
+   ✓ PatientDetailPage > does not fetch communications or guidance buckets on direct history routes until those tabs open  359ms
+   ✓ PatientDetailPage > restores tab selection with browser back and forward navigation  385ms
+   ✓ PatientDetailPage > expands trend cards inline one at a time and keeps day drilldown available  788ms
+   ✓ PatientDetailPage > attaches a valid linked task to the shared handoff and keeps it distinct from handoff ownership  628ms
+   ✓ PatientDetailPage > allows clearing a linked task while keeping the shared handoff saved  507ms
+   ✓ PatientDetailPage > keeps handoff editing available when task link options fail to load  363ms
+   ✓ PatientDetailPage > clears only the shared handoff when saved blank and preserves shared note history  686ms
+   ✓ PatientDetailPage > preserves form inputs when saving shared coordination fails  382ms
+ ✓ src/dashboard-v2/modules/insights/InsightsRoute.test.tsx (6 tests) 890ms
+   ✓ InsightsRoute > renders the v2 route by default, preserves patient routing, and keeps lifecycle context conservative  449ms
+ ✓ src/dashboard-v2/modules/patient-workspace/PatientWorkspaceRoute.test.tsx (11 tests) 664ms
+ ✓ src/services/patientHandoffWorkspace.test.ts (7 tests) 685ms
+   ✓ patientHandoffWorkspace > keeps note history bounded per patient and prunes the overall patient map by recency  651ms
+ ✓ src/components/alerts/AlertDetailDrawer.test.tsx (5 tests) 611ms
+   ✓ AlertDetailDrawer accessibility and actions > focus trap keeps tab navigation inside drawer  304ms
+stderr | src/pages/PatientExercisePlanPage.test.tsx > PatientExercisePlanPage > renders a structured plan editor with revision history
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/pages/PatientComparePage.test.tsx > PatientComparePage > renders the 4 grounded compare domains without analytics or handoff content
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/pages/ClinicianLoginPage.test.tsx > ClinicianLoginPage > shows session-expired recovery guidance
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/patient-workspace/usePatientWorkspaceViewModel.test.tsx > usePatientWorkspaceViewModel > treats /patients/:patientId as an overview alias and preserves patient-entry context in the header
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/alerts/useAlertsViewModel.test.tsx > useAlertsViewModel > auto-selects the first visible alert on wide layouts
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/pages/PatientExercisePlanPage.test.tsx (2 tests) 405ms
+ ✓ src/pages/ClinicianLoginPage.test.tsx (5 tests) 188ms
+ ✓ src/pages/PatientComparePage.test.tsx (6 tests) 366ms
+ ✓ src/dashboard-v2/modules/patient-workspace/usePatientWorkspaceViewModel.test.tsx (6 tests) 359ms
+stderr | src/app/AppShell.sessionTimeout.test.tsx > AppShell session timeout behavior > idle timeout shows warning modal at expected time
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/app/AppShell.sessionTimeout.test.tsx (4 tests) 203ms
+ ✓ src/dashboard-v2/modules/alerts/useAlertsViewModel.test.tsx (6 tests) 478ms
+stderr | src/dashboard-v2/modules/settings/useSettingsViewModel.test.tsx > useSettingsViewModel > saves profile changes without overwriting unsaved communication drafts
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/insights/useInsightsViewModel.test.tsx > useInsightsViewModel > auto-selects the first visible item on wide layouts and persists lifecycle changes
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stderr | src/dashboard-v2/modules/analytics/useDashboardViewModel.test.tsx > useDashboardViewModel > maps the current dashboard truth into the today operations brief model
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/modules/settings/useSettingsViewModel.test.tsx (6 tests) 277ms
+stderr | src/dashboard-v2/modules/appointments/useAppointmentsViewModel.test.tsx > useAppointmentsViewModel > auto-selects the first request on wide layouts and persists planner continuity
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/modules/analytics/useDashboardViewModel.test.tsx (5 tests) 280ms
+stderr | src/dashboard-v2/shell/DashboardV2Shell.test.tsx > DashboardV2Shell > keeps the dashboard shell free of foundation copy and shell-side context rail scaffolding
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/modules/insights/useInsightsViewModel.test.tsx (5 tests) 361ms
+ ✓ src/dashboard-v2/modules/appointments/useAppointmentsViewModel.test.tsx (2 tests) 168ms
+ ✓ src/dashboard-v2/shell/DashboardV2Shell.test.tsx (3 tests) 151ms
+ ✓ src/dashboard-v2/modules/patient-workspace/components/PatientHistoryPane.test.tsx (2 tests) 180ms
+stderr | src/dashboard-v2/modules/inbox/useInboxViewModel.test.tsx > useInboxViewModel > auto-selects the first visible thread on wide layouts
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/modules/inbox/useInboxViewModel.test.tsx (3 tests) 243ms
+stderr | src/dashboard-v2/modules/triage-queue/useTriageQueueViewModel.test.tsx > useTriageQueueViewModel > auto-selects the first visible case on wide layouts
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/components/alerts/NotificationPanel.test.tsx (2 tests) 131ms
+ ✓ src/components/alerts/TriggeringEventPanel.test.tsx (3 tests) 138ms
+ ✓ src/hooks/usePatientHandoff.test.tsx (2 tests) 188ms
+ ✓ src/dashboard-v2/modules/triage-queue/useTriageQueueViewModel.test.tsx (2 tests) 161ms
+ ✓ src/components/export/DateRangePicker.test.tsx (1 test) 186ms
+ ✓ src/dashboard-v2/shell/ShellFrame.test.tsx (3 tests) 86ms
+ ✓ src/components/export/ExportCsvModal.test.tsx (1 test) 80ms
+ ✓ src/components/system/OfflineBanner.test.tsx (2 tests) 139ms
+ ✓ src/hooks/useSidebarMode.test.tsx (2 tests) 97ms
+stderr | src/dashboard-v2/shell/ShellNav.test.tsx > DashboardV2ShellNav > keeps clear accessible names when collapsed to icon-only navigation
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/shell/ShellNav.test.tsx (3 tests) 190ms
+ ✓ src/dashboard-v2/patterns/ClinicianPatterns.test.tsx (4 tests) 107ms
+ ✓ src/services/overrideStore.test.ts (4 tests) 30ms
+stderr | src/app/RequireClinicianAuth.test.tsx > RequireClinicianAuth > redirects to login immediately when no clinician token is stored
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/app/RequireClinicianAuth.test.tsx (3 tests) 71ms
+stderr | src/dashboard-v2/config/AppShellFacade.test.tsx > AppShellFacade > renders the v2 shell by default on completed routes
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/dashboard-v2/config/AppShellFacade.test.tsx (4 tests) 30ms
+ ✓ src/services/notificationPreferences.test.tsx (3 tests) 49ms
+ ✓ src/pages/AlertsPage.test.tsx (34 tests) 17171ms
+   ✓ AlertsPage queue flow > 2-click acknowledge path works  347ms
+   ✓ AlertsPage queue flow > clears stale triage outcome state when a later triage action fails  3242ms
+   ✓ AlertsPage queue flow > lets URL search override saved state without writing it back until search is edited  338ms
+   ✓ AlertsPage queue flow > optimistic update rollback restores row on failure  3206ms
+   ✓ AlertsPage queue flow > shows blocking error panel when alerts fail with no cached data  3047ms
+   ✓ AlertsPage queue flow > keeps last known list and shows warning banner on refresh failure  3121ms
+   ✓ AlertsPage queue flow > saving risk override updates risk display and overridden chip  395ms
+   ✓ AlertsPage queue flow > timeline includes override event after save  308ms
+   ✓ AlertsPage queue flow > clear override removes overridden chip and restores auto risk  447ms
+ ✓ src/services/clinicianProfile.test.ts (11 tests) 63ms
+ ✓ src/services/workspaceState.test.ts (6 tests) 29ms
+ ✓ src/services/sessionTimeout.test.ts (3 tests) 15ms
+ ✓ src/services/communicationWorkspace.test.ts (4 tests) 39ms
+ ✓ src/services/clinicianWorkspacePreferences.test.ts (3 tests) 27ms
+ ✓ src/services/assignmentStore.test.ts (4 tests) 40ms
+ ✓ src/components/motion/PageTransition.test.tsx (2 tests) 33ms
+ ✓ src/services/clinicianIdentity.test.ts (7 tests) 34ms
+ ✓ src/hooks/useMediaQuery.test.tsx (1 test) 38ms
+ ✓ src/components/patients/PatientStatusMenu.test.tsx (1 test) 25ms
+ ✓ src/services/communicationAuthoring.test.ts (4 tests) 45ms
+ ✓ src/services/seenStore.test.ts (5 tests) 22ms
+ ✓ src/services/clinicianApi.coordination.test.ts (4 tests) 24ms
+ ✓ src/services/apiClient.test.ts (15 tests) 53ms
+ ✓ src/services/clinicianApi.test.ts (4 tests) 15ms
+ ✓ src/utils/patientCompare.test.ts (7 tests) 26ms
+ ✓ src/utils/storageKeys.test.ts (1 test) 17ms
+ ✓ src/utils/patientEntryContext.test.ts (5 tests) 15ms
+ ✓ src/utils/text.test.ts (2 tests) 11ms
+ ✓ src/utils/syntheticRunTags.test.ts (5 tests) 13ms
+ ✓ src/services/exportService.test.ts (2 tests) 31ms
+ ✓ src/utils/patientFilters.test.ts (4 tests) 20ms
+ ✓ src/services/clinicianApi.alertMutations.test.ts (6 tests) 40ms
+ ✓ src/utils/trends.test.ts (3 tests) 15ms
+ ✓ src/services/theme.test.ts (4 tests) 26ms
+ ✓ src/utils/clinicianCoordination.test.ts (10 tests) 17ms
+ ✓ src/dashboard-v2/foundation/themeBridge.test.ts (1 test) 7ms
+ ✓ src/utils/notification.test.ts (2 tests) 8ms
+ ✓ src/dashboard-v2/config/migrationGates.test.ts (6 tests) 18ms
+ ✓ src/dashboard-v2/modules/analytics/demo/dashboardDemoMode.test.ts (6 tests) 21ms
+ ✓ src/services/sessionSettings.test.ts (2 tests) 8ms
+ ✓ src/utils/csv.test.ts (3 tests) 6ms
+ ✓ src/utils/risk.test.ts (3 tests) 6ms
+ ✓ src/utils/worklist.test.ts (3 tests) 6ms
+
+ Test Files  84 passed (84)
+      Tests  554 passed (554)
+   Start at  10:15:31
+   Duration  22.55s (transform 3.70s, setup 10.08s, collect 21.86s, tests 77.37s, environment 28.63s, prepare 4.56s)
+
+
+> dashboard@0.0.0 build
+> vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 4040 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                          0.70 kB │ gzip:   0.38 kB
+dist/assets/aura-logo-mark-BAlPHIQ0.png                175.78 kB
+dist/assets/hero-bg-D9QT2CpY.png                       524.25 kB
+dist/assets/index-B_hz05KU.css                          13.50 kB │ gzip:   2.79 kB
+dist/assets/index-BNdVLXS5.css                          13.73 kB │ gzip:   2.53 kB
+dist/assets/index-dzf3-qer.css                       1,358.99 kB │ gzip: 160.47 kB
+dist/assets/Stack-BnJTNnOZ.js                            0.21 kB │ gzip:   0.18 kB
+dist/assets/ClinicianQuietState-SltRM5uR.js              0.46 kB │ gzip:   0.29 kB
+dist/assets/PatientStatusBadge-B4HJfHHo.js               0.53 kB │ gzip:   0.30 kB
+dist/assets/AlertBanner-C8a-kxBS.js                      0.53 kB │ gzip:   0.28 kB
+dist/assets/Tabs-A0dbju4I.js                             0.58 kB │ gzip:   0.39 kB
+dist/assets/Section-1u90wm8Q.js                          1.00 kB │ gzip:   0.45 kB
+dist/assets/SessionEndedPage-DdKqH-ue.js                 1.33 kB │ gzip:   0.60 kB
+dist/assets/breakpoints-B8E3JvDQ.js                      1.49 kB │ gzip:   0.57 kB
+dist/assets/useNotificationPreferences-a5BjepLv.js       1.52 kB │ gzip:   0.74 kB
+dist/assets/PatientExerciseSessionsPage-DJfFxh70.js      2.14 kB │ gzip:   1.06 kB
+dist/assets/PromDetailPage-DIhv-yuQ.js                   2.25 kB │ gzip:   1.00 kB
+dist/assets/ExerciseSessionDetailPage-DA2CMNY7.js        2.46 kB │ gzip:   1.06 kB
+dist/assets/presentation-AuUa1A4a.js                     5.33 kB │ gzip:   1.68 kB
+dist/assets/ClinicianLoginPage-BtTONJCD.js               6.90 kB │ gzip:   2.41 kB
+dist/assets/exportService-D38t9-ac.js                    8.87 kB │ gzip:   3.03 kB
+dist/assets/PatientWeeklyReportPage-DpawsBj9.js          9.07 kB │ gzip:   2.47 kB
+dist/assets/SmokePage-CcL67uHY.js                        9.42 kB │ gzip:   3.13 kB
+dist/assets/PatientComparePage-Bq9fqZSt.js              15.99 kB │ gzip:   4.76 kB
+dist/assets/PatientExercisePlanPage-CSGgQQJ4.js         19.29 kB │ gzip:   5.29 kB
+dist/assets/WorklistPage-BNwNmLEJ.js                    24.84 kB │ gzip:   6.09 kB
+dist/assets/InsightsQueuePage-C-W5lFk4.js               26.61 kB │ gzip:   6.70 kB
+dist/assets/DashboardHomePage-BJ6t6kDg.js               28.68 kB │ gzip:   7.20 kB
+dist/assets/PatientsPage-Bjnd4CoG.js                    29.13 kB │ gzip:   6.87 kB
+dist/assets/index-UjH602g9.js                           36.52 kB │ gzip:  10.51 kB
+dist/assets/CommunicationPage-C3HdlDma.js               36.65 kB │ gzip:   8.88 kB
+dist/assets/AppointmentsPage-DwfH5MAV.js                39.80 kB │ gzip:   9.32 kB
+dist/assets/SettingsPage-BmBgD-dt.js                    41.50 kB │ gzip:   8.13 kB
+dist/assets/index-5-RhZUaG.js                           43.22 kB │ gzip:  11.70 kB
+dist/assets/AlertsPage-xjM1jZmV.js                      55.70 kB │ gzip:  14.11 kB
+dist/assets/PatientDetailPage-iS1QmeRR.js              101.48 kB │ gzip:  23.49 kB
+dist/assets/index-BVAyT-Pd.js                        1,373.76 kB │ gzip: 391.90 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.30s

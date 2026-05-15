@@ -1,0 +1,18 @@
+
+> mobile@1.0.0 qa:web
+> npx tsc -p tsconfig.json --noEmit && npm run web:guardrails && npm run a11y:smoke
+
+
+> mobile@1.0.0 web:guardrails
+> node scripts/web-stability-check.mjs
+
+
+FAIL: 0 issues
+WARN: 0 issues
+
+> mobile@1.0.0 a11y:smoke
+> node scripts/a11y-smoke-check.mjs
+
+
+FAIL: 0
+WARN: 0

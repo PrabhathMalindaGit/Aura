@@ -1,0 +1,1233 @@
+
+> mobile@1.0.0 test
+> vitest run
+
+
+ RUN  v3.2.4 /Users/University/Final Project/aura/mobile
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > shows the exact current nutrition form summary for review
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > requires an existing scheduled dose before voice medication logging
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > can prepare a supported quick-add amount and shows the exact summary
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > renders ready state with accessible start affordance and prototype limitations
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > shows optional notes in the review summary when present
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > blocks unsupported or missing amounts from voice logging
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > shows the exact medication name, scheduled time, status, and safety copy
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > submits through the existing hydration quick-add path for yes log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > keeps notes trimming and capping on the existing manual path
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > renders a safe route proposal and opens only the whitelisted screen after button press
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > submits through the existing hydration quick-add path for confirm log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > opens guided check-in with only the non-sensitive workflow flag
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > submits through the existing nutrition save path for yes log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > submits through the existing hydration quick-add path for log this
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > hides voice request review while preserving available appointment slots
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > keeps proposal-only draft text visible in memory and clears it on cancel
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > manual Confirm log in the voice review uses the same hydration path
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > shows safe redirect options for blocked unsafe voice actions
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > shows voice help without navigating or mutating
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > submits through the existing nutrition save path for confirm log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation yes
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > submits through the existing medication dose action path for yes log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation yeah
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > renders compact appointment overview labels without awkward truncation
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > goes back from a reviewed control proposal without mutating
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > switches between Find time, Requests, and Upcoming appointment views
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > stops read-aloud from a reviewed voice action without changing app data
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation okay
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > submits through the existing nutrition save path for log this
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > persists only confirmed history after low-risk success
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > disables live audio on native without requesting a session
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation ok
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > submits through the existing medication dose action path for confirm log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > shows web unsupported state without requesting a session
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > renders pending request cards with the cancel request action available
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > starts one backend request and ignores duplicate starts while requesting a session
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > moves to the invalid step, shows inline validation, and scrolls to the first invalid field
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation sure
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > manual Confirm log in the voice review uses the same nutrition path
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > keeps normal selected appointment request actions available
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation maybe
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation continue
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation yes
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > persists the confirmed user row and routes to safety on high-risk success
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > normal appointment request button still asks for confirmation without voice UI
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > keeps manually typed draft unsent until Send is pressed without showing dictation
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > submits through the existing medication dose action path for log this
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation please
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > connects mocked browser WebRTC and never renders the client secret
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > adds read-aloud only to assistant replies without sending messages
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation yeah
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > maps microphone permission denial to safe copy and clears session metadata
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > routes high-risk typed text through the existing send flow
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > moves to the invalid step, shows inline validation, and scrolls to the first invalid field
+Cannot update a component (`CheckinScreen`) while rendering a different component (`View`). To locate the bad setState() call inside `View`, follow the stack trace as described in https://react.dev/link/setstate-in-render
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > maps backend disabled, auth, rate-limit, and temporary failures to safe messages
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > keeps offline appointment booking quiet and free of voice warnings
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > maps backend disabled, auth, rate-limit, and temporary failures to safe messages
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > keeps recovery focused and removes the visible optional detail section
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > keeps offline send blocking unchanged after typing the draft
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > maps backend disabled, auth, rate-limit, and temporary failures to safe messages
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/appointmentsScreen.test.tsx > AppointmentsScreen final-demo appointment flow > does not call unrelated clinical mutation or persistence APIs from the hidden voice UI
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > manual Confirm log in the voice review uses the same medication path
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > renders all four check-in steps and keeps continue actions navigating
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > does not show voice send review before a dictated draft exists
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > keeps the full voice send review collapsed by default
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > maps backend disabled, auth, rate-limit, and temporary failures to safe messages
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation go ahead
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > maps backend disabled, auth, rate-limit, and temporary failures to safe messages
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > cleans the live browser session on stop
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation okay
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/appointmentsScreen.test.tsx (8 tests) 210ms
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > cleans the live browser session on unmount and app background
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > shows a calm shortened-check-in cue when adaptation is enabled for the day
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation yes
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation ok
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > keeps voice send review hidden even after a draft is typed
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > does not expose unsafe voice actions, persistence, or OpenAI keys from hidden chat voice UI
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation sure
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > does not expose voice send controls or live status in the final-demo composer
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation yeah
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > cleans the live browser session on token loss
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation maybe
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > shows the calm full-flow explanation during a cooldown-backed standard day
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > keeps expanded mode opening the extra detail sections automatically
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not log ambiguous confirmation 
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation continue
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > marks 502 AI-unavailable sends as failed with retry
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase cancel
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > cleans the live browser session on document visibility hidden
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase stop
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation okay
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > renders a read-only check-in shell when care status blocks active tracking
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation please
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > marks ambiguous 500 sends as unknown and refresh-first
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > cleans the live browser session on expiry
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > hides guided check-in in the final-demo form and leaves manual controls available
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase do not submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation go ahead
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase dont submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > ignores the voiceGuided route flag without showing guided check-in or writing data
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > cleans session metadata on mocked WebRTC network failure
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > renders cached unknown attempts separately from confirmed history after restart fallback
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase do not send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > ignores array voiceGuided route params safely without showing guided check-in
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > exposes contextual accessibility labels, values, and states on check-in controls
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > does not promote delayed-response task prompts above the message thread
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase dont send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > keeps server-backed reviewing truth out of the main message thread
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > does not persist secrets or call clinical mutation APIs
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation ok
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceAgentSessionPanel.test.tsx > VoiceAgentSessionPanel > does not persist proposal drafts or call clinical mutation APIs
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/__tests__/VoiceAgentSessionPanel.test.tsx (22 tests) 435ms
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > treats a null server summary as authoritative and suppresses rollout task fallback
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > shows a calmer empty state and a not-synced-yet cue when there is no conversation history
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation sure
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase do not request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > lets manual pain changes update draft fields without submitting
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/chatTruth.test.tsx > chat truth fix > shows archived messaging when routine conversation is no longer active
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation maybe
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase dont request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/chatTruth.test.tsx (19 tests) 359ms
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation continue
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not log ambiguous confirmation 
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase do not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase cancel
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation please
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase dont log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase never mind
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase stop
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation go ahead
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > clears state and does not log for cancel phrase go back
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase do not submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > autosaves a same-day draft and clears it after a successful low-risk submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > pressing Cancel clears the review state and does not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > speech errors and nomatch do not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase dont submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > keeps manual notes unsent until Submit is pressed
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase do not send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > prevents logging after the confirmation review expires
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase dont send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > adds question read-aloud without reading notes or submitting
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > keeps high-risk manual notes inside the normal submit and safety flow
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase do not request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > changing the reviewed amount invalidates the prior review snapshot
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > keeps offline submit blocking unchanged after manual notes are filled
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase dont request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > offline confirmed voice log matches manual offline queue behavior
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not log ambiguous confirmation 
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase do not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > does not show voice submit review in the final-demo check-in flow
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > validation errors block voice log and surface the existing error UI
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase dont log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase cancel
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > allows up to twelve body map areas before showing the selection limit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > does not call unrelated clinical, upload, persistence, or key paths
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase never mind
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase stop
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > renders collapsed by default, expands accessibly, and has no submit button
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > can reveal the guided workflow from a safe route flag without starting recognition
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > starts one-shot on-device recognition only after Listen is tapped and stops read-aloud first
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > routes high-risk submissions to Safety without showing a success confirmation
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > shows parser success details and confirms only the matching draft setter
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase do not submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > uses on-device speech recognition without persisting audio
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > clears state and does not log for cancel phrase go back
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > Retry, Skip, and Edit manually do not write draft values
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > keeps high-risk notes as draft only after confirmation and never submits or navigates
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase dont submit
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > pressing Cancel clears the review state and does not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/hydrationScreen.test.tsx > HydrationScreen confirmed voice log > exposes accessible voice log controls and live status
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > speech errors and nomatch do not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/checkinScreen.test.tsx > Check-in screen validation > hides guided check-in after successful low-risk submission confirmation
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/settingsScreen.test.tsx > SettingsScreen > renders one coherent settings shell with each grouped section once
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > prevents logging after the confirmation review expires
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/hydrationScreen.test.tsx (41 tests) 915ms
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > can request the screen-owned voice submit review without owning submission
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase do not send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > shows safety guidance for emergency-like numeric answers without writing values
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx > VoiceGuidedCheckinPanel > aborts recognition and stops read-aloud on background and unmount
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/settingsScreen.test.tsx > SettingsScreen > logs out from the web-safe confirmation path
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/checkin/__tests__/VoiceGuidedCheckinPanel.test.tsx (10 tests) 167ms
+ ✓ src/app/__tests__/checkinScreen.test.tsx (22 tests) 780ms
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase dont send
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > changing protein invalidates the prior review
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/settingsScreen.test.tsx > SettingsScreen > keeps the native alert logout confirmation when browser confirm is unavailable
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase do not request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > changing fruitVegServings invalidates the prior review
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/settingsScreen.test.tsx > SettingsScreen > keeps caregiver and safety concepts to one primary row each, without exposing developer controls
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase dont request
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > changing antiInflammatoryFocus invalidates the prior review
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/settingsScreen.test.tsx > SettingsScreen > uses live caregiver access counts for the settings row
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > changing mealRegularity invalidates the prior review
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase do not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/progressScreen.test.tsx > ProgressScreen > renders one coherent progress shell with a prominent range selector
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/settingsScreen.test.tsx > SettingsScreen > keeps the developer section hidden when patient debug UI is disabled
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > changing appetite or notes invalidates the prior review
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase dont log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/settingsScreen.test.tsx > SettingsScreen > shows the independent-mode notice while keeping care-summary sharing available
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > offline confirmed voice log matches manual offline queue behavior
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/settingsScreen.test.tsx (7 tests) 107ms
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase never mind
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > validation errors block voice log and surface the existing error UI
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > successful response and queued status match existing manual behavior
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/progressScreen.test.tsx > ProgressScreen > caps the signal summary, keeps the trend-story section, and renders grouped history cards
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > clears state and does not log for cancel phrase go back
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > pressing Cancel clears the review state and does not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/progressScreen.test.tsx > ProgressScreen > uses the shared threshold logic to surface worsening trends and stronger high-risk history emphasis
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/progressScreen.test.tsx > ProgressScreen > shows a clearer empty state when there are no check-ins in the selected window
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > speech errors and nomatch do not log
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > prevents logging after the confirmation review expires
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not introduce diet advice, diagnosis, treatment, medication, alert, or unrelated action paths
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > does not persist transcript, raw audio, unconfirmed draft, or expose OpenAI keys
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > uses on-device speech recognition without persisting audio
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/progressScreen.test.tsx
+An update to ProgressScreen inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/app/__tests__/nutritionScreen.test.tsx > NutritionScreen confirmed voice log > exposes accessible voice log controls, disabled states, and live status
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/progressScreen.test.tsx (4 tests) 176ms
+ ✓ src/app/__tests__/nutritionScreen.test.tsx (48 tests) 1167ms
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > changing selected dose invalidates the prior review snapshot
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > changing selected status invalidates the prior review snapshot
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > offline confirmed voice log matches manual offline queue behavior
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > validation errors block voice log and surface existing error UI
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > supports taken and skipped but not missed
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > does not expose dosage, schedule, medication creation, advice, alert, or unrelated action paths
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > uses on-device speech recognition without persisting audio or transcript
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/medicationsScreen.test.tsx > MedicationsScreen confirmed voice medication status log > exposes accessible voice medication controls and live status
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/mutationIdentity.test.tsx > tracker mutation identity > generates hydration clientMutationId before the first send attempt
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/medicationsScreen.test.tsx (43 tests) 1318ms
+stderr | src/app/__tests__/mutationIdentity.test.tsx > tracker mutation identity > generates nutrition clientMutationId before the first send attempt
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/BodyMapSelector.test.tsx > BodyMapSelector accessibility > renders the front body map by default
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/BodyMapSelector.test.tsx > BodyMapSelector accessibility > switches to the back body map and back to the front body map
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/BodyMapSelector.test.tsx > BodyMapSelector accessibility > selecting a body region can update selected state
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/BodyMapSelector.test.tsx > BodyMapSelector accessibility > exposes accessible labels for tappable body-region hotspots
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/BodyMapSelector.test.tsx > BodyMapSelector accessibility > keeps small visual hotspots but expands their touch area to at least 44 points
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/checkin/__tests__/BodyMapSelector.test.tsx > BodyMapSelector accessibility > announces selected-region chips with selected state and primary context
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/checkin/__tests__/BodyMapSelector.test.tsx (6 tests) 23ms
+ ✓ src/app/__tests__/mutationIdentity.test.tsx (2 tests) 44ms
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > renders idle state with accessible command affordance
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > starts speech recognition with safe one-shot options
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > stops recognition when tapped while listening
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > handles permission denied without navigating
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > handles unavailable recognizer without navigating
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > auto-dismisses unsupported availability feedback
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > does not navigate before a final valid command
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > navigates only after a final valid command
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > goes back only for an exact go back command
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > shows unsupported copy for unsafe and unknown commands
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > stops current read-aloud playback
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > shows supported command help and lets the user dismiss it
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceCommandButton.test.tsx > VoiceCommandButton > cleans up recognition on unmount and app background
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/__tests__/VoiceCommandButton.test.tsx (13 tests) 77ms
+stderr | src/app/__tests__/promFollowThrough.test.tsx > PROM follow-through surfaces > shows due PROMs on the home screen from live server truth
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/todayScreen.test.tsx > Today screen > renders daily tasks before support and more recovery tools without final-demo voice entry points
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/todayScreen.test.tsx > Today screen > opens support entries from their existing routes without exposing the voice agent shortcut
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/todayScreen.test.tsx > Today screen > shows rest-day plan truth and reviewed-insight empty state when no exercises are scheduled today
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/promFollowThrough.test.tsx > PROM follow-through surfaces > shows due PROMs on reminders from live server truth
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/todayScreen.test.tsx > Today screen > shows one factual nudge and a calm independent-mode notice when supported
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/todayScreen.test.tsx (4 tests) 58ms
+stderr | src/app/__tests__/promFollowThrough.test.tsx > PROM follow-through surfaces > keeps offline cached PROM reminders truthful and does not hide them behind local pending state
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/weeklyReportScreen.test.tsx > Weekly report screen > renders a stable loading section before weekly data arrives
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/StatusPill.test.tsx > StatusPill > uses high-contrast foreground text for soft semantic status pills
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/__tests__/StatusPill.test.tsx (1 test) 11ms
+stderr | src/app/__tests__/weeklyReportScreen.test.tsx > Weekly report screen > does not restart the initial weekly fetch when refresh metadata changes
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/weeklyReportScreen.test.tsx > Weekly report screen > switches to last week with a stable placeholder instead of stale report content
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/promFollowThrough.test.tsx (3 tests) 139ms
+stderr | src/app/__tests__/weeklyReportScreen.test.tsx > Weekly report screen > refreshes the selected week without replacing loaded content with the loading section
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/weeklyReportScreen.test.tsx > Weekly report screen > shows a truthful building narrative when this week has started but summary data is still sparse
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/weeklyReportScreen.test.tsx > Weekly report screen > renders the detailed review shell with the expected range control and summary cards
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/weeklyReportScreen.test.tsx (6 tests) 86ms
+stderr | src/app/__tests__/loginScreen.test.tsx > Login screen > renders the Aura brand area with the uploaded logo mark
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/caregiverHomeScreen.test.tsx > CaregiverHomeScreen > renders care-state and support guidance for historical caregiver access
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/loginScreen.test.tsx > Login screen > does not expose demo or API diagnostics on the patient sign-in surface
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/loginScreen.test.tsx > Login screen > keeps access-code sign-in submission wired to the existing auth flow
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/utils/reminders.test.ts (3 tests) 27ms
+stderr | src/app/__tests__/loginScreen.test.tsx > Login screen > keeps the caregiver login option visible and navigable
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/loginScreen.test.tsx > Login screen > shows compact demo chips only for local dev mode
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/loginScreen.test.tsx (5 tests) 46ms
+stderr | src/app/__tests__/caregiverHomeScreen.test.tsx > CaregiverHomeScreen > clears the caregiver session when access is no longer valid
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/caregiverHomeScreen.test.tsx (2 tests) 70ms
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > renders idle state with correct accessibility label and hint
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/exercisePlanScreen.test.tsx > Exercise plan screen > treats rest-day plans as assigned and not as no-plan states
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > calls stop before speaking the expected text
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > calls stop when pressed while speaking
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > maps speech callbacks to speaking and idle states
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/config/env.test.ts (4 tests) 39ms
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > returns to idle when speech is stopped by the platform callback
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > keeps speech failures quiet instead of rendering an inline warning
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > hides the control on web where read-aloud is unsupported
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > refuses empty text without speaking
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/exercisePlanScreen.test.tsx > Exercise plan screen > uses the local active-session truth to promote a single continue action
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > stops speech on unmount and app background
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/ReadAloudButton.test.tsx > ReadAloudButton > does not auto-play on mount
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/exercisePlanScreen.test.tsx > Exercise plan screen > hides exercise read-aloud controls and unsupported warnings for the final demo
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/__tests__/ReadAloudButton.test.tsx (11 tests) 49ms
+stderr | src/app/__tests__/exercisePlanScreen.test.tsx > Exercise plan screen > keeps the plan readable but non-startable after discharge
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/exercisePlanScreen.test.tsx (4 tests) 54ms
+stderr | src/app/__tests__/caregiverWeeklyReportScreen.test.tsx > CaregiverWeeklyReportScreen > renders historical weekly wording without detailed PROM score leakage
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/caregiverWeeklyReportScreen.test.tsx > CaregiverWeeklyReportScreen > signs out when caregiver weekly access is revoked
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/caregiverWeeklyReportScreen.test.tsx (2 tests) 23ms
+ ✓ src/utils/date.test.ts (6 tests) 40ms
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > renders idle state with correct accessibility label and hint
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > hides the mic on unsupported web runtime
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > handles permission denied without sending transcript
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > disables safely when recognition is unavailable
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > shows listening state with busy state and stop label
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > calls transcript callback only for non-empty final results
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > cleans up recognition on unmount
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > cleans up recognition on unmount after start is requested
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > keeps recognition errors visible when an end event follows
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/VoiceDictationButton.test.tsx > VoiceDictationButton > aborts recognition when the app leaves the foreground
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/__tests__/VoiceDictationButton.test.tsx (10 tests) 42ms
+stderr | src/app/__tests__/exerciseSessionScreen.test.tsx > ExerciseSessionScreen feedback accessibility > opens a feedback modal with modal semantics, selected difficulty state, pain value, and labeled note input
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/exerciseSessionScreen.test.tsx (1 test) 46ms
+ ✓ src/utils/__tests__/realtimeVoiceSession.web.test.ts (4 tests) 7ms
+ ✓ src/utils/__tests__/voiceActionProposals.test.ts (41 tests) 7ms
+stderr | src/components/__tests__/TrustCues.test.tsx > TrustCues > shows saved-on-device hint for summary offline state
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/TrustCues.test.tsx > TrustCues > removes saved-local hints for online-only offline state
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/TrustCues.test.tsx > TrustCues > shows a stale last-synced cue when refresh data is old
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/__tests__/TrustCues.test.tsx (3 tests) 11ms
+stderr | src/app/__tests__/safetyScreen.test.tsx > Safety screen > uses patient-safe fallback copy when clinic phone details are unavailable
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/safetyScreen.test.tsx > Safety screen > shows an explicit loading state instead of a spinner-only shell during auth bootstrap
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/safetyScreen.test.tsx > Safety screen > adds fixed safety-guidance read-aloud without navigating or calling
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/safetyScreen.test.tsx (3 tests) 25ms
+stderr | src/sync/__tests__/SyncCoordinator.test.tsx > SyncCoordinator > does not flush while auth restore is still loading
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/sync/__tests__/SyncCoordinator.test.tsx > SyncCoordinator > flushes only for the signed-in patient once auth restore completes
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/sync/__tests__/SyncCoordinator.test.tsx (2 tests) 31ms
+ ✓ src/sync/__tests__/runner.test.ts (9 tests) 18ms
+stderr | src/app/__tests__/symptomPhotoView.test.tsx > Symptom photo view > suppresses epoch and raw timestamp leaks on pending photo detail
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/symptomPhotoView.test.tsx (1 test) 14ms
+ ✓ src/api/patient.test.ts (7 tests) 24ms
+stderr | src/components/checkin/CheckinFlowShell.test.tsx > CheckinFlowShell > renders one persistent shell with the step header, stepper, helper area, and sticky footer
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/checkin/CheckinFlowShell.test.tsx (1 test) 19ms
+ ✓ src/components/__tests__/VoiceAgentSecurityGuard.test.ts (4 tests) 17ms
+stderr | src/components/checkin/__tests__/CheckinConfirmationPanel.test.tsx > CheckinConfirmationPanel > renders a calm confirmation summary with patient-safe timestamps
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/checkin/__tests__/CheckinConfirmationPanel.test.tsx (1 test) 15ms
+stderr | src/components/checkin/__tests__/CheckinSubmissionRecoveryCard.test.tsx > CheckinSubmissionRecoveryCard > renders one truthful recovery state with retry and continue-editing actions
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/checkin/__tests__/CheckinSubmissionRecoveryCard.test.tsx (1 test) 22ms
+stderr | src/components/__tests__/TrustBanner.test.tsx > TrustBanner > shows saved-on-device offline copy for summary surfaces
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/components/__tests__/TrustBanner.test.tsx > TrustBanner > shows online-only offline copy without local-save wording
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/__tests__/TrustBanner.test.tsx (2 tests) 10ms
+ ✓ src/utils/__tests__/voiceCommands.test.ts (31 tests) 5ms
+stderr | src/sync/__tests__/onlineOnlyRegression.test.tsx > online-only trust regression > keeps chat and check-in style offline trust surfaces truthful
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/sync/__tests__/onlineOnlyRegression.test.tsx (1 test) 7ms
+ ✓ src/sync/__tests__/store.test.ts (10 tests) 8ms
+stderr | src/components/checkin/CheckinStepNavigator.test.tsx > CheckinStepNavigator > renders the four preserved steps and highlights progression state
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/checkin/CheckinStepNavigator.test.tsx (1 test) 11ms
+ ✓ src/utils/__tests__/progressPresentation.test.ts (2 tests) 8ms
+ ✓ src/utils/__tests__/guidedCheckinParser.test.ts (83 tests) 12ms
+stderr | src/components/communication/MessagesShell.test.tsx > MessagesShell > renders one top-level messages shell with shortcuts and composer
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/components/communication/MessagesShell.test.tsx (1 test) 10ms
+ ✓ src/utils/__tests__/voiceConfirmedActionsSafetyGuard.test.ts (12 tests) 6ms
+stderr | src/app/__tests__/tabsLayout.test.tsx > tab layout labels > exposes exactly the five expected patient-facing tab labels
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/app/__tests__/tabsLayout.test.tsx (1 test) 21ms
+ ✓ src/utils/tasks.test.ts (3 tests) 9ms
+stderr | src/app/__tests__/voiceAgentScreen.test.tsx > VoiceAgentScreen > renders the voice agent route for signed-in patients
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+stderr | src/app/__tests__/voiceAgentScreen.test.tsx > VoiceAgentScreen > redirects signed-out patients to login
+react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer
+
+ ✓ src/utils/__tests__/voiceChatSendConfirmation.test.ts (13 tests) 2ms
+ ✓ src/app/__tests__/voiceAgentScreen.test.tsx (2 tests) 13ms
+ ✓ src/utils/__tests__/guidedCheckinSteps.test.ts (4 tests) 6ms
+ ✓ src/utils/__tests__/voiceAppointmentRequestConfirmation.test.ts (13 tests) 24ms
+ ✓ src/utils/__tests__/planState.test.ts (4 tests) 3ms
+ ✓ src/utils/__tests__/voiceHealthLogConfirmation.test.ts (27 tests) 8ms
+ ✓ src/state/checkinDraft.test.ts (2 tests) 9ms
+ ✓ src/state/chatCache.test.ts (4 tests) 12ms
+ ✓ src/utils/voiceCommandAvailability.test.ts (5 tests) 4ms
+ ✓ src/components/checkin/checkinFlowState.test.ts (4 tests) 11ms
+ ✓ src/state/recoverySupport.test.ts (4 tests) 3ms
+ ✓ src/utils/voiceCommandVisibility.test.ts (4 tests) 2ms
+ ✓ src/theme/tokens.test.ts (1 test) 3ms
+ ✓ src/utils/readAloud.test.ts (1 test) 3ms
+ ✓ src/sync/__tests__/selectors.test.ts (3 tests) 3ms
+ ✓ src/utils/globalVoiceCommandVisibility.test.ts (3 tests) 5ms
+
+ Test Files  66 passed (66)
+      Tests  625 passed (625)
+   Start at  10:13:45
+   Duration  4.52s (transform 3.35s, setup 771ms, collect 8.33s, tests 6.94s, environment 7ms, prepare 4.11s)
+

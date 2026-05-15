@@ -1366,29 +1366,21 @@ button.v2-review-summary-strip__metric {
   height: 2.75rem;
   flex: none;
   border-radius: 1.05rem;
-  background: linear-gradient(145deg, hsl(var(--v2-primary)), hsl(var(--v2-primary-strong)));
-  color: white;
-  font-weight: var(--v2-font-weight-bold);
-  box-shadow: 0 14px 28px hsl(var(--v2-primary) / 0.24);
+  border: 1px solid hsl(var(--v2-border) / 0.76);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface)), hsl(var(--v2-surface-muted) / 0.84)),
+    radial-gradient(circle at 32% 18%, hsl(var(--v2-primary) / 0.08), transparent 54%);
+  box-shadow:
+    0 12px 24px hsl(var(--v2-primary) / 0.12),
+    inset 0 1px 0 hsl(var(--v2-surface) / 0.9);
+  overflow: hidden;
 }
 
-.dashboard-v2-shell__brand-cross,
-.dashboard-v2-shell__brand-cross::before {
+.dashboard-v2-shell__brand-logo {
   display: block;
-  border-radius: 999px;
-  background: currentColor;
-  content: '';
-}
-
-.dashboard-v2-shell__brand-cross {
-  width: 1.25rem;
-  height: 0.38rem;
-}
-
-.dashboard-v2-shell__brand-cross::before {
-  width: 0.38rem;
-  height: 1.25rem;
-  margin: -0.44rem auto 0;
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
 }
 
 .dashboard-v2-shell__brand-title {

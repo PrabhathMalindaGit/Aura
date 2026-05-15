@@ -47226,14 +47226,40 @@ a {
 }
 
 .login-page .login-access-brief {
-  display: grid;
-  gap: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.82rem, 1.5vw, 1.15rem);
 }
 
 .login-page .login-access-brief__copy {
   display: grid;
   gap: 0.28rem;
   max-width: 100%;
+}
+
+.login-page .login-access-brief__logo-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(3.4rem, 5.2vw, 4.25rem);
+  height: clamp(3.4rem, 5.2vw, 4.25rem);
+  flex: none;
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--background) / 0.82)),
+    radial-gradient(circle at 34% 18%, hsl(var(--primary) / 0.08), transparent 52%);
+  box-shadow:
+    0 14px 30px hsl(206 34% 14% / 0.06),
+    inset 0 1px 0 hsl(var(--card) / 0.96);
+  overflow: hidden;
+}
+
+.login-page .login-access-brief__logo {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+  display: block;
 }
 
 .login-page .login-access-brief__title {
@@ -47880,6 +47906,13 @@ a {
   background: hsl(var(--background) / 0.22);
 }
 
+.dark .login-page .login-access-brief__logo-shell {
+  border-color: hsl(var(--border) / 0.36);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--card) / 0.68)),
+    radial-gradient(circle at 34% 18%, hsl(var(--primary) / 0.14), transparent 58%);
+}
+
 @media (max-width: 1040px) {
   .login-page .login-access-grid {
     grid-template-columns: 1fr;
@@ -47887,6 +47920,10 @@ a {
 }
 
 @media (max-width: 760px) {
+  .login-page .login-access-brief {
+    align-items: flex-start;
+  }
+
   .login-page .login-access-frame,
   .login-page .login-card.auth-surface-card.login-card--editorial,
   .login-page .login-access-trust__panel {

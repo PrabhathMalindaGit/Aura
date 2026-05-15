@@ -11,6 +11,8 @@ describe('DashboardV2ShellNav', () => {
       </MemoryRouter>,
     );
 
+    expect(screen.getByRole('img', { name: 'Aura logo' })).toBeInTheDocument();
+
     for (const name of [
       'Dashboard',
       'Worklist',
@@ -32,6 +34,7 @@ describe('DashboardV2ShellNav', () => {
       </MemoryRouter>,
     );
 
+    expect(screen.getByRole('img', { name: 'Aura logo' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Worklist' })).toBeInTheDocument();
   });

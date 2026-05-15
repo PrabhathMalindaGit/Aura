@@ -85,6 +85,7 @@ describe('ClinicianLoginPage', () => {
   it('shows session-expired recovery guidance', () => {
     renderPage({ reason: 'expired' });
 
+    expect(screen.getByRole('img', { name: 'Aura logo' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Clinician access' })).toBeInTheDocument();
     expect(screen.getByText('Sign in to resume clinician work on this workstation.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Clinician access context')).not.toBeInTheDocument();

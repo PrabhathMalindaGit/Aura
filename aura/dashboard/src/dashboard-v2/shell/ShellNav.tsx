@@ -1,5 +1,6 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import { auraLogoMarkUrl } from '../../assets/brand';
 import { cn } from '../../utils/cn';
 import { DashboardV2Button } from '../primitives/Button';
 import { DashboardV2Icon } from '../primitives/Icon';
@@ -22,8 +23,8 @@ export function DashboardV2ShellNav({
   return (
     <div className={cn('dashboard-v2-shell__nav', collapsed && 'dashboard-v2-shell__nav--collapsed')}>
       <div className="dashboard-v2-shell__brand">
-        <div className="dashboard-v2-shell__brand-mark" aria-hidden="true">
-          <span className="dashboard-v2-shell__brand-cross" />
+        <div className="dashboard-v2-shell__brand-mark">
+          <img className="dashboard-v2-shell__brand-logo" src={auraLogoMarkUrl} alt="Aura logo" />
         </div>
         {!collapsed ? (
           <div className="dashboard-v2-shell__brand-copy">

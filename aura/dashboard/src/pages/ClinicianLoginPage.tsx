@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { auraLogoMarkUrl } from '../assets/brand';
 import { setClinicianIdentity } from '../services/clinicianIdentity';
 import { getApiBaseUrl, setStoredClinicianToken } from '../services/apiClient';
 import { getPreferredDashboardLandingPath } from '../services/clinicianWorkspacePreferences';
@@ -163,6 +164,9 @@ export function ClinicianLoginPage(): JSX.Element {
       <div className="auth-entry-shell auth-entry-shell--login">
         <section className="login-access-frame" aria-label="Clinician dashboard access">
           <header className="login-access-brief">
+            <div className="login-access-brief__logo-shell">
+              <img className="login-access-brief__logo" src={auraLogoMarkUrl} alt="Aura logo" />
+            </div>
             <div className="login-access-brief__copy">
               <p className="auth-entry-intro__eyebrow">Aura clinician workspace</p>
               <h1 className="login-access-brief__title">Clinician access</h1>

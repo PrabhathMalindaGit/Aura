@@ -534,6 +534,18 @@ describe("DashboardRoute", () => {
           createdAt: "2026-04-18T08:15:00.000Z",
         },
         {
+          id: "priority-provider-send",
+          itemType: "communication",
+          patientId: "patient-1",
+          title: "Delayed patient response",
+          subtitle:
+            "[aura-n8n-provider-send-all:4bcf9e6b-08d2-4448-9018-b36ed90002e2] I cant breathe and need urgent help. Synthetic demo verification only.",
+          priority: "urgent",
+          status: "open",
+          source: "communication",
+          createdAt: "2026-04-18T08:17:00.000Z",
+        },
+        {
           id: "priority-real-high-risk",
           itemType: "communication",
           patientId: "patient-2",
@@ -568,6 +580,21 @@ describe("DashboardRoute", () => {
               "[AURA_LATENCY_BENCH:845047b4-7ff6-4ab5-aec7-608a590ee1c9] I cant breathe and need help. Sample 15.",
           },
           {
+            id: "communication-provider-send",
+            patientId: "patient-1",
+            patientName: "Patient One",
+            needsResponse: true,
+            flaggedBySafety: true,
+            followUpRequested: true,
+            responseDelayed: true,
+            responseState: "delayed",
+            responseDelayHours: 6,
+            openAlertCount: 2,
+            messageCreatedAt: "2026-04-18T08:17:00.000Z",
+            messagePreview:
+              "[aura-n8n-provider-send-all:4bcf9e6b-08d2-4448-9018-b36ed90002e2] I cant breathe and need urgent help. Synthetic demo verification only.",
+          },
+          {
             id: "communication-real-high-risk",
             patientId: "patient-2",
             patientName: "Avery Chen",
@@ -590,9 +617,17 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(screen.queryByText(/AURA_LATENCY_BENCH/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/aura-n8n-provider-send-all/i)).not.toBeInTheDocument();
     expect(
       screen.queryByTestId("v2-dashboard-communication-item-communication-benchmark"),
     ).not.toBeInTheDocument();
+    expect(
+      await screen.findByTestId(
+        "v2-dashboard-communication-item-communication-provider-send",
+      ),
+    ).toHaveTextContent(
+      "I cant breathe and need urgent help. Synthetic demo verification only.",
+    );
     expect(
       await screen.findAllByText(
         "I cant breathe and need help but this has no benchmark marker.",

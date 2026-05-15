@@ -143,6 +143,7 @@ import {
 } from '../utils/trends';
 import { bodyMapRegionLabel } from '../utils/bodyMap';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../utils/dashboard';
+import { sanitizeDashboardPreviewText } from '../utils/syntheticRunTags';
 import type { PatientEntryContext } from '../utils/patientEntryContext';
 import {
   formatPatientEntryReturnLabel,
@@ -2599,7 +2600,8 @@ export function PatientDetailPage(): JSX.Element {
           : 'Nothing waiting',
       note: nextOpenTask
         ? `${nextOpenTask.title} due ${formatDashboardRelativeTime(nextOpenTask.dueAt ?? nextOpenTask.updatedAt)}`
-        : latestCommunicationItem?.messagePreview?.trim() || 'No open task or message queue needs follow-through',
+        : sanitizeDashboardPreviewText(latestCommunicationItem?.messagePreview) ||
+          'No open task or message queue needs follow-through',
     },
     {
       label: nextPatientAppointment ? 'Next touchpoint' : 'Recent session',
@@ -2657,7 +2659,7 @@ export function PatientDetailPage(): JSX.Element {
               : 'Needs response'
         : 'No open thread',
       note:
-        latestCommunicationItem?.messagePreview?.trim() ||
+        sanitizeDashboardPreviewText(latestCommunicationItem?.messagePreview) ||
         'No patient communication follow-through is active right now.',
       tone: latestCommunicationItem?.flaggedBySafety
         ? 'danger'
@@ -3161,7 +3163,7 @@ export function PatientDetailPage(): JSX.Element {
                         </strong>
                       </div>
                       <p className="patient-detail-digest-item__text">
-                        {latestCommunicationItem?.messagePreview?.trim() ||
+                        {sanitizeDashboardPreviewText(latestCommunicationItem?.messagePreview) ||
                           'No recent patient communication needs review.'}
                       </p>
                     </article>

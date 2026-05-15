@@ -190,4 +190,30 @@ describe('communicationWorkspace', () => {
     ]);
     expect(new Set(timelineIds).size).toBe(timelineIds.length);
   });
+
+  it('strips known synthetic run tags from patient thread previews', () => {
+    const items: DashboardCommunicationOverviewItem[] = [
+      {
+        id: 'review-provider-send',
+        patientId: 'patient-1',
+        patientName: 'Jordan Lee',
+        messageId: 'message-provider-send',
+        needsResponse: true,
+        flaggedBySafety: true,
+        followUpRequested: false,
+        messageCreatedAt: '2026-03-09T10:00:00.000Z',
+        messagePreview:
+          '[aura-n8n-provider-send-all:4bcf9e6b-08d2-4448-9018-b36ed90002e2] I cant breathe and need urgent help. Synthetic demo verification only.',
+      },
+    ];
+
+    const threads = deriveCommunicationThreads(items);
+
+    expect(threads[0]?.latestEventPreview).toBe(
+      'I cant breathe and need urgent help. Synthetic demo verification only.',
+    );
+    expect(threads[0]?.timeline[0]?.preview).toBe(
+      'I cant breathe and need urgent help. Synthetic demo verification only.',
+    );
+  });
 });

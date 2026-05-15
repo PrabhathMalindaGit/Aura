@@ -20,6 +20,7 @@ import type {
   WorklistRecord,
 } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
+import { sanitizeDashboardPreviewText } from '../../utils/syntheticRunTags';
 import {
   formatPatientEntryReturnLabel,
   formatPatientEntrySourceCue,
@@ -475,7 +476,7 @@ export function buildPatientOverviewVm(input: {
             ? 'No threads waiting'
             : `${input.communicationItems.length} waiting`,
         text:
-          latestCommunicationItem?.messagePreview?.trim() ||
+          sanitizeDashboardPreviewText(latestCommunicationItem?.messagePreview) ||
           'No recent patient communication needs review.',
       },
       {

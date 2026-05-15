@@ -6,11 +6,14 @@ import type {
 import { formatRelativeDate } from './date';
 import { formatDateKey } from './format';
 import { getPatientDisplayName } from './patientFilters';
+import {
+  containsAuraLatencyBenchmarkMarker,
+  sanitizeDashboardPreviewText,
+} from './syntheticRunTags';
 import type { TrendSummaryMetrics } from './trends';
 import { truncateText } from './text';
 
 export const MAX_COMPARE_PATIENTS = 3;
-const AURA_LATENCY_BENCHMARK_MARKER = /\bAURA_LATENCY_BENCH:/i;
 
 export interface ComparePatientSelection {
   requestedIds: string[];
@@ -40,7 +43,7 @@ function normalizeSupportText(value: string | undefined): string {
 }
 
 export function isBenchmarkCommunicationText(value: string | undefined): boolean {
-  return typeof value === 'string' && AURA_LATENCY_BENCHMARK_MARKER.test(value);
+  return containsAuraLatencyBenchmarkMarker(value);
 }
 
 export function normalizeRequestedComparePatientIds(
@@ -240,9 +243,10 @@ export function hasCommunicationCompareAction(
 export function getCommunicationPreviewText(
   signals: PatientCommunicationSignals | undefined,
 ): string {
-  const preview = signals?.latestItem?.messagePreview?.trim() ?? '';
+  const rawPreview = signals?.latestItem?.messagePreview ?? '';
+  const preview = sanitizeDashboardPreviewText(rawPreview);
 
-  if (preview && !isBenchmarkCommunicationText(preview)) {
+  if (preview && !isBenchmarkCommunicationText(rawPreview)) {
     return truncateText(preview, 120).text;
   }
 

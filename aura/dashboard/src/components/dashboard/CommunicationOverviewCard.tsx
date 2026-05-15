@@ -8,6 +8,7 @@ import {
   formatDashboardDateTime,
   formatDashboardRelativeTime,
 } from '../../utils/dashboard';
+import { sanitizeDashboardPreviewText } from '../../utils/syntheticRunTags';
 
 interface CommunicationOverviewCardProps {
   overview?: DashboardCommunicationOverview;
@@ -132,7 +133,7 @@ export function CommunicationOverviewCard({
                     {item.flaggedBySafety ? <Badge variant="risk-high">Safety flagged</Badge> : <Badge variant="warning">Needs response</Badge>}
                   </div>
                   <p className="dashboard-side-widget__copy">
-                    {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
+                    {sanitizeDashboardPreviewText(item.messagePreview) || 'Conversation preview unavailable.'}
                   </p>
                   <div className="dashboard-side-widget__footer">
                     <div className="dashboard-side-widget__meta">

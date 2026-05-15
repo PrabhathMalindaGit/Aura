@@ -17,6 +17,7 @@ import type { CommunicationTimelineEvent } from '../../services/communicationWor
 import { getClinicianInitials } from '../../services/clinicianIdentity';
 import type { DashboardCommunicationOverviewItem } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
+import { sanitizeDashboardPreviewText } from '../../utils/syntheticRunTags';
 
 interface PatientCommunicationPanelProps {
   items: DashboardCommunicationOverviewItem[];
@@ -62,7 +63,9 @@ function buildFallbackTimeline(items: DashboardCommunicationOverviewItem[]): Com
       patientId: item.patientId,
       occurredAt: item.messageCreatedAt,
       senderLabel: item.patientName || 'Patient',
-      preview: item.messagePreview?.trim() || 'Recent patient communication is waiting for review.',
+      preview:
+        sanitizeDashboardPreviewText(item.messagePreview) ||
+        'Recent patient communication is waiting for review.',
       flaggedBySafety: item.flaggedBySafety,
       followUpRequested: item.followUpRequested,
       reviewedAfterLatestInbound: item.reviewedAfterLatestInbound,
@@ -268,7 +271,10 @@ export function PatientCommunicationPanel({
                         <ClinicianTruthChips chips={buildTimelineTruthChips(event)} />
                       </div>
                     </div>
-                    <p className="patient-communication-timeline__body">{event.preview}</p>
+                    <p className="patient-communication-timeline__body">
+                      {sanitizeDashboardPreviewText(event.preview) ||
+                        'Recent patient communication is waiting for review.'}
+                    </p>
                   </article>
                 </Fragment>
               );

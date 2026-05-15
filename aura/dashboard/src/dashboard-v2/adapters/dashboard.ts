@@ -13,6 +13,10 @@ import {
   formatDashboardTimeRange,
   humanizeDashboardLabel,
 } from "../../utils/dashboard";
+import {
+  containsAuraLatencyBenchmarkMarker,
+  sanitizeDashboardPreviewText,
+} from "../../utils/syntheticRunTags";
 
 export type DashboardSurfaceTone =
   | "critical"
@@ -186,14 +190,6 @@ interface DashboardDataContextInput {
   schedulingRangeLabel: string;
   nextOpenSlotLabel: string | null;
   demoSourceLabel?: string | null;
-}
-
-const AURA_LATENCY_BENCHMARK_MARKER = /\bAURA_LATENCY_BENCH:/i;
-
-export function containsAuraLatencyBenchmarkMarker(
-  value: string | null | undefined,
-): boolean {
-  return typeof value === "string" && AURA_LATENCY_BENCHMARK_MARKER.test(value);
 }
 
 function isSyntheticBenchmarkCommunicationItem(
@@ -464,8 +460,9 @@ function taskTypeLabel(type: DashboardFollowUpTaskItem["type"]): string {
 }
 
 function priorityQueueTitle(item: DashboardPriorityQueueItem): string {
-  if (item.title?.trim()) {
-    return item.title.trim();
+  const title = sanitizeDashboardPreviewText(item.title);
+  if (title) {
+    return title;
   }
 
   switch (item.itemType) {
@@ -484,8 +481,9 @@ function priorityQueueTitle(item: DashboardPriorityQueueItem): string {
 }
 
 function priorityQueueContext(item: DashboardPriorityQueueItem): string {
-  if (item.subtitle?.trim()) {
-    return item.subtitle.trim();
+  const subtitle = sanitizeDashboardPreviewText(item.subtitle);
+  if (subtitle) {
+    return subtitle;
   }
 
   switch (item.itemType) {
@@ -974,6 +972,7 @@ export function buildDashboardUrgentQueue({
           : item.flaggedBySafety
             ? "Safety flagged thread"
             : "Message needs response";
+      const preview = sanitizeDashboardPreviewText(item.messagePreview);
 
       addRow({
         id: `communication-${item.id}`,
@@ -987,7 +986,7 @@ export function buildDashboardUrgentQueue({
         patientLabel: item.patientName?.trim() || item.patientId,
         patientId: item.patientId,
         contextLine:
-          item.messagePreview?.trim() ||
+          preview ||
           communicationContextLine(item, nowMs) ||
           "Conversation preview unavailable.",
         dueLabel:
@@ -1076,13 +1075,14 @@ export function buildDashboardSignals({
     safetyItems: safetyEvents.slice(0, 4).map((item) => {
       const status = safetyStatusVm(item);
       const patientLabel = patientLabels.get(item.patientId) ?? item.patientId;
+      const summary = sanitizeDashboardPreviewText(item.summary);
 
       return {
         id: item.id,
         patientId: item.patientId,
         patientLabel,
         patientInitials: buildPatientInitials(patientLabel),
-        summary: item.summary,
+        summary: summary || "Safety event recorded.",
         eventLabel: humanizeDashboardLabel(item.type),
         eventTimeLabel: formatDashboardRelativeTime(item.createdAt, nowMs),
         eventTimeTitle: formatDashboardDateTime(item.createdAt),
@@ -1095,14 +1095,14 @@ export function buildDashboardSignals({
       .slice(0, 4)
       .map((item) => {
         const patientLabel = item.patientName?.trim() || item.patientId;
+        const preview = sanitizeDashboardPreviewText(item.messagePreview);
 
         return {
           id: item.id,
           patientId: item.patientId,
           patientLabel,
           patientInitials: buildPatientInitials(patientLabel),
-          preview:
-            item.messagePreview?.trim() || "Conversation preview unavailable.",
+          preview: preview || "Conversation preview unavailable.",
           messageAgeLabel: formatDashboardRelativeTime(
             item.messageCreatedAt,
             nowMs,

@@ -6,6 +6,7 @@ import type {
   TrendSummaryMetrics,
   WorklistRecord,
 } from '../types/models';
+import { sanitizeDashboardPreviewText } from './syntheticRunTags';
 
 export type PatientOperationalTone = 'danger' | 'warning' | 'neutral' | 'success';
 export type PatientActionKey =
@@ -164,7 +165,7 @@ export function derivePatientCurrentPriorities({
         ? 'Safety-flagged patient message needs review'
         : 'Patient message needs response',
       reason:
-        latestCommunication.messagePreview?.trim() ||
+        sanitizeDashboardPreviewText(latestCommunication.messagePreview) ||
         'Recent patient communication is waiting for clinician follow-up.',
       tone: latestCommunication.flaggedBySafety ? 'danger' : 'warning',
       timestamp: latestCommunication.messageCreatedAt,

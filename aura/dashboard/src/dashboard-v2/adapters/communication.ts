@@ -16,6 +16,7 @@ import {
   getClinicianCoordinationNextStepLabel,
 } from '../../utils/clinicianCoordination';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
+import { sanitizeDashboardPreviewText } from '../../utils/syntheticRunTags';
 import { truncateText } from '../../utils/text';
 import type { ProvenanceSource } from './viewModels';
 
@@ -444,7 +445,11 @@ export function buildInboxQueueRow(
     freshnessTitle: formatDashboardDateTime(thread.latestEventAt),
     responseLabel: responseState.label,
     responseTone: responseState.tone,
-    preview: truncateText(thread.latestEventPreview, 116).text,
+    preview: truncateText(
+      sanitizeDashboardPreviewText(thread.latestEventPreview) ||
+        'Patient communication is available for review.',
+      116,
+    ).text,
     metaLine: getQueueMetaLine(thread, item),
     supportingBadges: buildSupportingBadges(thread, item),
   };
@@ -509,7 +514,9 @@ export function buildInboxWorkspace(
         speakerLabel: continuation ? 'Continuation' : event.senderLabel,
         speakerSecondaryLabel: continuation ? undefined : event.senderSecondaryLabel,
         role: event.kind === 'clinician-reply' ? 'clinician' : 'patient',
-        preview: event.preview,
+        preview:
+          sanitizeDashboardPreviewText(event.preview) ||
+          'Patient communication is available for review.',
         occurredAtLabel: formatDashboardRelativeTime(event.occurredAt),
         occurredAtTitle: formatDashboardDateTime(event.occurredAt),
         badges: continuation ? badges.slice(1) : badges,

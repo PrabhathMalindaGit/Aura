@@ -5,9 +5,12 @@ import {
   getClinicianId,
 } from './clinicianIdentity';
 import type { DashboardCommunicationOverviewItem } from '../types/models';
+import {
+  containsAuraLatencyBenchmarkMarker,
+  sanitizeDashboardPreviewText,
+} from '../utils/syntheticRunTags';
 
 const COMMUNICATION_WORKSPACE_STORAGE_PREFIX = 'aura_communication_workspace';
-const AURA_LATENCY_BENCHMARK_MARKER = /\bAURA_LATENCY_BENCH:/i;
 
 export type CommunicationThreadView =
   | 'all'
@@ -118,10 +121,6 @@ function normalizeText(value: unknown): string {
   }
 
   return value.replace(/\s+/g, ' ').trim();
-}
-
-function containsAuraLatencyBenchmarkMarker(value: string | null | undefined): boolean {
-  return typeof value === 'string' && AURA_LATENCY_BENCHMARK_MARKER.test(value);
 }
 
 function isSyntheticBenchmarkCommunicationItem(
@@ -472,7 +471,9 @@ export function markCommunicationThreadReviewed(
 
 function buildInboundEvent(item: DashboardCommunicationOverviewItem): CommunicationTimelineEvent {
   const patientId = normalizePatientId(item.patientId);
-  const preview = normalizeText(item.messagePreview) || 'Patient communication is available for review.';
+  const preview =
+    sanitizeDashboardPreviewText(item.messagePreview) ||
+    'Patient communication is available for review.';
   const occurredAt = normalizeTimestamp(item.messageCreatedAt) ?? new Date(0).toISOString();
   const reviewIdentity =
     normalizeText(item.id) ||

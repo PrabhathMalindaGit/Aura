@@ -52,6 +52,7 @@ import {
 } from '../utils/clinicianCoordination';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../utils/dashboard';
 import { toUserMessage } from '../utils/errors';
+import { sanitizeDashboardPreviewText } from '../utils/syntheticRunTags';
 import { truncateText } from '../utils/text';
 import type { DashboardCommunicationOverviewItem } from '../types/models';
 
@@ -1472,7 +1473,11 @@ export function CommunicationPage(): JSX.Element {
                         </div>
                       </div>
                       <p className="communication-page__thread-preview">
-                        {truncateText(thread.latestEventPreview, 124).text}
+                        {truncateText(
+                          sanitizeDashboardPreviewText(thread.latestEventPreview) ||
+                            'Patient communication is available for review.',
+                          124,
+                        ).text}
                       </p>
                     </button>
                   </article>
@@ -1714,7 +1719,10 @@ export function CommunicationPage(): JSX.Element {
                               </div>
                             ) : null}
                           </div>
-                          <p className="communication-page__timeline-event-preview">{event.preview}</p>
+                          <p className="communication-page__timeline-event-preview">
+                            {sanitizeDashboardPreviewText(event.preview) ||
+                              'Patient communication is available for review.'}
+                          </p>
                         </article>
                       );
                     })}

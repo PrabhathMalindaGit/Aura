@@ -37,6 +37,7 @@ import {
   formatDashboardTimeRange,
   humanizeDashboardLabel,
 } from '../utils/dashboard';
+import { sanitizeDashboardPreviewText } from '../utils/syntheticRunTags';
 
 type TodayBriefTone = 'risk' | 'warning' | 'primary' | 'neutral';
 
@@ -1123,7 +1124,7 @@ export function DashboardHomePage(): JSX.Element {
                         <ClinicianTruthChips chips={communicationTruthChips(item)} />
                       </div>
                       <p className="today-support-item__note">
-                        {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
+                        {sanitizeDashboardPreviewText(item.messagePreview) || 'Conversation preview unavailable.'}
                       </p>
                       {communicationContextLine(item) ? (
                         <p className="today-support-item__note">{communicationContextLine(item)}</p>

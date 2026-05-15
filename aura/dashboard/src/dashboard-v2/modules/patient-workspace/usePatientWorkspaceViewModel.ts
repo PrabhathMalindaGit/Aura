@@ -79,6 +79,7 @@ import {
 } from '../../../utils/trends';
 import { formatDashboardRelativeTime } from '../../../utils/dashboard';
 import { asAppError, isRetryable, toUserMessage } from '../../../utils/errors';
+import { sanitizeDashboardPreviewText } from '../../../utils/syntheticRunTags';
 import {
   buildPatientWorkspaceDecisionStrip,
   buildPatientWorkspaceHeader,
@@ -220,7 +221,7 @@ function buildHistoryChronologyItems(input: {
     items.push({
       id: `communication:${item.id}`,
       family: 'reviews',
-      title: item.messagePreview?.trim() || 'Patient communication reviewed',
+      title: sanitizeDashboardPreviewText(item.messagePreview) || 'Patient communication reviewed',
       detail:
         item.responseDelayed || item.responseState === 'delayed'
           ? 'Response delayed'
@@ -1039,7 +1040,7 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
               : 'Nothing waiting',
           note: nextOpenTask
             ? `${nextOpenTask.title} due ${formatDashboardRelativeTime(nextOpenTask.dueAt ?? nextOpenTask.updatedAt)}`
-            : patientCommunicationItems[0]?.messagePreview?.trim() ||
+            : sanitizeDashboardPreviewText(patientCommunicationItems[0]?.messagePreview) ||
               'No open task or message queue needs follow-through',
         },
         {
@@ -1213,7 +1214,7 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
                       ? 'Needs response'
                       : 'No open thread',
               note:
-                latestCommunicationItem?.messagePreview?.trim() ||
+                sanitizeDashboardPreviewText(latestCommunicationItem?.messagePreview) ||
                 'No patient communication follow-through is active right now.',
             },
             {

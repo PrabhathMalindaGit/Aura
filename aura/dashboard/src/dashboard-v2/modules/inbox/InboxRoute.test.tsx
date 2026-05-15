@@ -549,6 +549,14 @@ describe('InboxRoute', () => {
         },
         {
           ...COMMUNICATION_OVERVIEW.items[0],
+          id: 'communication-provider-send',
+          patientId: 'patient-provider',
+          patientName: 'Provider Send Patient',
+          messagePreview:
+            '[aura-n8n-provider-send-all:4bcf9e6b-08d2-4448-9018-b36ed90002e2] I cant breathe and need urgent help. Synthetic demo verification only.',
+        },
+        {
+          ...COMMUNICATION_OVERVIEW.items[0],
           id: 'communication-real',
           patientId: 'patient-real',
           patientName: 'Real High Risk',
@@ -561,9 +569,12 @@ describe('InboxRoute', () => {
 
     expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     const realHighRiskRow = await screen.findByTestId('v2-inbox-row-patient-real', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+    const providerSendRow = await screen.findByTestId('v2-inbox-row-patient-provider', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS });
 
     expect(screen.queryByText(/AURA_LATENCY_BENCH/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/aura-n8n-provider-send-all/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('v2-inbox-row-patient-benchmark')).not.toBeInTheDocument();
+    expect(providerSendRow).toHaveTextContent('I cant breathe and need urgent help. Synthetic demo verification only.');
     expect(realHighRiskRow).toHaveTextContent('I cant breathe and need help but this has no benchmark marker.');
   });
 

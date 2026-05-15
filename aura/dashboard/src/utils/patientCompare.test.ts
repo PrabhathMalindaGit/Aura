@@ -195,14 +195,30 @@ describe('patientCompare', () => {
       messageCreatedAt: '2026-03-20T12:00:00.000Z',
       messagePreview: 'Pain is still elevated after the last exercise block.',
     };
+    const providerSendItem: DashboardCommunicationOverviewItem = {
+      id: 'comm-provider-send',
+      patientId: 'c',
+      patientName: 'Morgan Hale',
+      messageId: 'msg-provider-send',
+      needsResponse: true,
+      flaggedBySafety: true,
+      followUpRequested: false,
+      messageCreatedAt: '2026-03-20T12:00:00.000Z',
+      messagePreview:
+        '[aura-n8n-provider-send-all:4bcf9e6b-08d2-4448-9018-b36ed90002e2] I cant breathe and need urgent help.',
+    };
 
     expect(isBenchmarkCommunicationText(benchmarkItem.messagePreview)).toBe(true);
     expect(isBenchmarkCommunicationText(normalItem.messagePreview)).toBe(false);
+    expect(isBenchmarkCommunicationText(providerSendItem.messagePreview)).toBe(false);
     expect(getCommunicationPreviewText({ items: [benchmarkItem], latestItem: benchmarkItem, needsResponse: true, followUpSignal: false })).toBe(
       'No recent communication preview in the current dashboard signals.',
     );
     expect(getCommunicationPreviewText({ items: [normalItem], latestItem: normalItem, needsResponse: false, followUpSignal: false })).toBe(
       'Pain is still elevated after the last exercise block.',
+    );
+    expect(getCommunicationPreviewText({ items: [providerSendItem], latestItem: providerSendItem, needsResponse: true, followUpSignal: false })).toBe(
+      'I cant breathe and need urgent help.',
     );
   });
 });

@@ -67,8 +67,6 @@ High-risk patient input is not treated as normal chatbot interaction. It is rout
 
 ```text
 .
-├── .agents/skills/      Project assistant and workflow skill notes
-├── .codex/              Codex-related local project instructions
 ├── assets/              README images and poster assets
 ├── aura/                Main Aura monorepo implementation
 └── .gitignore           Git ignore rules
